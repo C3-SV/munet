@@ -4,13 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
+    "dev": "next dev --port 3000 --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.34.0",
+    "@emotion/react": "^11.14.0",
     "@repo/ui": "*",
     "@tailwindcss/postcss": "^4.2.1",
     "next": "16.1.5",
