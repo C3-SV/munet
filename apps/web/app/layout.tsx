@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "../lib/theme-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
 
@@ -26,8 +27,10 @@ export default function RootLayout({
             className={`${inter.variable} ${poppins.variable}`}
             suppressHydrationWarning
         >
-            <body className="bg-background text-body font-body antialiased min-h-screen">
-                {children}
+            <body className="font-body antialiased min-h-screen" style={{ backgroundColor: "var(--bg-base)", color: "var(--text-primary)" }}>
+                <ThemeProvider>
+                    {children}
+                </ThemeProvider>
             </body>
         </html>
     );

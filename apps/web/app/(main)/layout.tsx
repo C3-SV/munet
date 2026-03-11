@@ -15,11 +15,12 @@ export default function MainLayout({
     const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
 
     return (
-        <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+        <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg-base)" }}>
             <Sidebar />
 
             <main
                 className={`flex-1 overflow-y-auto relative flex flex-col md:pl-64 ${isChatRoom ? "" : "pt-16 md:pt-0"}`}
+                style={{ backgroundColor: "var(--bg-base)" }}
             >
                 <div className="flex-1 shrink-0">{children}</div>
 

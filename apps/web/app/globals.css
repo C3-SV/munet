@@ -12,16 +12,16 @@ body {
     padding: 0;
     font-family: var(--font-body);
     background-color: var(--color-background);
-    color: var(--color-text-primary);
+    color: var(--color-body);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @theme {
     /* Fuentes */
-    /* Para encabezados */
     --font-body: "Inter", sans-serif;
     --font-heading: "Poppins", sans-serif;
 
-    /* Colores */
+    /* Light theme colors */
     --color-primary: #1a4072;
     --color-accent: #1e293b;
     --color-background: #fafafa;
@@ -30,4 +30,129 @@ body {
     --color-body: #1f2937;
     --color-body-secondary: #4b5563;
     --color-titles: #111827;
+}
+
+/* ─── LIGHT THEME (default) ─── */
+:root {
+    --bg-base: #f8fafc;
+    --bg-sidebar: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-surface-secondary: #f1f5f9;
+    --bg-hover: #f8fafc;
+    --bg-input: #ffffff;
+
+    --border-color: #e2e8f0;
+    --border-light: #f1f5f9;
+
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --text-accent: #1a4072;
+
+    --bubble-me-bg: #1a4072;
+    --bubble-me-text: #ffffff;
+    --bubble-me-time: rgba(255,255,255,0.6);
+    --bubble-other-bg: #f1f5f9;
+    --bubble-other-text: #0f172a;
+    --bubble-other-time: #94a3b8;
+
+    --input-bg: #f8fafc;
+    --input-border: #e2e8f0;
+    --input-focus: #1a4072;
+
+    --sidebar-active-bg: #f0f4ff;
+    --sidebar-active-text: #1a4072;
+    --sidebar-hover-bg: #f8fafc;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* ─── DARK THEME ─── */
+.dark {
+    --bg-base: #0d1117;
+    --bg-sidebar: #161b22;
+    --bg-surface: #1c2128;
+    --bg-surface-secondary: #21262d;
+    --bg-hover: #262c36;
+    --bg-input: #21262d;
+
+    --border-color: #30363d;
+    --border-light: #21262d;
+
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --text-accent: #58a6ff;
+
+    --bubble-me-bg: #1f4788;
+    --bubble-me-text: #e6edf3;
+    --bubble-me-time: rgba(230,237,243,0.5);
+    --bubble-other-bg: #21262d;
+    --bubble-other-text: #e6edf3;
+    --bubble-other-time: #6e7681;
+
+    --input-bg: #21262d;
+    --input-border: #30363d;
+    --input-focus: #58a6ff;
+
+    --sidebar-active-bg: #1f3a6e33;
+    --sidebar-active-text: #58a6ff;
+    --sidebar-hover-bg: #21262d;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+/* ─── SCROLLBAR STYLING ─── */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* ─── CHAT MESSAGE ANIMATION ─── */
+@keyframes message-in-right {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes message-in-left {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-message-in {
+    animation: message-in-right 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── THEME TRANSITION ─── */
+*, *::before, *::after {
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.25s;
+    transition-timing-function: ease;
+}
+
+/* Override transition for transforms and other props */
+button, a, input, textarea {
+    transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+    transition-duration: 0.2s;
 }

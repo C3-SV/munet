@@ -156,10 +156,10 @@ const Feed = () => {
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
-                    <span className="text-[11px] font-bold text-body-secondary uppercase tracking-[0.15em] font-heading">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] font-heading" style={{ color: "var(--text-secondary)" }}>
                         Foro de discusión
                     </span>
-                    <h1 className="text-3xl sm:text-4xl font-black text-primary font-heading mt-1 uppercase tracking-tight">
+                    <h1 className="text-3xl sm:text-4xl font-black font-heading mt-1 uppercase tracking-tight" style={{ color: "var(--text-accent)" }}>
                         {headerTitle}
                     </h1>
                 </header>
@@ -197,8 +197,17 @@ const Feed = () => {
                             <PostCard key={post.id} post={post} />
                         ))
                     ) : (
-                        <div className="flex justify-center py-12 bg-white border border-gray-200 rounded-xl shadow-sm border-dashed">
-                            <span className="text-body-secondary font-body text-sm">
+                        <div
+                            className="flex justify-center py-12 rounded-xl"
+                            style={{
+                                backgroundColor: "var(--bg-surface)",
+                                border: "2px dashed var(--border-color)",
+                            }}
+                        >
+                            <span
+                                className="font-body text-sm"
+                                style={{ color: "var(--text-muted)" }}
+                            >
                                 No se encontraron publicaciones.
                             </span>
                         </div>
