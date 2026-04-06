@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { useTheme } from "../../lib/theme-context";
-import { useAuthStore } from "../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import type { EventWall } from "../../types/common";
 
 type NavItem = {
@@ -148,6 +148,8 @@ export const Sidebar = () => {
 
     const announcementsWall = walls.find((wall) => wall.kind === "announcements") ?? null;
     const committeeWalls = walls.filter((wall) => wall.kind === "committee");
+    const canSwitchEventFromSidebar = activeMembership ? isAdminRole(activeMembership.role) : false;
+    const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
 
     const navigation: NavItem[] = [
         ...(generalWall
@@ -196,15 +198,15 @@ export const Sidebar = () => {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={toggleTheme}
-                            className="p-2 rounded-lg transition-all"
+                            className="px-3 py-2 rounded-lg transition-all text-xs font-heading font-semibold min-w-[6.5rem]"
                             style={{
                                 backgroundColor: "var(--bg-surface-secondary)",
                                 border: "1px solid var(--border-color)",
                                 color: "var(--text-secondary)",
                             }}
-                            aria-label="Toggle theme"
+                            aria-label="Cambiar tema"
                         >
-                            {isDark ? "Light" : "Dark"}
+                            {isDark ? "Modo claro" : "Modo oscuro"}
                         </button>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
@@ -260,13 +262,28 @@ export const Sidebar = () => {
                         className="mt-5 h-0.5 w-full rounded-full"
                         style={{ backgroundColor: "var(--text-accent)", opacity: 0.6 }}
                     />
-                    <Link
-                        href="/select-event"
-                        className="mt-3 text-[11px] font-extrabold uppercase tracking-widest font-heading"
-                        style={{ color: "var(--text-accent)" }}
+                    <p
+                        className="mt-3 text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                        style={{ color: "var(--text-secondary)" }}
                     >
-                        Cambiar evento
-                    </Link>
+                        Evento actual
+                    </p>
+                    <p
+                        className="mt-1 text-sm font-bold font-heading truncate"
+                        style={{ color: "var(--text-primary)" }}
+                        title={activeEventName}
+                    >
+                        {activeEventName}
+                    </p>
+                    {canSwitchEventFromSidebar && (
+                        <Link
+                            href="/select-event"
+                            className="mt-3 text-[11px] font-extrabold uppercase tracking-widest font-heading"
+                            style={{ color: "var(--text-accent)" }}
+                        >
+                            Cambiar evento
+                        </Link>
+                    )}
                 </div>
 
                 <nav className="flex flex-1 flex-col mt-8 overflow-y-auto">
@@ -296,18 +313,18 @@ export const Sidebar = () => {
                                     Muros de comites
                                 </span>
                                 <span style={{ opacity: 0.4 }}>
-                                    {isComitesOpen ? "▾" : "▸"}
+                                    {isComitesOpen ? "v" : ">"}
                                 </span>
                             </button>
 
                             <div
-                                className="mt-1 overflow-hidden transition-all duration-300"
+                                className="mt-1 transition-all duration-300 overflow-hidden"
                                 style={{
-                                    maxHeight: isComitesOpen ? "320px" : "0",
+                                    maxHeight: isComitesOpen ? "50vh" : "0",
                                     opacity: isComitesOpen ? 1 : 0,
                                 }}
                             >
-                                <ul className="pl-11 space-y-1">
+                                <ul className="pl-11 pr-1 space-y-1 max-h-[50vh] overflow-y-auto">
                                     {committeeWalls.map((wall) => (
                                         <CommitteeItem
                                             key={wall.id}
@@ -369,14 +386,23 @@ export const Sidebar = () => {
                         style={{ color: "var(--text-secondary)" }}
                     >
                         <span
-                            className="size-8 flex items-center justify-center rounded-lg"
+                            className="size-9 min-w-9 flex items-center justify-center rounded-lg"
                             style={{
                                 backgroundColor: "var(--bg-surface-secondary)",
                                 border: "1px solid var(--border-color)",
                                 color: "var(--text-secondary)",
                             }}
                         >
-                            {isDark ? "Light" : "Dark"}
+                            <img
+                                src={
+                                    isDark
+                                        ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/sun.svg"
+                                        : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/moon.svg"
+                                }
+                                className="size-4"
+                                style={{ filter: isDark ? "invert(1)" : "none" }}
+                                alt=""
+                            />
                         </span>
                         {isDark ? "Modo claro" : "Modo oscuro"}
                     </button>

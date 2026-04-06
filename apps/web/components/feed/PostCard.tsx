@@ -30,6 +30,14 @@ export const PostCard = ({
             return;
         }
 
+        const confirmed = window.confirm(
+            "Esta publicacion se marcara como eliminada y ya no podra leerse su contenido. Deseas continuar?",
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
         try {
             setIsDeleting(true);
             setError(null);

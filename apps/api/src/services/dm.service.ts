@@ -249,7 +249,8 @@ export const createOrReuseDmConversation = async (params: {
     .eq('status', 'ACTIVE')
     .or(
       `participant_a_membership_id.eq.${params.membership.id},participant_b_membership_id.eq.${params.membership.id}`
-    );
+    )
+    .order('created_at', { ascending: true });
 
   if (existingError) {
     throw new Error(existingError.message);

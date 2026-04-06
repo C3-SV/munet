@@ -157,6 +157,14 @@ export const PostComments = ({
             return;
         }
 
+        const confirmed = window.confirm(
+            "Este comentario se marcara como eliminado y ya no podra leerse su contenido. Deseas continuar?",
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
         try {
             setDeletingCommentId(comment.id);
             setError(null);

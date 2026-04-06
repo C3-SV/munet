@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { createConversation } from "../../../../lib/api/chat";
 import { getPublicProfile } from "../../../../lib/api/profiles";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { PublicProfile } from "../../../../types/common";
@@ -14,9 +15,11 @@ const PublicProfilePage = () => {
 
     const token = useAuthStore((state) => state.token);
     const eventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isOpeningChat, setIsOpeningChat] = useState(false);
 
     useEffect(() => {
         if (!membershipId || !token || !eventId) {
@@ -45,6 +48,30 @@ const PublicProfilePage = () => {
             cancelled = true;
         };
     }, [eventId, membershipId, token]);
+
+    const handleOpenChat = async () => {
+        if (!token || !eventId || !membershipId || activeMembershipId === membershipId || isOpeningChat) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setIsOpeningChat(true);
+            const conversation = await createConversation(membershipId, {
+                token,
+                eventId,
+            });
+            router.push(`/chat/${conversation.id}`);
+        } catch (openChatError) {
+            setError(
+                openChatError instanceof Error
+                    ? openChatError.message
+                    : "No se pudo abrir la conversacion.",
+            );
+        } finally {
+            setIsOpeningChat(false);
+        }
+    };
 
     return (
         <div className="p-4 sm:p-6 lg:p-12">
@@ -129,19 +156,37 @@ const PublicProfilePage = () => {
                             </div>
 
                             <div className="pt-3 flex flex-col sm:flex-row gap-2">
-                                <button
-                                    type="button"
-                                    disabled
-                                    className="w-full sm:w-auto rounded-xl px-4 py-2.5 text-sm font-heading font-semibold"
-                                    style={{
-                                        backgroundColor: "var(--bg-surface-secondary)",
-                                        border: "1px solid var(--border-color)",
-                                        color: "var(--text-muted)",
-                                        cursor: "not-allowed",
-                                    }}
-                                >
-                                    Enviar mensaje (Proximamente)
-                                </button>
+                                {activeMembershipId !== membershipId ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleOpenChat()}
+                                        disabled={isOpeningChat}
+                                        className="w-full sm:w-auto rounded-xl px-4 py-2.5 text-sm font-heading font-semibold"
+                                        style={{
+                                            backgroundColor: "var(--bubble-me-bg)",
+                                            border: "1px solid transparent",
+                                            color: "white",
+                                            opacity: isOpeningChat ? 0.8 : 1,
+                                            cursor: isOpeningChat ? "wait" : "pointer",
+                                        }}
+                                    >
+                                        {isOpeningChat ? "Abriendo..." : "Enviar mensaje"}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="w-full sm:w-auto rounded-xl px-4 py-2.5 text-sm font-heading font-semibold"
+                                        style={{
+                                            backgroundColor: "var(--bg-surface-secondary)",
+                                            border: "1px solid var(--border-color)",
+                                            color: "var(--text-muted)",
+                                            cursor: "not-allowed",
+                                        }}
+                                    >
+                                        Este es tu perfil
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => router.back()}

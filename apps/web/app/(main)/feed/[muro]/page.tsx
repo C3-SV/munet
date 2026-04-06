@@ -6,6 +6,7 @@ import { FeedFilters } from "../../../../components/feed/FeedFilters";
 import { PostCard } from "../../../../components/feed/PostCard";
 import { PostEditor } from "../../../../components/feed/PostEditor";
 import { ApiError } from "../../../../lib/api/client";
+import { getEventCommittees } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { realtimeEnabled, supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
@@ -26,6 +27,7 @@ const Feed = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isForbidden, setIsForbidden] = useState(false);
+    const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -125,7 +127,48 @@ const Feed = () => {
         };
     }, [activeWall?.id, eventId, isForbidden, muroParam, token]);
 
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadEventCommittees = async () => {
+            try {
+                const committees = await getEventCommittees({
+                    token,
+                    eventId,
+                });
+
+                if (!cancelled) {
+                    const committeeNames = committees
+                        .map((committee) => committee.name.trim())
+                        .filter((name) => name.length > 0);
+
+                    setAllEventCommittees(
+                        [...new Set(committeeNames)].sort((a, b) => a.localeCompare(b)),
+                    );
+                }
+            } catch {
+                if (!cancelled) {
+                    setAllEventCommittees([]);
+                }
+            }
+        };
+
+        void loadEventCommittees();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
+
     const comitesDisponibles = useMemo(() => {
+        if (allEventCommittees.length > 0) {
+            return allEventCommittees;
+        }
+
         const committees = new Set<string>();
 
         posts.forEach((post) => {
@@ -136,7 +179,7 @@ const Feed = () => {
         });
 
         return [...committees].sort((a, b) => a.localeCompare(b));
-    }, [posts]);
+    }, [allEventCommittees, posts]);
 
     const formatRelativeTime = (timestamp: number) => {
         const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
@@ -222,7 +265,11 @@ const Feed = () => {
     });
 
     const showCommitteeFilter = activeWall?.kind === "general";
-    const headerTitle = activeWall ? activeWall.name : "Muro";
+    const headerTitle = activeWall
+        ? activeWall.kind === "committee"
+            ? activeWall.committeeName ?? activeWall.name
+            : activeWall.name
+        : "Muro";
 
     return (
         <div className="p-4 sm:p-6 lg:p-12">

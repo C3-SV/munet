@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChatHeader } from "../../../components/chat/ChatHeader";
 import { ChatItem } from "../../../components/chat/ChatItem";
 import { ChatSearch } from "../../../components/chat/ChatSearch";
@@ -16,8 +16,10 @@ import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
 
 const Chats = () => {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const token = useAuthStore((state) => state.token);
     const eventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -25,6 +27,15 @@ const Chats = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isAutoOpeningConversation, setIsAutoOpeningConversation] = useState(false);
+    const [lastOpenedTargetKey, setLastOpenedTargetKey] = useState<string | null>(null);
+    const autoOpenInProgressRef = useRef(false);
+
+    const targetMembershipIdFromQuery = searchParams.get("with")?.trim() ?? "";
+    const targetConversationKey =
+        targetMembershipIdFromQuery && eventId
+            ? `${eventId}:${targetMembershipIdFromQuery}`
+            : "";
 
     const refreshConversations = useCallback(async (showLoader = false) => {
         if (!token || !eventId) {
@@ -66,6 +77,77 @@ const Chats = () => {
             cancelled = true;
         };
     }, [refreshConversations]);
+
+    useEffect(() => {
+        if (
+            !targetMembershipIdFromQuery ||
+            !token ||
+            !eventId ||
+            autoOpenInProgressRef.current ||
+            lastOpenedTargetKey === targetConversationKey
+        ) {
+            return;
+        }
+
+        if (targetMembershipIdFromQuery === activeMembershipId) {
+            setLastOpenedTargetKey(targetConversationKey);
+            setError("No puedes iniciar una conversacion contigo.");
+            return;
+        }
+
+        let cancelled = false;
+
+        const openConversationFromQuery = async () => {
+            try {
+                autoOpenInProgressRef.current = true;
+                setIsAutoOpeningConversation(true);
+                setError(null);
+                const conversationList = await getConversations({ token, eventId });
+                const existingConversation = conversationList.find(
+                    (conversation) => conversation.otherParticipant.id === targetMembershipIdFromQuery,
+                );
+                const conversation =
+                    existingConversation ??
+                    (await createConversation(targetMembershipIdFromQuery, {
+                        token,
+                        eventId,
+                    }));
+
+                if (!cancelled) {
+                    setLastOpenedTargetKey(targetConversationKey);
+                    router.replace(`/chat/${conversation.id}`);
+                }
+            } catch (createError) {
+                if (!cancelled) {
+                    setLastOpenedTargetKey(targetConversationKey);
+                    setError(
+                        createError instanceof Error
+                            ? createError.message
+                            : "No se pudo iniciar la conversacion.",
+                    );
+                }
+            } finally {
+                autoOpenInProgressRef.current = false;
+                if (!cancelled) {
+                    setIsAutoOpeningConversation(false);
+                }
+            }
+        };
+
+        void openConversationFromQuery();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        activeMembershipId,
+        eventId,
+        lastOpenedTargetKey,
+        router,
+        targetConversationKey,
+        targetMembershipIdFromQuery,
+        token,
+    ]);
 
     useEffect(() => {
         if (!eventId || !supabaseBrowser || !token) {
@@ -224,6 +306,8 @@ const Chats = () => {
                     <div className="p-2">
                         {isLoading ? (
                             <EmptyChatState text="Cargando conversaciones..." />
+                        ) : isAutoOpeningConversation ? (
+                            <EmptyChatState text="Abriendo conversacion..." />
                         ) : isSearchMode ? (
                             isSearching ? (
                                 <EmptyChatState text="Buscando participantes..." />

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
 import {
+    createConversation,
     deleteConversationMessage,
     getConversationMessages,
     getConversations,
@@ -18,6 +19,7 @@ import type { Delegate } from "../../../../types/common";
 
 const ChatRoomPage = () => {
     const params = useParams();
+    const router = useRouter();
     const conversationId = typeof params?.id === "string" ? params.id : "";
 
     const token = useAuthStore((state) => state.token);
@@ -97,15 +99,36 @@ const ChatRoomPage = () => {
         const loadRoom = async () => {
             try {
                 setIsLoading(true);
-                const [conversationList, messageList] = await Promise.all([
-                    getConversations({ token, eventId }),
-                    getConversationMessages(conversationId, { token, eventId }),
-                ]);
+                const conversationList = await getConversations({ token, eventId });
+                const matchedConversation =
+                    conversationList.find((item) => item.id === conversationId) ?? null;
+
+                if (!matchedConversation) {
+                    const createdConversation = await createConversation(conversationId, {
+                        token,
+                        eventId,
+                    });
+
+                    if (!cancelled) {
+                        const matchedByTarget =
+                            conversationList.find(
+                                (item) => item.otherParticipant.id === conversationId,
+                            ) ?? null;
+                        const resolvedConversationId = matchedByTarget?.id ?? createdConversation.id;
+
+                        router.replace(`/chat/${resolvedConversationId}`);
+                    }
+
+                    return;
+                }
+
+                const messageList = await getConversationMessages(matchedConversation.id, {
+                    token,
+                    eventId,
+                });
 
                 if (!cancelled) {
-                    setConversation(
-                        conversationList.find((item) => item.id === conversationId) ?? null,
-                    );
+                    setConversation(matchedConversation);
                     setMessages(messageList);
                     setError(null);
                 }
@@ -129,7 +152,7 @@ const ChatRoomPage = () => {
         return () => {
             cancelled = true;
         };
-    }, [conversationId, eventId, token]);
+    }, [conversationId, eventId, router, token]);
 
     useEffect(() => {
         if (!conversationId || !supabaseBrowser || !token || !eventId) {
