@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
@@ -50,7 +50,18 @@ const ChatRoomPage = () => {
         [conversation, conversationId],
     );
 
-    const refreshMessages = async (markAsNew = false) => {
+    const refreshConversation = useCallback(async () => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const conversationList = await getConversations({ token, eventId });
+        setConversation(
+            conversationList.find((item) => item.id === conversationId) ?? null,
+        );
+    }, [conversationId, eventId, token]);
+
+    const refreshMessages = useCallback(async (markAsNew = false) => {
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -72,7 +83,7 @@ const ChatRoomPage = () => {
 
             return data;
         });
-    };
+    }, [conversationId, eventId, token]);
 
     useEffect(() => {
         if (!token || !eventId || !conversationId) {
@@ -124,7 +135,9 @@ const ChatRoomPage = () => {
         }
 
         const realtimeClient = supabaseBrowser;
-        const channel = realtimeClient.channel(`dm-messages:${conversationId}`);
+        realtimeClient.realtime.setAuth(token);
+
+        const channel = realtimeClient.channel(`dm-room:${conversationId}`);
 
         channel
             .on(
@@ -137,6 +150,19 @@ const ChatRoomPage = () => {
                 },
                 () => {
                     void refreshMessages(true);
+                    void refreshConversation();
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "dm_conversations",
+                    filter: `id=eq.${conversationId}`,
+                },
+                () => {
+                    void refreshConversation();
                 },
             )
             .subscribe();
@@ -144,7 +170,7 @@ const ChatRoomPage = () => {
         return () => {
             void realtimeClient.removeChannel(channel);
         };
-    }, [conversationId, eventId, token]);
+    }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
