@@ -9,7 +9,6 @@ const LogoutButton = () => {
 
   const handleLogout = () => {
     logout();
-    console.log("AUTH STATE:", useAuthStore.getState());
     router.replace("/login");
   };
 

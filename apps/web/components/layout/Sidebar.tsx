@@ -1,20 +1,108 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { getEventWalls } from "../../lib/api/events";
 import { useTheme } from "../../lib/theme-context";
+import { useAuthStore } from "../../stores/auth.store";
+import type { EventWall } from "../../types/common";
+
+type NavItem = {
+    name: string;
+    href: string;
+    icon: string;
+    current: boolean;
+    canAccess: boolean;
+};
+
+const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
+    <Link
+        href={item.href}
+        className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
+        style={{
+            backgroundColor: item.current ? "var(--sidebar-active-bg)" : "transparent",
+            color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
+            opacity: item.canAccess ? 1 : 0.55,
+        }}
+    >
+        <img
+            src={item.icon}
+            className="size-5 transition-opacity"
+            style={{
+                opacity: item.current ? 1 : 0.5,
+                filter: isDark ? "invert(1)" : "none",
+            }}
+            alt=""
+        />
+        <span className="flex-1">{item.name}</span>
+        {!item.canAccess && (
+            <img
+                src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/lock.svg"
+                className="size-4"
+                style={{ opacity: 0.7, filter: isDark ? "invert(1)" : "none" }}
+                alt="Sin acceso"
+            />
+        )}
+    </Link>
+);
+
+const CommitteeItem = ({
+    wall,
+    pathname,
+    isDark,
+}: {
+    wall: EventWall;
+    pathname: string | null;
+    isDark: boolean;
+}) => {
+    const isSelected = pathname === `/feed/${wall.slug}`;
+
+    return (
+        <li>
+            <Link
+                href={`/feed/${wall.slug}`}
+                className="flex items-center gap-2 rounded-lg py-2.5 px-3 -ml-3 text-sm font-heading font-medium transition-colors"
+                style={{
+                    color: isSelected ? "var(--sidebar-active-text)" : "var(--text-secondary)",
+                    backgroundColor: isSelected ? "var(--sidebar-active-bg)" : "transparent",
+                    opacity: wall.canAccess ? 1 : 0.55,
+                }}
+            >
+                <span className="flex-1 truncate">{wall.name}</span>
+                {!wall.canAccess && (
+                    <img
+                        src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/lock.svg"
+                        className="size-3.5"
+                        style={{ opacity: 0.8, filter: isDark ? "invert(1)" : "none" }}
+                        alt="Sin acceso"
+                    />
+                )}
+            </Link>
+        </li>
+    );
+};
 
 export const Sidebar = () => {
     const pathname = usePathname();
     const { theme, toggleTheme } = useTheme();
+    const isDark = theme === "dark";
+
+    const token = useAuthStore((state) => state.token);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const memberships = useAuthStore((state) => state.memberships);
+
+    const activeMembership = useMemo(
+        () => memberships.find((membership) => membership.id === activeMembershipId) ?? null,
+        [activeMembershipId, memberships],
+    );
+
+    const [isComitesOpen, setIsComitesOpen] = useState(pathname?.includes("comite") || false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [walls, setWalls] = useState<EventWall[]>([]);
 
     const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
-
-    const [isComitesOpen, setIsComitesOpen] = useState(
-        pathname?.includes("comite") || false,
-    );
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         if (pathname?.includes("comite")) {
@@ -22,28 +110,70 @@ export const Sidebar = () => {
         }
     }, [pathname]);
 
-    const navigation = [
-        {
-            name: "Muro General",
-            href: "/feed/general",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/world.svg",
-            current: pathname === "/feed/general" || pathname === "/feed",
-        },
-        {
-            name: "Avisos",
-            href: "/feed/avisos",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/bell.svg",
-            current: pathname === "/feed/avisos",
-        },
-    ];
+    useEffect(() => {
+        if (!token || !activeEventId) {
+            return;
+        }
 
-    const comites = [
-        { name: "Comite 1", href: "/feed/comite-1" },
-        { name: "Comite 2", href: "/feed/comite-2" },
-        { name: "Comite 3", href: "/feed/comite-3" },
-    ];
+        let cancelled = false;
 
-    const isDark = theme === "dark";
+        const loadWalls = async () => {
+            try {
+                const response = await getEventWalls({
+                    token,
+                    eventId: activeEventId,
+                });
+
+                if (!cancelled) {
+                    setWalls(response.walls);
+                }
+            } catch {
+                if (!cancelled) {
+                    setWalls([]);
+                }
+            }
+        };
+
+        void loadWalls();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeEventId, token]);
+
+    const generalWall =
+        walls.find((wall) => wall.kind === "general") ??
+        walls.find((wall) => !wall.committeeId && wall.kind !== "announcements") ??
+        null;
+
+    const announcementsWall = walls.find((wall) => wall.kind === "announcements") ?? null;
+    const committeeWalls = walls.filter((wall) => wall.kind === "committee");
+
+    const navigation: NavItem[] = [
+        ...(generalWall
+            ? [
+                  {
+                      name: "Muro General",
+                      href: `/feed/${generalWall.slug}`,
+                      icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/world.svg",
+                      current:
+                          pathname === `/feed/${generalWall.slug}` || pathname === "/feed",
+                      canAccess: generalWall.canAccess,
+                  },
+              ]
+            : []),
+        ...(announcementsWall
+            ? [
+                  {
+                      name: "Avisos",
+                      href: `/feed/${announcementsWall.slug}`,
+                      icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/bell.svg",
+                      current: pathname === `/feed/${announcementsWall.slug}`,
+                      canAccess: announcementsWall.canAccess,
+                  },
+              ]
+            : []),
+    ];
 
     return (
         <>
@@ -55,7 +185,7 @@ export const Sidebar = () => {
                         borderBottom: "1px solid var(--border-color)",
                     }}
                 >
-                    <Link href="/feed/general" className="shrink-0">
+                    <Link href="/feed" className="shrink-0">
                         <img
                             src="/logo-munet.png"
                             alt="MUNET"
@@ -74,15 +204,7 @@ export const Sidebar = () => {
                             }}
                             aria-label="Toggle theme"
                         >
-                            {isDark ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                                </svg>
-                            )}
+                            {isDark ? "Light" : "Dark"}
                         </button>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
@@ -93,9 +215,7 @@ export const Sidebar = () => {
                                 color: "var(--text-primary)",
                             }}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                            </svg>
+                            Menu
                         </button>
                     </div>
                 </div>
@@ -110,9 +230,7 @@ export const Sidebar = () => {
 
             <aside
                 className={`fixed inset-y-0 right-0 md:left-0 md:right-auto z-50 flex h-screen w-64 flex-col px-5 transition-transform duration-300 ease-in-out ${
-                    isMobileMenuOpen
-                        ? "translate-x-0"
-                        : "translate-x-full md:translate-x-0"
+                    isMobileMenuOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
                 }`}
                 style={{
                     backgroundColor: "var(--bg-sidebar)",
@@ -122,7 +240,7 @@ export const Sidebar = () => {
             >
                 <div className="flex flex-col mt-8 md:mt-10 shrink-0">
                     <div className="flex items-center justify-between">
-                        <Link href="/feed/general" className="shrink-0">
+                        <Link href="/feed" className="shrink-0">
                             <img
                                 alt="MUNET"
                                 src="/logo-munet.png"
@@ -135,38 +253,27 @@ export const Sidebar = () => {
                             className="md:hidden p-1.5 rounded-md transition-all"
                             style={{ color: "var(--text-muted)" }}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
+                            Close
                         </button>
                     </div>
-                    <div className="mt-5 h-0.5 w-full rounded-full" style={{ backgroundColor: "var(--text-accent)", opacity: 0.6 }}></div>
+                    <div
+                        className="mt-5 h-0.5 w-full rounded-full"
+                        style={{ backgroundColor: "var(--text-accent)", opacity: 0.6 }}
+                    />
+                    <Link
+                        href="/select-event"
+                        className="mt-3 text-[11px] font-extrabold uppercase tracking-widest font-heading"
+                        style={{ color: "var(--text-accent)" }}
+                    >
+                        Cambiar evento
+                    </Link>
                 </div>
 
                 <nav className="flex flex-1 flex-col mt-8 overflow-y-auto">
                     <ul className="flex flex-1 flex-col gap-y-6">
                         <li className="space-y-1">
                             {navigation.map((item) => (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
-                                    style={{
-                                        backgroundColor: item.current ? "var(--sidebar-active-bg)" : "transparent",
-                                        color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
-                                    }}
-                                >
-                                    <img
-                                        src={item.icon}
-                                        className="size-5 transition-opacity"
-                                        style={{
-                                            opacity: item.current ? 1 : 0.5,
-                                            filter: isDark ? "invert(1)" : "none",
-                                        }}
-                                        alt=""
-                                    />
-                                    {item.name}
-                                </Link>
+                                <MenuItem key={item.name} item={item} isDark={isDark} />
                             ))}
                         </li>
 
@@ -179,55 +286,44 @@ export const Sidebar = () => {
                                 <img
                                     src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
                                     className="size-5"
-                                    style={{ opacity: 0.5, filter: isDark ? "invert(1)" : "none" }}
+                                    style={{
+                                        opacity: 0.5,
+                                        filter: isDark ? "invert(1)" : "none",
+                                    }}
                                     alt=""
                                 />
                                 <span className="flex-1 text-sm font-semibold font-heading">
-                                    Muros de comités
+                                    Muros de comites
                                 </span>
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="transition-transform duration-200"
-                                    style={{
-                                        opacity: 0.4,
-                                        transform: isComitesOpen ? "rotate(90deg)" : "rotate(0deg)",
-                                        color: "var(--text-secondary)",
-                                    }}
-                                >
-                                    <polyline points="9 18 15 12 9 6" />
-                                </svg>
+                                <span style={{ opacity: 0.4 }}>
+                                    {isComitesOpen ? "▾" : "▸"}
+                                </span>
                             </button>
 
                             <div
                                 className="mt-1 overflow-hidden transition-all duration-300"
-                                style={{ maxHeight: isComitesOpen ? "200px" : "0", opacity: isComitesOpen ? 1 : 0 }}
+                                style={{
+                                    maxHeight: isComitesOpen ? "320px" : "0",
+                                    opacity: isComitesOpen ? 1 : 0,
+                                }}
                             >
                                 <ul className="pl-11 space-y-1">
-                                    {comites.map((comite) => {
-                                        const isSelected = pathname === comite.href;
-                                        return (
-                                            <li key={comite.name}>
-                                                <Link
-                                                    href={comite.href}
-                                                    className="block rounded-lg py-2.5 px-3 -ml-3 text-sm font-heading font-medium transition-colors"
-                                                    style={{
-                                                        color: isSelected ? "var(--sidebar-active-text)" : "var(--text-secondary)",
-                                                        backgroundColor: isSelected ? "var(--sidebar-active-bg)" : "transparent",
-                                                    }}
-                                                >
-                                                    {comite.name}
-                                                </Link>
-                                            </li>
-                                        );
-                                    })}
+                                    {committeeWalls.map((wall) => (
+                                        <CommitteeItem
+                                            key={wall.id}
+                                            wall={wall}
+                                            pathname={pathname}
+                                            isDark={isDark}
+                                        />
+                                    ))}
+                                    {committeeWalls.length === 0 && (
+                                        <li
+                                            className="text-xs font-body py-2"
+                                            style={{ color: "var(--text-muted)" }}
+                                        >
+                                            Sin comites disponibles.
+                                        </li>
+                                    )}
                                 </ul>
                             </div>
                         </li>
@@ -237,8 +333,12 @@ export const Sidebar = () => {
                                 href="/chat"
                                 className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
                                 style={{
-                                    backgroundColor: pathname?.startsWith("/chat") ? "var(--sidebar-active-bg)" : "transparent",
-                                    color: pathname?.startsWith("/chat") ? "var(--sidebar-active-text)" : "var(--text-primary)",
+                                    backgroundColor: pathname?.startsWith("/chat")
+                                        ? "var(--sidebar-active-bg)"
+                                        : "transparent",
+                                    color: pathname?.startsWith("/chat")
+                                        ? "var(--sidebar-active-text)"
+                                        : "var(--text-primary)",
                                 }}
                             >
                                 <img
@@ -256,21 +356,17 @@ export const Sidebar = () => {
                     </ul>
                 </nav>
 
-                {/* Bottom: Theme toggle + User profile */}
                 <div
                     className="-mx-5 mt-auto p-4"
-                    style={{ borderTop: "1px solid var(--border-color)", backgroundColor: "var(--bg-sidebar)" }}
+                    style={{
+                        borderTop: "1px solid var(--border-color)",
+                        backgroundColor: "var(--bg-sidebar)",
+                    }}
                 >
-                    {/* Theme toggle */}
                     <button
                         onClick={toggleTheme}
                         className="flex w-full items-center gap-x-3 rounded-xl p-3 mb-2 text-sm font-medium font-heading transition-all"
-                        style={{
-                            color: "var(--text-secondary)",
-                            backgroundColor: "transparent",
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--bg-hover)")}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
+                        style={{ color: "var(--text-secondary)" }}
                     >
                         <span
                             className="size-8 flex items-center justify-center rounded-lg"
@@ -280,61 +376,38 @@ export const Sidebar = () => {
                                 color: "var(--text-secondary)",
                             }}
                         >
-                            {isDark ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                                </svg>
-                            )}
+                            {isDark ? "Light" : "Dark"}
                         </span>
                         {isDark ? "Modo claro" : "Modo oscuro"}
                     </button>
 
-                    {/* User profile */}
                     <Link
                         href="/profile"
                         className="flex w-full items-center gap-x-3 rounded-2xl p-3 transition-all group text-left"
                         style={{ color: "var(--text-primary)" }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--bg-hover)")}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
                         <div className="relative shrink-0">
                             <img
-                                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                                src="https://ui-avatars.com/api/?name=Usuario&background=E5E7EB&color=111827"
                                 alt="User Profile"
                                 className="size-10 rounded-full object-cover"
                                 style={{ border: "2px solid var(--border-color)" }}
                             />
-                            <span
-                                className="absolute bottom-0.5 right-0.5 block h-2.5 w-2.5 rounded-full bg-green-500"
-                                style={{ boxShadow: "0 0 0 2px var(--bg-sidebar)" }}
-                            ></span>
                         </div>
                         <div className="flex flex-1 flex-col min-w-0">
-                            <span className="text-sm font-bold font-heading leading-tight truncate" style={{ color: "var(--text-primary)" }}>
-                                Rober Morán
+                            <span
+                                className="text-sm font-bold font-heading leading-tight truncate"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                {activeMembership?.participantCode ?? "Participante"}
                             </span>
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: "var(--text-accent)" }}>
-                                DELEGADO
+                            <span
+                                className="text-[10px] font-extrabold uppercase tracking-widest"
+                                style={{ color: "var(--text-accent)" }}
+                            >
+                                {activeMembership?.role ?? "ROL"}
                             </span>
                         </div>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ opacity: 0.3, color: "var(--text-secondary)" }}
-                        >
-                            <polyline points="9 18 15 12 9 6" />
-                        </svg>
                     </Link>
                 </div>
             </aside>

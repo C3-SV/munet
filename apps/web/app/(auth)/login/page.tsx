@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../../../stores/auth.store";
 
-const EVENT_ID = "8187a83d-fe08-443d-a878-69d158c374d4";  //para mientras
-
 const Login = () => {
     const router = useRouter();
 
@@ -13,25 +11,46 @@ const Login = () => {
     const loading = useAuthStore((state) => state.loading);
     const error = useAuthStore((state) => state.error);
     const clearError = useAuthStore((state) => state.clearError);
+    const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
+    const token = useAuthStore((state) => state.token);
+    const needsEventSelection = useAuthStore((state) => state.needsEventSelection);
 
     const [participantCode, setParticipantCode] = useState("");
     const [password, setPassword] = useState("");
 
     useEffect(() => {
+        hydrateAuth();
         clearError();
-    }, [clearError]);
+    }, [clearError, hydrateAuth]);
+
+    useEffect(() => {
+        if (!token) {
+            return;
+        }
+
+        if (needsEventSelection()) {
+            router.replace("/select-event");
+            return;
+        }
+
+        router.replace("/feed");
+    }, [token, needsEventSelection, router]);
 
     const handleLogin = async () => {
         try {
             await login({
                 participant_code: participantCode.trim(),
-                event_id: EVENT_ID,
                 password,
             });
 
+            if (useAuthStore.getState().needsEventSelection()) {
+                router.replace("/select-event");
+                return;
+            }
+
             router.replace("/feed");
         } catch {
-            // el error ya queda en el store
+            // error gestionado en store
         }
     };
 
@@ -62,40 +81,43 @@ const Login = () => {
                         className="text-center text-2xl sm:text-3xl font-bold tracking-wide font-heading mb-8 sm:mb-10"
                         style={{ color: "var(--text-accent)" }}
                     >
-                        Iniciar sesión
+                        Iniciar sesion
                     </h2>
 
-                    <form onSubmit={(e) => {
+                    <form
+                        onSubmit={(e) => {
                             e.preventDefault();
                             void handleLogin();
-                        }} className="space-y-5 sm:space-y-6">
+                        }}
+                        className="space-y-5 sm:space-y-6"
+                    >
                         <div>
                             <label
-                                htmlFor="email"
+                                htmlFor="participant_code"
                                 className="block text-sm font-semibold font-heading mb-2"
                                 style={{ color: "var(--text-primary)" }}
                             >
-                                Código de delegado
+                                Codigo de delegado
                             </label>
                             <input
-                                id="email"
-                                name="email"
+                                id="participant_code"
+                                name="participant_code"
                                 type="text"
                                 required
                                 value={participantCode}
                                 onChange={(e) => setParticipantCode(e.target.value)}
-                                autoComplete="email"
                                 className="font-body block w-full rounded-xl px-4 py-3 sm:py-3.5 text-base outline-none transition-all"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",
                                     color: "var(--text-primary)",
                                 }}
-                                onFocus={e => {
+                                onFocus={(e) => {
                                     e.currentTarget.style.borderColor = "var(--input-focus)";
-                                    e.currentTarget.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
+                                    e.currentTarget.style.boxShadow =
+                                        "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
                                 }}
-                                onBlur={e => {
+                                onBlur={(e) => {
                                     e.currentTarget.style.borderColor = "var(--input-border)";
                                     e.currentTarget.style.boxShadow = "none";
                                 }}
@@ -108,7 +130,7 @@ const Login = () => {
                                 className="block text-sm font-semibold font-heading mb-2"
                                 style={{ color: "var(--text-primary)" }}
                             >
-                                Contraseña
+                                Contrasena
                             </label>
                             <input
                                 id="password"
@@ -124,11 +146,12 @@ const Login = () => {
                                     border: "1px solid var(--input-border)",
                                     color: "var(--text-primary)",
                                 }}
-                                onFocus={e => {
+                                onFocus={(e) => {
                                     e.currentTarget.style.borderColor = "var(--input-focus)";
-                                    e.currentTarget.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
+                                    e.currentTarget.style.boxShadow =
+                                        "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
                                 }}
-                                onBlur={e => {
+                                onBlur={(e) => {
                                     e.currentTarget.style.borderColor = "var(--input-border)";
                                     e.currentTarget.style.boxShadow = "none";
                                 }}
@@ -148,7 +171,7 @@ const Login = () => {
                                 className="flex w-full justify-center rounded-xl px-3 py-3.5 sm:py-4 text-base sm:text-lg font-heading font-semibold text-white shadow-md hover:scale-[1.01] active:scale-95 transition-all duration-200 disabled:opacity-70"
                                 style={{ backgroundColor: "var(--bubble-me-bg)" }}
                             >
-                                {loading ? "Ingresando..." : "Iniciar sesión"}
+                                {loading ? "Ingresando..." : "Iniciar sesion"}
                             </button>
                         </div>
                     </form>

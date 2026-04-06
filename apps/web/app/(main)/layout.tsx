@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useEffect, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
+import { useAuthStore } from "../../stores/auth.store";
 
 export default function MainLayout({
     children,
@@ -11,8 +12,47 @@ export default function MainLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
 
-    const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
+    const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
+    const hydrated = useAuthStore((state) => state.hydrated);
+    const token = useAuthStore((state) => state.token);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
+    const needsEventSelection = useAuthStore((state) => state.needsEventSelection);
+
+    const isChatRoom = useMemo(
+        () => pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/),
+        [pathname],
+    );
+
+    useEffect(() => {
+        hydrateAuth();
+    }, [hydrateAuth]);
+
+    useEffect(() => {
+        if (!hydrated) {
+            return;
+        }
+
+        if (!token) {
+            router.replace("/login");
+            return;
+        }
+
+        if (needsEventSelection() || !activeEventId) {
+            router.replace("/select-event");
+        }
+    }, [activeEventId, hydrated, needsEventSelection, router, token]);
+
+    if (!hydrated || !token || (needsEventSelection() || !activeEventId)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
+                <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>
+                    Cargando sesion...
+                </span>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg-base)" }}>

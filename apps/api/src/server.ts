@@ -5,6 +5,8 @@ dotenv.config();
 import authRoutes from './routes/auth.routes';
 import postsRoutes from './routes/posts.routes';
 import adminRoutes from './routes/admin.routes';
+import eventsRoutes from './routes/events.routes';
+import profilesRoutes from './routes/profiles.routes';
 
 
 const app = express();
@@ -13,7 +15,7 @@ const PORT = Number(process.env.PORT ?? 3002);
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', process.env.WEB_APP_URL ?? 'http://localhost:3000');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-event-id');
     
     if (req.method === 'OPTIONS') {
         return res.sendStatus(204);
@@ -25,6 +27,8 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/admin', adminRoutes);
+app.use('/events', eventsRoutes);
+app.use('/profiles', profilesRoutes);
 app.use('/posts', postsRoutes);
 
 app.listen(PORT, () => {

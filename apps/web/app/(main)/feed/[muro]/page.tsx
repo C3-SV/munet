@@ -2,35 +2,21 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { PostEditor } from "../../../../components/feed/PostEditor";
 import { FeedFilters } from "../../../../components/feed/FeedFilters";
 import { PostCard } from "../../../../components/feed/PostCard";
-import type { Post } from "../../../../types/common";
-import {
-    getFeedPosts,
-    publishFeedPost,
-    type FeedResponse,
-} from "../../../../lib/api/feed";
+import { PostEditor } from "../../../../components/feed/PostEditor";
+import { ApiError } from "../../../../lib/api/client";
+import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { realtimeEnabled, supabaseBrowser } from "../../../../lib/supabase";
+import { useAuthStore } from "../../../../stores/auth.store";
+import type { Post } from "../../../../types/common";
 
 const Feed = () => {
     const params = useParams();
-    const muroParam =
-        typeof params?.muro === "string" ? params.muro : "general";
+    const muroParam = typeof params?.muro === "string" ? params.muro : "general";
 
-    let currentMuro = "General";
-    let headerTitle = "Muro General";
-
-    if (muroParam === "avisos") {
-        currentMuro = "Avisos";
-        headerTitle = "Avisos Oficiales";
-    } else if (muroParam.startsWith("comite-")) {
-        const numero = muroParam.split("-")[1];
-        currentMuro = `Comite ${numero}`;
-        headerTitle = `Muro de Comite ${numero}`;
-    }
-
-    const showCommitteeFilter = currentMuro === "General";
+    const token = useAuthStore((state) => state.token);
+    const eventId = useAuthStore((state) => state.activeEventId);
 
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
@@ -39,29 +25,41 @@ const Feed = () => {
     const [activeWall, setActiveWall] = useState<FeedResponse["wall"] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isForbidden, setIsForbidden] = useState(false);
 
     useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
         let cancelled = false;
 
         const loadPosts = async (showLoader = true) => {
             if (showLoader) {
                 setIsLoading(true);
             }
+
             try {
-                const response = await getFeedPosts(muroParam);
+                const response = await getFeedPosts(muroParam, { token, eventId });
 
                 if (!cancelled) {
                     setActiveWall(response.wall);
                     setPosts(response.posts);
                     setError(null);
+                    setIsForbidden(false);
                 }
             } catch (loadError) {
                 if (!cancelled) {
-                    setError(
-                        loadError instanceof Error
-                            ? loadError.message
-                            : "No se pudieron cargar las publicaciones.",
-                    );
+                    if (loadError instanceof ApiError && loadError.status === 403) {
+                        setIsForbidden(true);
+                        setError("No tienes acceso a este muro.");
+                    } else {
+                        setError(
+                            loadError instanceof Error
+                                ? loadError.message
+                                : "No se pudieron cargar las publicaciones.",
+                        );
+                    }
                 }
             } finally {
                 if (!cancelled && showLoader) {
@@ -71,15 +69,15 @@ const Feed = () => {
         };
 
         setActiveWall(null);
-        loadPosts();
+        void loadPosts();
 
         return () => {
             cancelled = true;
         };
-    }, [muroParam]);
+    }, [eventId, muroParam, token]);
 
     useEffect(() => {
-        if (!activeWall?.id || !supabaseBrowser) {
+        if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden) {
             return;
         }
 
@@ -89,7 +87,7 @@ const Feed = () => {
 
         const refreshPosts = async () => {
             try {
-                const response = await getFeedPosts(muroParam);
+                const response = await getFeedPosts(muroParam, { token, eventId });
 
                 if (!cancelled) {
                     setActiveWall(response.wall);
@@ -125,7 +123,7 @@ const Feed = () => {
             cancelled = true;
             void realtimeClient.removeChannel(channel);
         };
-    }, [activeWall?.id, muroParam]);
+    }, [activeWall?.id, eventId, isForbidden, muroParam, token]);
 
     const comitesDisponibles = useMemo(() => {
         const uniqueTags = new Set<string>();
@@ -138,10 +136,7 @@ const Feed = () => {
     }, [posts]);
 
     const formatRelativeTime = (timestamp: number) => {
-        const diffInMinutes = Math.max(
-            0,
-            Math.floor((Date.now() - timestamp) / 60000),
-        );
+        const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 
         if (diffInMinutes < 1) {
             return "justo ahora";
@@ -161,11 +156,17 @@ const Feed = () => {
     };
 
     const handlePublishPost = async (text: string) => {
+        if (!token || !eventId) {
+            throw new Error("No hay sesion activa");
+        }
+
         try {
             setError(null);
             const newPost = await publishFeedPost({
                 muro: muroParam,
                 content: text,
+                token,
+                eventId,
             });
 
             setPosts((currentPosts) => [newPost, ...currentPosts]);
@@ -187,9 +188,7 @@ const Feed = () => {
         const matchesCommittee =
             selectedCommittees.length === 0 ||
             (post.committeeTags &&
-                post.committeeTags.some((tag) =>
-                    selectedCommittees.includes(tag),
-                ));
+                post.committeeTags.some((tag) => selectedCommittees.includes(tag)));
 
         return matchesSearch && matchesCommittee;
     });
@@ -201,6 +200,9 @@ const Feed = () => {
 
         return a.timestamp - b.timestamp;
     });
+
+    const showCommitteeFilter = activeWall?.kind === "general";
+    const headerTitle = activeWall ? activeWall.name : "Muro";
 
     return (
         <div className="p-4 sm:p-6 lg:p-12">
@@ -218,7 +220,7 @@ const Feed = () => {
                     >
                         {headerTitle}
                     </h1>
-                    {realtimeEnabled && (
+                    {realtimeEnabled && !isForbidden && (
                         <span
                             className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]"
                             style={{
@@ -238,19 +240,18 @@ const Feed = () => {
                     )}
                 </header>
 
-                {currentMuro !== "Avisos" && (
+                {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
                         onPublish={handlePublishPost}
                         disabled={isLoading}
                     />
                 )}
 
-                {error && (
+                {error && !isForbidden && (
                     <div
                         className="mb-6 rounded-xl px-4 py-3 text-sm font-body"
                         style={{
-                            backgroundColor:
-                                "color-mix(in srgb, #ef4444 8%, white)",
+                            backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
                             border:
                                 "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
                             color: "#991b1b",
@@ -260,72 +261,92 @@ const Feed = () => {
                     </div>
                 )}
 
-                <FeedFilters
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    selectedCommittees={selectedCommittees}
-                    onCommitteeToggle={(comite) => {
-                        if (selectedCommittees.includes(comite)) {
-                            setSelectedCommittees(
-                                selectedCommittees.filter((c) => c !== comite),
-                            );
-                        } else {
-                            setSelectedCommittees([
-                                ...selectedCommittees,
-                                comite,
-                            ]);
-                        }
-                    }}
-                    onClearCommittees={() => setSelectedCommittees([])}
-                    comitesDisponibles={comitesDisponibles}
-                    sortOrder={sortOrder}
-                    onSortChange={setSortOrder}
-                    showCommitteeFilter={showCommitteeFilter}
-                />
+                {isForbidden ? (
+                    <div
+                        className="rounded-2xl p-6"
+                        style={{
+                            backgroundColor: "var(--bg-surface)",
+                            border: "1px solid var(--border-color)",
+                            boxShadow: "var(--shadow-sm)",
+                        }}
+                    >
+                        <h2 className="text-xl font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                            No tienes acceso a este muro
+                        </h2>
+                        <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                            Puedes ver el muro en el menu lateral, pero solo podras entrar cuando tengas permiso.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <FeedFilters
+                            searchQuery={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            selectedCommittees={selectedCommittees}
+                            onCommitteeToggle={(comite) => {
+                                if (selectedCommittees.includes(comite)) {
+                                    setSelectedCommittees(
+                                        selectedCommittees.filter((c) => c !== comite),
+                                    );
+                                } else {
+                                    setSelectedCommittees([...selectedCommittees, comite]);
+                                }
+                            }}
+                            onClearCommittees={() => setSelectedCommittees([])}
+                            comitesDisponibles={comitesDisponibles}
+                            sortOrder={sortOrder}
+                            onSortChange={setSortOrder}
+                            showCommitteeFilter={Boolean(showCommitteeFilter)}
+                        />
 
-                <div className="space-y-4">
-                    {isLoading ? (
-                        <div
-                            className="flex justify-center py-12 rounded-xl"
-                            style={{
-                                backgroundColor: "var(--bg-surface)",
-                                border: "1px solid var(--border-color)",
-                            }}
-                        >
-                            <span
-                                className="font-body text-sm"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                Cargando publicaciones...
-                            </span>
+                        <div className="space-y-4">
+                            {isLoading ? (
+                                <div
+                                    className="flex justify-center py-12 rounded-xl"
+                                    style={{
+                                        backgroundColor: "var(--bg-surface)",
+                                        border: "1px solid var(--border-color)",
+                                    }}
+                                >
+                                    <span
+                                        className="font-body text-sm"
+                                        style={{ color: "var(--text-muted)" }}
+                                    >
+                                        Cargando publicaciones...
+                                    </span>
+                                </div>
+                            ) : sortedAndFilteredPosts.length > 0 && token && eventId ? (
+                                sortedAndFilteredPosts.map((post) => (
+                                    <PostCard
+                                        key={post.id}
+                                        post={{
+                                            ...post,
+                                            createdAt: formatRelativeTime(post.timestamp),
+                                        }}
+                                        token={token}
+                                        eventId={eventId}
+                                        canComment={Boolean(activeWall?.canAccess)}
+                                    />
+                                ))
+                            ) : (
+                                <div
+                                    className="flex justify-center py-12 rounded-xl"
+                                    style={{
+                                        backgroundColor: "var(--bg-surface)",
+                                        border: "2px dashed var(--border-color)",
+                                    }}
+                                >
+                                    <span
+                                        className="font-body text-sm"
+                                        style={{ color: "var(--text-muted)" }}
+                                    >
+                                        No se encontraron publicaciones.
+                                    </span>
+                                </div>
+                            )}
                         </div>
-                    ) : sortedAndFilteredPosts.length > 0 ? (
-                        sortedAndFilteredPosts.map((post) => (
-                            <PostCard
-                                key={post.id}
-                                post={{
-                                    ...post,
-                                    createdAt: formatRelativeTime(post.timestamp),
-                                }}
-                            />
-                        ))
-                    ) : (
-                        <div
-                            className="flex justify-center py-12 rounded-xl"
-                            style={{
-                                backgroundColor: "var(--bg-surface)",
-                                border: "2px dashed var(--border-color)",
-                            }}
-                        >
-                            <span
-                                className="font-body text-sm"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                No se encontraron publicaciones.
-                            </span>
-                        </div>
-                    )}
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );

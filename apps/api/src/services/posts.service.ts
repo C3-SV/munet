@@ -1,55 +1,18 @@
+import type { AuthMembership } from '../types/auth-context';
 import { supabaseAdmin } from '../lib/supabase';
-import { POST_SELECT, type PostRow, type WallRecord } from '../types/posts.types';
-import { findWallBySlug, isDemoPostsEnabled, mapPost } from '../utils/posts.utils';
+import { POST_SELECT, type PostRow } from '../types/posts.types';
+import { findWallBySlug, mapPost } from '../utils/posts.utils';
+import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
-/**
- * Carga los muros activos.
- * Si se proporciona eventId, filtra únicamente los muros de ese evento.
- */
-export const loadWalls = async (eventId?: string) => {
-  let query = supabaseAdmin
-    .from('walls')
-    .select(
-      `
-        id,
-        event_id,
-        name,
-        wall_type,
-        committee_id,
-        committees (
-          name,
-          code
-        )
-      `
-    )
-    .eq('status', 'ACTIVE');
-
-  if (eventId) {
-    query = query.eq('event_id', eventId);
-  }
-
-  return query;
-};
-
-/**
- * Obtiene los posts de un muro específico.
- * Aquí vive la lógica de negocio para listar publicaciones.
- */
 export const getPostsByWall = async (params: {
   muro?: string;
-  eventId?: string;
+  eventId: string;
+  membership: AuthMembership;
 }) => {
   const muro = params.muro ?? 'general';
 
-  // 1. Buscar muros disponibles
-  const { data: walls, error: wallsError } = await loadWalls(params.eventId);
-
-  if (wallsError) {
-    throw new Error(wallsError.message);
-  }
-
-  // 2. Encontrar el muro correspondiente al slug recibido
-  const matchedWall = findWallBySlug((walls ?? []) as WallRecord[], muro);
+  const walls = await loadWallsByEvent(params.eventId);
+  const matchedWall = findWallBySlug(walls, muro);
 
   if (!matchedWall) {
     return {
@@ -58,7 +21,15 @@ export const getPostsByWall = async (params: {
     };
   }
 
-  // 3. Traer posts visibles de ese muro
+  const wallView = mapWallForMembership(matchedWall, params.membership);
+
+  if (!wallView.canAccess) {
+    return {
+      status: 403,
+      body: { error: 'No tienes acceso a este muro', wall: wallView },
+    };
+  }
+
   const { data: posts, error: postsError } = await supabaseAdmin
     .from('posts')
     .select(POST_SELECT)
@@ -70,40 +41,23 @@ export const getPostsByWall = async (params: {
     throw new Error(postsError.message);
   }
 
-  // 4. Devolver respuesta formateada para frontend
   return {
     status: 200,
     body: {
-      wall: {
-        id: matchedWall.id,
-        eventId: matchedWall.event_id,
-        name: matchedWall.name,
-      },
+      wall: wallView,
       posts: ((posts ?? []) as PostRow[]).map(mapPost),
     },
   };
 };
 
-/**
- * Crea una nueva publicación en un muro.
- * Resuelve autor, membership, evento y muro antes de insertar.
- */
 export const createPostService = async (payload: {
   muro?: string;
   content?: string;
-  authorMembershipId?: string;
+  eventId: string;
+  membership: AuthMembership;
 }) => {
-  const { muro = 'general', content, authorMembershipId } = payload;
+  const { muro = 'general', content, membership, eventId } = payload;
 
-  const explicitAuthorMembershipId = authorMembershipId?.trim();
-  const demoAuthorMembershipId =
-    process.env.DEFAULT_POST_AUTHOR_MEMBERSHIP_ID?.trim();
-
-  const effectiveAuthorMembershipId =
-    explicitAuthorMembershipId ??
-    (isDemoPostsEnabled() ? demoAuthorMembershipId : undefined);
-
-  // 1. Validar contenido
   if (!content?.trim()) {
     return {
       status: 400,
@@ -111,40 +65,8 @@ export const createPostService = async (payload: {
     };
   }
 
-  // 2. Validar autor efectivo
-  if (!effectiveAuthorMembershipId) {
-    return {
-      status: 400,
-      body: {
-        error:
-          'No hay autor autenticado para crear publicaciones. Si estas en modo demo, configura ALLOW_DEMO_POSTS=true y DEFAULT_POST_AUTHOR_MEMBERSHIP_ID.',
-      },
-    };
-  }
-
-  // 3. Buscar membership del autor
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('event_memberships')
-    .select('id, event_id')
-    .eq('id', effectiveAuthorMembershipId)
-    .single();
-
-  if (membershipError || !membership) {
-    return {
-      status: 404,
-      body: { error: 'Membership no encontrado' },
-    };
-  }
-
-  // 4. Cargar muros del evento del autor
-  const { data: walls, error: wallsError } = await loadWalls(membership.event_id);
-
-  if (wallsError) {
-    throw new Error(wallsError.message);
-  }
-
-  // 5. Buscar el muro destino
-  const matchedWall = findWallBySlug((walls ?? []) as WallRecord[], String(muro));
+  const walls = await loadWallsByEvent(eventId);
+  const matchedWall = findWallBySlug(walls, String(muro));
 
   if (!matchedWall) {
     return {
@@ -153,11 +75,26 @@ export const createPostService = async (payload: {
     };
   }
 
-  // 6. Insertar el post
+  const wallView = mapWallForMembership(matchedWall, membership);
+
+  if (!wallView.canAccess) {
+    return {
+      status: 403,
+      body: { error: 'No tienes acceso a este muro' },
+    };
+  }
+
+  if (!wallView.canPublish) {
+    return {
+      status: 403,
+      body: { error: 'No tienes permisos para publicar en este muro' },
+    };
+  }
+
   const { data: insertedPost, error: insertError } = await supabaseAdmin
     .from('posts')
     .insert({
-      event_id: membership.event_id,
+      event_id: eventId,
       wall_id: matchedWall.id,
       author_membership_id: membership.id,
       content: content.trim(),

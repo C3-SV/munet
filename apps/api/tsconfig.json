@@ -2,6 +2,13 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ES2020",
-    "esModuleInterop": true
-}
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "ts-node": {
+    "files": true
   }
+}
