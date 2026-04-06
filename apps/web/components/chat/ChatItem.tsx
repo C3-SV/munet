@@ -4,19 +4,21 @@ import type { Delegate } from "../../types/common";
 
 interface ChatItemProps {
     delegate: Delegate;
-    lastMessage?: string;
+    href?: string;
+    onSelect?: () => void;
+    lastMessage?: string | null;
     unreadCount?: number;
 }
 
-export const ChatItem = ({ delegate, lastMessage, unreadCount }: ChatItemProps) => {
-    return (
-        <Link
-            href={`/chat/${delegate.id}`}
-            className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
-            style={{ color: "var(--text-primary)" }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--bg-hover)")}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "transparent")}
-        >
+export const ChatItem = ({
+    delegate,
+    href,
+    onSelect,
+    lastMessage,
+    unreadCount,
+}: ChatItemProps) => {
+    const content = (
+        <>
             <div className="relative shrink-0">
                 <img
                     src={delegate.avatar}
@@ -27,7 +29,7 @@ export const ChatItem = ({ delegate, lastMessage, unreadCount }: ChatItemProps) 
                 <span
                     className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500"
                     style={{ boxShadow: "0 0 0 2.5px var(--bg-surface)" }}
-                ></span>
+                />
             </div>
 
             <div className="flex-1 min-w-0">
@@ -52,7 +54,7 @@ export const ChatItem = ({ delegate, lastMessage, unreadCount }: ChatItemProps) 
                     >
                         {lastMessage || (
                             <span className="italic" style={{ color: "var(--text-muted)" }}>
-                                {delegate.role} · {delegate.committee}
+                                {delegate.role} - {delegate.committee}
                             </span>
                         )}
                     </p>
@@ -66,6 +68,40 @@ export const ChatItem = ({ delegate, lastMessage, unreadCount }: ChatItemProps) 
                     ) : null}
                 </div>
             </div>
+        </>
+    );
+
+    const className =
+        "flex w-full items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group text-left";
+    const hoverProps = {
+        onMouseEnter: (e: React.MouseEvent<HTMLElement>) =>
+            (e.currentTarget.style.backgroundColor = "var(--bg-hover)"),
+        onMouseLeave: (e: React.MouseEvent<HTMLElement>) =>
+            (e.currentTarget.style.backgroundColor = "transparent"),
+    };
+
+    if (onSelect) {
+        return (
+            <button
+                type="button"
+                onClick={onSelect}
+                className={className}
+                style={{ color: "var(--text-primary)" }}
+                {...hoverProps}
+            >
+                {content}
+            </button>
+        );
+    }
+
+    return (
+        <Link
+            href={href ?? `/chat/${delegate.id}`}
+            className={className}
+            style={{ color: "var(--text-primary)" }}
+            {...hoverProps}
+        >
+            {content}
         </Link>
     );
 };

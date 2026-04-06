@@ -7,6 +7,7 @@ import postsRoutes from './routes/posts.routes';
 import adminRoutes from './routes/admin.routes';
 import eventsRoutes from './routes/events.routes';
 import profilesRoutes from './routes/profiles.routes';
+import dmRoutes from './routes/dm.routes';
 
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/admin', adminRoutes);
 app.use('/events', eventsRoutes);
 app.use('/profiles', profilesRoutes);
 app.use('/posts', postsRoutes);
+app.use('/dm', dmRoutes);
 
 app.listen(PORT, () => {
   console.log(`API corriendo en http://localhost:${PORT}`);

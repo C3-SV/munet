@@ -1,59 +1,137 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChatHeader } from "../../../components/chat/ChatHeader";
-import { ChatSearch } from "../../../components/chat/ChatSearch";
 import { ChatItem } from "../../../components/chat/ChatItem";
-import type { Delegate } from "../../../types/common";
+import { ChatSearch } from "../../../components/chat/ChatSearch";
+import {
+    createConversation,
+    getConversations,
+    searchParticipants,
+} from "../../../lib/api/chat";
+import { useAuthStore } from "../../../stores/auth.store";
+import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
 
 const Chats = () => {
+    const router = useRouter();
+    const token = useAuthStore((state) => state.token);
+    const eventId = useAuthStore((state) => state.activeEventId);
+
     const [searchTerm, setSearchTerm] = useState("");
+    const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+    const [participants, setParticipants] = useState<ChatParticipant[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSearching, setIsSearching] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const delegates: (Delegate & { lastMessage?: string; unreadCount?: number })[] = [
-        {
-            id: "1",
-            name: "Sarah Chen",
-            avatar: "https://i.pravatar.cc/150?u=sarah",
-            role: "DELEGADO",
-            committee: "Comité 1",
-            lastActive: "2h",
-            lastMessage: "Claro que sí, ¿en qué te puedo ayudar?",
-            unreadCount: 2,
-        },
-        {
-            id: "2",
-            name: "Rober Morán",
-            avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-            role: "DELEGADO",
-            committee: "Comité 2",
-            lastActive: "5m",
-            lastMessage: "Revisé el documento, todo está bien.",
-        },
-        {
-            id: "3",
-            name: "Elena Rojas",
-            avatar: "https://i.pravatar.cc/150?u=elena",
-            role: "DELEGADO",
-            committee: "Comité 1",
-            lastActive: "1d",
-        },
-        {
-            id: "4",
-            name: "Miguel Torres",
-            avatar: "https://i.pravatar.cc/150?u=miguel",
-            role: "DELEGADO",
-            committee: "Comité 3",
-            lastActive: "3d",
-            lastMessage: "¿Participarás en la sesión de mañana?",
-            unreadCount: 1,
-        },
-    ];
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
 
-    const filteredDelegates = delegates.filter(
-        (delegate) =>
-            delegate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            delegate.committee.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+        let cancelled = false;
+
+        const loadConversations = async () => {
+            try {
+                setIsLoading(true);
+                const data = await getConversations({ token, eventId });
+
+                if (!cancelled) {
+                    setConversations(data);
+                    setError(null);
+                }
+            } catch (loadError) {
+                if (!cancelled) {
+                    setError(
+                        loadError instanceof Error
+                            ? loadError.message
+                            : "No se pudieron cargar los mensajes.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void loadConversations();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
+
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+        const timeout = window.setTimeout(() => {
+            const runSearch = async () => {
+                if (!searchTerm.trim()) {
+                    setParticipants([]);
+                    return;
+                }
+
+                try {
+                    setIsSearching(true);
+                    const data = await searchParticipants(searchTerm, { token, eventId });
+
+                    if (!cancelled) {
+                        setParticipants(data);
+                        setError(null);
+                    }
+                } catch (searchError) {
+                    if (!cancelled) {
+                        setError(
+                            searchError instanceof Error
+                                ? searchError.message
+                                : "No se pudieron buscar participantes.",
+                        );
+                    }
+                } finally {
+                    if (!cancelled) {
+                        setIsSearching(false);
+                    }
+                }
+            };
+
+            void runSearch();
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeout);
+        };
+    }, [eventId, searchTerm, token]);
+
+    const handleSelectParticipant = async (participant: ChatParticipant) => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        try {
+            setError(null);
+            const conversation = await createConversation(participant.id, {
+                token,
+                eventId,
+            });
+
+            router.push(`/chat/${conversation.id}`);
+        } catch (createError) {
+            setError(
+                createError instanceof Error
+                    ? createError.message
+                    : "No se pudo iniciar la conversacion.",
+            );
+        }
+    };
+
+    const visibleConversations = useMemo(() => conversations, [conversations]);
+    const isSearchMode = Boolean(searchTerm.trim());
 
     return (
         <div className="p-4 sm:p-6 lg:p-10">
@@ -78,31 +156,58 @@ const Chats = () => {
                             className="text-[11px] font-semibold uppercase tracking-widest font-heading px-1"
                             style={{ color: "var(--text-muted)" }}
                         >
-                            {filteredDelegates.length} delegado{filteredDelegates.length !== 1 ? "s" : ""}
+                            {isSearchMode
+                                ? `${participants.length} resultado${participants.length !== 1 ? "s" : ""}`
+                                : `${visibleConversations.length} conversacion${visibleConversations.length !== 1 ? "es" : ""}`}
                         </p>
                     </div>
 
+                    {error && (
+                        <div
+                            className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm font-body"
+                            style={{
+                                backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
+                                border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
+                                color: "#991b1b",
+                            }}
+                        >
+                            {error}
+                        </div>
+                    )}
+
                     <div className="p-2">
-                        {filteredDelegates.length > 0 ? (
-                            filteredDelegates.map((delegate) => (
+                        {isLoading ? (
+                            <EmptyChatState text="Cargando conversaciones..." />
+                        ) : isSearchMode ? (
+                            isSearching ? (
+                                <EmptyChatState text="Buscando participantes..." />
+                            ) : participants.length > 0 ? (
+                                participants.map((participant) => (
+                                    <ChatItem
+                                        key={participant.id}
+                                        delegate={participant}
+                                        onSelect={() => void handleSelectParticipant(participant)}
+                                    />
+                                ))
+                            ) : (
+                                <EmptyChatState text="No se encontraron participantes con ese nombre." />
+                            )
+                        ) : visibleConversations.length > 0 ? (
+                            visibleConversations.map((conversation) => (
                                 <ChatItem
-                                    key={delegate.id}
-                                    delegate={delegate}
-                                    lastMessage={delegate.lastMessage}
-                                    unreadCount={delegate.unreadCount}
+                                    key={conversation.id}
+                                    delegate={{
+                                        ...conversation.otherParticipant,
+                                        lastActive: conversation.lastMessageAt
+                                            ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                                            : "Nuevo",
+                                    }}
+                                    href={`/chat/${conversation.id}`}
+                                    lastMessage={conversation.lastMessage}
                                 />
                             ))
                         ) : (
-                            <div
-                                className="text-center py-12 text-sm rounded-xl mx-2 my-2"
-                                style={{
-                                    color: "var(--text-muted)",
-                                    border: "2px dashed var(--border-color)",
-                                    fontFamily: "var(--font-body)",
-                                }}
-                            >
-                                No se encontraron delegados con ese nombre.
-                            </div>
+                            <EmptyChatState text="Todavia no tienes conversaciones. Busca un delegado para iniciar una." />
                         )}
                     </div>
                 </div>
@@ -110,5 +215,18 @@ const Chats = () => {
         </div>
     );
 };
+
+const EmptyChatState = ({ text }: { text: string }) => (
+    <div
+        className="text-center py-12 text-sm rounded-xl mx-2 my-2"
+        style={{
+            color: "var(--text-muted)",
+            border: "2px dashed var(--border-color)",
+            fontFamily: "var(--font-body)",
+        }}
+    >
+        {text}
+    </div>
+);
 
 export default Chats;

@@ -1,27 +1,38 @@
 import React, { useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
-    onSend: (text: string) => void;
+    onSend: (text: string) => void | Promise<void>;
+    disabled?: boolean;
 }
 
-export const ChatInput = ({ onSend }: ChatInputProps) => {
+export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
     const [text, setText] = useState("");
+    const [isSending, setIsSending] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    const handleSend = () => {
-        if (text.trim()) {
-            onSend(text.trim());
+    const handleSend = async () => {
+        if (!text.trim() || disabled || isSending) {
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            await onSend(text.trim());
             setText("");
+        } finally {
+            setIsSending(false);
         }
     };
 
-    // Auto-resize textarea
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 128) + "px";
+            textareaRef.current.style.height =
+                Math.min(textareaRef.current.scrollHeight, 128) + "px";
         }
     }, [text]);
+
+    const canSend = Boolean(text.trim()) && !disabled && !isSending;
 
     return (
         <div
@@ -42,7 +53,8 @@ export const ChatInput = ({ onSend }: ChatInputProps) => {
                 onFocusCapture={e => {
                     const el = e.currentTarget as HTMLElement;
                     el.style.borderColor = "var(--input-focus)";
-                    el.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
+                    el.style.boxShadow =
+                        "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
                 }}
                 onBlurCapture={e => {
                     const el = e.currentTarget as HTMLElement;
@@ -53,9 +65,10 @@ export const ChatInput = ({ onSend }: ChatInputProps) => {
                 <textarea
                     ref={textareaRef}
                     value={text}
+                    disabled={disabled || isSending}
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Escribe un mensaje..."
-                    className="flex-1 bg-transparent resize-none outline-none text-[15px] py-2 placeholder:font-normal"
+                    className="flex-1 bg-transparent resize-none outline-none text-[15px] py-2 placeholder:font-normal disabled:opacity-70"
                     rows={1}
                     style={{
                         fontFamily: "var(--font-body)",
@@ -66,19 +79,21 @@ export const ChatInput = ({ onSend }: ChatInputProps) => {
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
-                            handleSend();
+                            void handleSend();
                         }
                     }}
                 />
 
                 <button
-                    onClick={handleSend}
-                    disabled={!text.trim()}
+                    onClick={() => void handleSend()}
+                    disabled={!canSend}
                     className="shrink-0 flex items-center justify-center size-10 rounded-xl transition-all active:scale-95"
                     style={{
-                        backgroundColor: text.trim() ? "var(--bubble-me-bg)" : "var(--bg-surface-secondary)",
-                        color: text.trim() ? "white" : "var(--text-muted)",
-                        cursor: text.trim() ? "pointer" : "not-allowed",
+                        backgroundColor: canSend
+                            ? "var(--bubble-me-bg)"
+                            : "var(--bg-surface-secondary)",
+                        color: canSend ? "white" : "var(--text-muted)",
+                        cursor: canSend ? "pointer" : "not-allowed",
                     }}
                     aria-label="Enviar mensaje"
                 >
@@ -93,8 +108,8 @@ export const ChatInput = ({ onSend }: ChatInputProps) => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                     >
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>
                 </button>
             </div>
@@ -103,7 +118,7 @@ export const ChatInput = ({ onSend }: ChatInputProps) => {
                 className="text-center text-[11px] mt-2"
                 style={{ color: "var(--text-muted)", fontFamily: "var(--font-body)" }}
             >
-                Enter para enviar · Shift+Enter para nueva línea
+                Enter para enviar - Shift+Enter para nueva linea
             </p>
         </div>
     );

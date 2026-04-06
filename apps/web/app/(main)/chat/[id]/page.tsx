@@ -1,112 +1,205 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
-import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatInput } from "../../../../components/chat/ChatInput";
-import type { Delegate, Message } from "../../../../types/common";
-
-const DELEGATES: Record<string, Delegate> = {
-    "1": {
-        id: "1",
-        name: "Sarah Chen",
-        avatar: "https://i.pravatar.cc/150?u=sarah",
-        role: "DELEGADO",
-        committee: "COMITÉ 1",
-        lastActive: "2 horas",
-    },
-    "2": {
-        id: "2",
-        name: "Rober Morán",
-        avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-        role: "DELEGADO",
-        committee: "COMITÉ 2",
-        lastActive: "5 minutos",
-    },
-    "3": {
-        id: "3",
-        name: "Elena Rojas",
-        avatar: "https://i.pravatar.cc/150?u=elena",
-        role: "DELEGADO",
-        committee: "COMITÉ 1",
-        lastActive: "1 día",
-    },
-    "4": {
-        id: "4",
-        name: "Miguel Torres",
-        avatar: "https://i.pravatar.cc/150?u=miguel",
-        role: "DELEGADO",
-        committee: "COMITÉ 3",
-        lastActive: "3 días",
-    },
-};
+import { ChatMessage } from "../../../../components/chat/ChatMessage";
+import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
+import {
+    getConversationMessages,
+    getConversations,
+    sendConversationMessage,
+} from "../../../../lib/api/chat";
+import { supabaseBrowser } from "../../../../lib/supabase";
+import { useAuthStore } from "../../../../stores/auth.store";
+import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
+import type { Delegate } from "../../../../types/common";
 
 const ChatRoomPage = () => {
     const params = useParams();
-    const chatId = typeof params?.id === "string" ? params.id : "1";
+    const conversationId = typeof params?.id === "string" ? params.id : "";
 
-    const MY_USER_ID = "u_me";
+    const token = useAuthStore((state) => state.token);
+    const eventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+
     const bottomRef = useRef<HTMLDivElement>(null);
+    const [messages, setMessages] = useState<DirectMessage[]>([]);
+    const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const delegate = DELEGATES[chatId] ?? {
-        id: chatId,
-        name: "Delegado",
-        avatar: `https://i.pravatar.cc/150?u=${chatId}`,
-        role: "DELEGADO",
-        committee: "COMITÉ",
-        lastActive: "desconocido",
+    const delegate: Delegate = useMemo(
+        () =>
+            conversation
+                ? {
+                      ...conversation.otherParticipant,
+                      lastActive: conversation.lastMessageAt
+                          ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                          : "Nuevo",
+                  }
+                : {
+                      id: conversationId,
+                      name: "Delegado",
+                      avatar: `https://ui-avatars.com/api/?name=Delegado&background=E5E7EB&color=111827`,
+                      role: "DELEGADO",
+                      committee: "Comite",
+                      lastActive: "desconocido",
+                  },
+        [conversation, conversationId],
+    );
+
+    const refreshMessages = async (markAsNew = false) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const data = await getConversationMessages(conversationId, { token, eventId });
+
+        setMessages((current) => {
+            const currentIds = new Set(current.map((message) => message.id));
+
+            if (markAsNew) {
+                const incomingIds = data
+                    .filter((message) => !currentIds.has(message.id))
+                    .map((message) => message.id);
+
+                if (incomingIds.length > 0) {
+                    setNewMessageIds((ids) => new Set([...ids, ...incomingIds]));
+                }
+            }
+
+            return data;
+        });
     };
 
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "m1",
-            text: "Hola delegado, quería hablar con usted acerca del último anuncio que recibimos, ¿tienes tiempo?",
-            senderId: MY_USER_ID,
-            timestamp: "6:35 PM",
-        },
-        {
-            id: "m2",
-            text: "Claro que sí, ¿en qué te puedo ayudar?",
-            senderId: chatId,
-            timestamp: "6:45 PM",
-        },
-    ]);
+    useEffect(() => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
 
-    const handleSendMessage = (text: string) => {
-        const newId = `m_${Date.now()}`;
-        const newMessage: Message = {
-            id: newId,
-            text,
-            senderId: MY_USER_ID,
-            timestamp: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-            }),
+        let cancelled = false;
+
+        const loadRoom = async () => {
+            try {
+                setIsLoading(true);
+                const [conversationList, messageList] = await Promise.all([
+                    getConversations({ token, eventId }),
+                    getConversationMessages(conversationId, { token, eventId }),
+                ]);
+
+                if (!cancelled) {
+                    setConversation(
+                        conversationList.find((item) => item.id === conversationId) ?? null,
+                    );
+                    setMessages(messageList);
+                    setError(null);
+                }
+            } catch (loadError) {
+                if (!cancelled) {
+                    setError(
+                        loadError instanceof Error
+                            ? loadError.message
+                            : "No se pudo cargar la conversacion.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
         };
-        setMessages((prev) => [...prev, newMessage]);
-        setNewMessageIds((prev) => new Set([...prev, newId]));
-    };
 
-    // Auto-scroll to bottom on new messages
+        void loadRoom();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [conversationId, eventId, token]);
+
+    useEffect(() => {
+        if (!conversationId || !supabaseBrowser || !token || !eventId) {
+            return;
+        }
+
+        const realtimeClient = supabaseBrowser;
+        const channel = realtimeClient.channel(`dm-messages:${conversationId}`);
+
+        channel
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "dm_messages",
+                    filter: `conversation_id=eq.${conversationId}`,
+                },
+                () => {
+                    void refreshMessages(true);
+                },
+            )
+            .subscribe();
+
+        return () => {
+            void realtimeClient.removeChannel(channel);
+        };
+    }, [conversationId, eventId, token]);
+
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Group messages by "date" (simulated)
-    const dateLabel = "HOY";
+    const handleSendMessage = async (text: string) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        try {
+            setError(null);
+            const sent = await sendConversationMessage(conversationId, text, {
+                token,
+                eventId,
+            });
+
+            setMessages((current) =>
+                current.some((message) => message.id === sent.id)
+                    ? current
+                    : [...current, sent],
+            );
+            setNewMessageIds((current) => new Set([...current, sent.id]));
+        } catch (sendError) {
+            setError(
+                sendError instanceof Error
+                    ? sendError.message
+                    : "No se pudo enviar el mensaje.",
+            );
+            throw sendError;
+        }
+    };
 
     return (
         <div
             className="flex flex-col h-full"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
-            <ChatRoomHeader delegate={delegate} isOnline={delegate.lastActive === "5 minutos"} />
+            <ChatRoomHeader delegate={delegate} isOnline={false} />
+
+            {error && (
+                <div
+                    className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm font-body"
+                    style={{
+                        backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
+                        border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
+                        color: "#991b1b",
+                    }}
+                >
+                    {error}
+                </div>
+            )}
 
             <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
                 <div className="max-w-3xl mx-auto">
-                    {/* Date separator */}
                     <div className="flex items-center gap-3 mb-6">
                         <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
                         <span
@@ -117,25 +210,35 @@ const ChatRoomPage = () => {
                                 border: "1px solid var(--border-color)",
                             }}
                         >
-                            {dateLabel}
+                            HOY
                         </span>
                         <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
                     </div>
 
-                    {messages.map((msg) => (
-                        <ChatMessage
-                            key={msg.id}
-                            message={msg}
-                            isMe={msg.senderId === MY_USER_ID}
-                            isNew={newMessageIds.has(msg.id)}
-                        />
-                    ))}
+                    {isLoading ? (
+                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                            Cargando mensajes...
+                        </p>
+                    ) : messages.length > 0 ? (
+                        messages.map((message) => (
+                            <ChatMessage
+                                key={message.id}
+                                message={message}
+                                isMe={message.senderId === activeMembershipId}
+                                isNew={newMessageIds.has(message.id)}
+                            />
+                        ))
+                    ) : (
+                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                            Todavia no hay mensajes. Escribe el primero.
+                        </p>
+                    )}
 
                     <div ref={bottomRef} />
                 </div>
             </div>
 
-            <ChatInput onSend={handleSendMessage} />
+            <ChatInput onSend={handleSendMessage} disabled={isLoading} />
         </div>
     );
 };
