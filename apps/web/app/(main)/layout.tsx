@@ -18,7 +18,7 @@ export default function MainLayout({
     const hydrated = useAuthStore((state) => state.hydrated);
     const token = useAuthStore((state) => state.token);
     const activeEventId = useAuthStore((state) => state.activeEventId);
-    const needsEventSelection = useAuthStore((state) => state.needsEventSelection);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
     const isChatRoom = useMemo(
         () => pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/),
@@ -39,12 +39,12 @@ export default function MainLayout({
             return;
         }
 
-        if (needsEventSelection() || !activeEventId) {
+        if (!activeEventId || !activeMembershipId) {
             router.replace("/select-event");
         }
-    }, [activeEventId, hydrated, needsEventSelection, router, token]);
+    }, [activeEventId, activeMembershipId, hydrated, router, token]);
 
-    if (!hydrated || !token || (needsEventSelection() || !activeEventId)) {
+    if (!hydrated || !token || !activeEventId || !activeMembershipId) {
         return (
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>

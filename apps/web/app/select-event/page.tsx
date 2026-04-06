@@ -8,26 +8,32 @@ const SelectEventPage = () => {
     const router = useRouter();
 
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
+    const hydrated = useAuthStore((state) => state.hydrated);
     const logout = useAuthStore((state) => state.logout);
     const token = useAuthStore((state) => state.token);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const memberships = useAuthStore((state) => state.memberships);
     const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
-    const needsEventSelection = useAuthStore((state) => state.needsEventSelection);
 
     useEffect(() => {
         hydrateAuth();
     }, [hydrateAuth]);
 
     useEffect(() => {
+        if (!hydrated) {
+            return;
+        }
+
         if (!token) {
             router.replace("/login");
             return;
         }
 
-        if (!needsEventSelection()) {
+        if (activeEventId && activeMembershipId) {
             router.replace("/feed");
         }
-    }, [needsEventSelection, router, token]);
+    }, [activeEventId, activeMembershipId, hydrated, router, token]);
 
     const handleChooseEvent = (membershipId: string) => {
         setActiveMembership(membershipId);

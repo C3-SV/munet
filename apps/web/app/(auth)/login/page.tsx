@@ -12,8 +12,10 @@ const Login = () => {
     const error = useAuthStore((state) => state.error);
     const clearError = useAuthStore((state) => state.clearError);
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
+    const hydrated = useAuthStore((state) => state.hydrated);
     const token = useAuthStore((state) => state.token);
-    const needsEventSelection = useAuthStore((state) => state.needsEventSelection);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
     const [participantCode, setParticipantCode] = useState("");
     const [password, setPassword] = useState("");
@@ -24,17 +26,21 @@ const Login = () => {
     }, [clearError, hydrateAuth]);
 
     useEffect(() => {
+        if (!hydrated) {
+            return;
+        }
+
         if (!token) {
             return;
         }
 
-        if (needsEventSelection()) {
-            router.replace("/select-event");
+        if (activeEventId && activeMembershipId) {
+            router.replace("/feed");
             return;
         }
 
-        router.replace("/feed");
-    }, [token, needsEventSelection, router]);
+        router.replace("/select-event");
+    }, [activeEventId, activeMembershipId, hydrated, router, token]);
 
     const handleLogin = async () => {
         try {
@@ -43,7 +49,9 @@ const Login = () => {
                 password,
             });
 
-            if (useAuthStore.getState().needsEventSelection()) {
+            const state = useAuthStore.getState();
+
+            if (!(state.activeEventId && state.activeMembershipId)) {
                 router.replace("/select-event");
                 return;
             }

@@ -29,7 +29,7 @@ export const isAdminRole = (role: string | null | undefined) => {
 
 const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   if (memberships.length === 0) {
-    return false;
+    return true;
   }
 
   if (memberships.some((membership) => isAdminRole(membership.role))) {
@@ -37,6 +37,18 @@ const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   }
 
   return memberships.length > 1;
+};
+
+const resolveAutoMembership = (memberships: MembershipSummary[]) => {
+  if (memberships.length !== 1) {
+    return null;
+  }
+
+  if (memberships.some((membership) => isAdminRole(membership.role))) {
+    return null;
+  }
+
+  return memberships[0];
 };
 
 type AuthState = {
@@ -100,6 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         activeEventId: fallbackMembership?.eventId ?? null,
         activeMembershipId: fallbackMembership?.id ?? null,
         loading: false,
+        hydrated: true,
         error: null,
       });
     } catch (err) {
@@ -146,16 +159,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;
     const user = userRaw ? JSON.parse(userRaw) : null;
     const memberships = membershipsRaw ? (JSON.parse(membershipsRaw) as MembershipSummary[]) : [];
+    const persistedMembership =
+      activeMembershipId && memberships.find((membership) => membership.id === activeMembershipId)
+        ? memberships.find((membership) => membership.id === activeMembershipId) ?? null
+        : null;
+    const autoMembership = resolveAutoMembership(memberships);
+    const effectiveMembership = persistedMembership ?? autoMembership;
 
     set({
       session,
       token,
       user,
       memberships,
-      activeEventId,
-      activeMembershipId,
+      activeEventId: effectiveMembership?.eventId ?? null,
+      activeMembershipId: effectiveMembership?.id ?? null,
       hydrated: true,
     });
+
+    if (effectiveMembership) {
+      localStorage.setItem(ACTIVE_EVENT_KEY, effectiveMembership.eventId);
+      localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, effectiveMembership.id);
+    } else {
+      localStorage.removeItem(ACTIVE_EVENT_KEY);
+      localStorage.removeItem(ACTIVE_MEMBERSHIP_KEY);
+    }
   },
 
   clearError: () => set({ error: null }),
@@ -171,7 +198,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
-    return userNeedsEventSelection(state.memberships);
+    return true;
   },
 
   setActiveMembership: (membershipId) => {
@@ -202,19 +229,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const currentMembership = get().activeMembershipId
       ? data.memberships.find((membership) => membership.id === get().activeMembershipId)
       : null;
+    const autoMembership = resolveAutoMembership(data.memberships);
+    const effectiveMembership = currentMembership ?? autoMembership ?? null;
 
     localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(data.memberships));
 
-    if (currentMembership) {
-      localStorage.setItem(ACTIVE_EVENT_KEY, currentMembership.eventId);
-      localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, currentMembership.id);
+    if (effectiveMembership) {
+      localStorage.setItem(ACTIVE_EVENT_KEY, effectiveMembership.eventId);
+      localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, effectiveMembership.id);
+    } else {
+      localStorage.removeItem(ACTIVE_EVENT_KEY);
+      localStorage.removeItem(ACTIVE_MEMBERSHIP_KEY);
     }
 
     set({
       user: data.user,
       memberships: data.memberships,
-      activeEventId: currentMembership?.eventId ?? get().activeEventId,
-      activeMembershipId: currentMembership?.id ?? get().activeMembershipId,
+      activeEventId: effectiveMembership?.eventId ?? null,
+      activeMembershipId: effectiveMembership?.id ?? null,
     });
   },
 }));
