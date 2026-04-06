@@ -101,3 +101,18 @@ export const sendConversationMessage = async (
 
     return payload.message;
 };
+
+export const deleteConversationMessage = async (
+    conversationId: string,
+    messageId: string,
+    context: ChatContext,
+): Promise<void> => {
+    await requestApi<{ success: boolean }>(
+        `/dm/conversations/${conversationId}/messages/${messageId}`,
+        {
+            method: "DELETE",
+            token: context.token,
+            eventId: context.eventId,
+        },
+    );
+};

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import {
   createDmMessage,
   createOrReuseDmConversation,
+  deleteDmMessage,
   listDmConversations,
   listDmMessages,
   searchDmParticipants,
@@ -134,6 +135,34 @@ export const sendMessage = async (req: Request, res: Response) => {
       membership,
       conversationId: String(req.params.conversationId),
       content: req.body?.content,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+export const deleteMessage = async (req: Request, res: Response) => {
+  try {
+    const eventId = readEventId(req);
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'x-event-id es requerido' });
+    }
+
+    const membership = resolveMembership(req, eventId);
+
+    if (!membership) {
+      return res.status(403).json({ error: 'No perteneces a este evento' });
+    }
+
+    const result = await deleteDmMessage({
+      eventId,
+      membership,
+      conversationId: String(req.params.conversationId),
+      messageId: String(req.params.messageId),
     });
 
     return res.status(result.status).json(result.body);

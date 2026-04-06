@@ -6,6 +6,7 @@ import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
 import {
+    deleteConversationMessage,
     getConversationMessages,
     getConversations,
     sendConversationMessage,
@@ -27,6 +28,7 @@ const ChatRoomPage = () => {
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+    const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -204,6 +206,51 @@ const ChatRoomPage = () => {
         }
     };
 
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const shouldDelete = window.confirm(
+            "Este mensaje dejara de verse en la conversacion, pero quedara registrado en auditoria. Deseas eliminarlo?",
+        );
+
+        if (!shouldDelete) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setDeletingMessageIds((current) => new Set([...current, messageId]));
+            await deleteConversationMessage(conversationId, messageId, {
+                token,
+                eventId,
+            });
+            setMessages((current) =>
+                current.filter((message) => message.id !== messageId),
+            );
+            await refreshMessages(false);
+            await refreshConversation();
+            setNewMessageIds((current) => {
+                const next = new Set(current);
+                next.delete(messageId);
+                return next;
+            });
+        } catch (deleteError) {
+            setError(
+                deleteError instanceof Error
+                    ? deleteError.message
+                    : "No se pudo eliminar el mensaje.",
+            );
+        } finally {
+            setDeletingMessageIds((current) => {
+                const next = new Set(current);
+                next.delete(messageId);
+                return next;
+            });
+        }
+    };
+
     return (
         <div
             className="flex flex-col h-full"
@@ -252,6 +299,12 @@ const ChatRoomPage = () => {
                                 message={message}
                                 isMe={message.senderId === activeMembershipId}
                                 isNew={newMessageIds.has(message.id)}
+                                onDelete={
+                                    message.senderId === activeMembershipId
+                                        ? handleDeleteMessage
+                                        : undefined
+                                }
+                                isDeleting={deletingMessageIds.has(message.id)}
                             />
                         ))
                     ) : (
