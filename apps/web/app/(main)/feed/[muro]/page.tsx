@@ -9,7 +9,9 @@ import type { Post } from "../../../../types/common";
 import {
     getFeedPosts,
     publishFeedPost,
+    type FeedResponse,
 } from "../../../../lib/api/feed";
+import { realtimeEnabled, supabaseBrowser } from "../../../../lib/supabase";
 
 const Feed = () => {
     const params = useParams();
@@ -34,21 +36,24 @@ const Feed = () => {
     const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
     const [sortOrder, setSortOrder] = useState<"recent" | "oldest">("recent");
     const [posts, setPosts] = useState<Post[]>([]);
+    const [activeWall, setActiveWall] = useState<FeedResponse["wall"] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
 
-        const loadPosts = async () => {
-            setIsLoading(true);
-            setError(null);
-
+        const loadPosts = async (showLoader = true) => {
+            if (showLoader) {
+                setIsLoading(true);
+            }
             try {
                 const response = await getFeedPosts(muroParam);
 
                 if (!cancelled) {
+                    setActiveWall(response.wall);
                     setPosts(response.posts);
+                    setError(null);
                 }
             } catch (loadError) {
                 if (!cancelled) {
@@ -59,18 +64,68 @@ const Feed = () => {
                     );
                 }
             } finally {
-                if (!cancelled) {
+                if (!cancelled && showLoader) {
                     setIsLoading(false);
                 }
             }
         };
 
+        setActiveWall(null);
         loadPosts();
 
         return () => {
             cancelled = true;
         };
     }, [muroParam]);
+
+    useEffect(() => {
+        if (!activeWall?.id || !supabaseBrowser) {
+            return;
+        }
+
+        const realtimeClient = supabaseBrowser;
+        let cancelled = false;
+        const channel = realtimeClient.channel(`feed-posts:${activeWall.id}`);
+
+        const refreshPosts = async () => {
+            try {
+                const response = await getFeedPosts(muroParam);
+
+                if (!cancelled) {
+                    setActiveWall(response.wall);
+                    setPosts(response.posts);
+                }
+            } catch (refreshError) {
+                if (!cancelled) {
+                    setError(
+                        refreshError instanceof Error
+                            ? refreshError.message
+                            : "No se pudieron sincronizar las publicaciones.",
+                    );
+                }
+            }
+        };
+
+        channel
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "posts",
+                    filter: `wall_id=eq.${activeWall.id}`,
+                },
+                () => {
+                    void refreshPosts();
+                },
+            )
+            .subscribe();
+
+        return () => {
+            cancelled = true;
+            void realtimeClient.removeChannel(channel);
+        };
+    }, [activeWall?.id, muroParam]);
 
     const comitesDisponibles = useMemo(() => {
         const uniqueTags = new Set<string>();
@@ -163,6 +218,24 @@ const Feed = () => {
                     >
                         {headerTitle}
                     </h1>
+                    {realtimeEnabled && (
+                        <span
+                            className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]"
+                            style={{
+                                backgroundColor:
+                                    "color-mix(in srgb, var(--text-accent) 12%, transparent)",
+                                color: "var(--text-accent)",
+                                border:
+                                    "1px solid color-mix(in srgb, var(--text-accent) 18%, transparent)",
+                            }}
+                        >
+                            <span
+                                className="block size-2 rounded-full"
+                                style={{ backgroundColor: "currentColor" }}
+                            />
+                            Realtime activo
+                        </span>
+                    )}
                 </header>
 
                 {currentMuro !== "Avisos" && (

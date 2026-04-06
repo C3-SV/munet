@@ -4,12 +4,15 @@ const API_URL =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
     "http://localhost:3002";
 
-type FeedResponse = {
+export type FeedWall = {
     wall: {
         id: string;
         eventId: string;
         name: string;
     };
+};
+
+export type FeedResponse = FeedWall & {
     posts: Post[];
 };
 
