@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { POST_SELECT, type PostRow, type WallRecord } from '../types/posts.types';
 import { findWallBySlug, isDemoPostsEnabled, mapPost } from '../utils/posts.utils';
 
@@ -7,7 +7,7 @@ import { findWallBySlug, isDemoPostsEnabled, mapPost } from '../utils/posts.util
  * Si se proporciona eventId, filtra únicamente los muros de ese evento.
  */
 export const loadWalls = async (eventId?: string) => {
-  let query = supabase
+  let query = supabaseAdmin
     .from('walls')
     .select(
       `
@@ -59,7 +59,7 @@ export const getPostsByWall = async (params: {
   }
 
   // 3. Traer posts visibles de ese muro
-  const { data: posts, error: postsError } = await supabase
+  const { data: posts, error: postsError } = await supabaseAdmin
     .from('posts')
     .select(POST_SELECT)
     .eq('wall_id', matchedWall.id)
@@ -123,7 +123,7 @@ export const createPostService = async (payload: {
   }
 
   // 3. Buscar membership del autor
-  const { data: membership, error: membershipError } = await supabase
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('event_memberships')
     .select('id, event_id')
     .eq('id', effectiveAuthorMembershipId)
@@ -154,7 +154,7 @@ export const createPostService = async (payload: {
   }
 
   // 6. Insertar el post
-  const { data: insertedPost, error: insertError } = await supabase
+  const { data: insertedPost, error: insertError } = await supabaseAdmin
     .from('posts')
     .insert({
       event_id: membership.event_id,
