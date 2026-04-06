@@ -7,11 +7,6 @@ interface PostCardProps {
 }
 
 export const PostCard = ({ post }: PostCardProps) => {
-    const displayTime =
-        post.createdAt.toLowerCase() === "justo ahora"
-            ? post.createdAt
-            : `hace ${post.createdAt}`;
-
     return (
         <Card className="mb-4 p-5 md:p-6">
             <div className="flex items-start justify-between mb-4 gap-4">
@@ -46,9 +41,10 @@ export const PostCard = ({ post }: PostCardProps) => {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                             >
-                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
                             </svg>
-                            <span className="lowercase">{displayTime}</span>
+                            <span className="lowercase">{post.createdAt}</span>
                         </div>
                     </div>
                 </div>
@@ -60,9 +56,11 @@ export const PostCard = ({ post }: PostCardProps) => {
                                 key={tag}
                                 className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest rounded-full font-heading"
                                 style={{
-                                    backgroundColor: "color-mix(in srgb, var(--text-accent) 10%, transparent)",
+                                    backgroundColor:
+                                        "color-mix(in srgb, var(--text-accent) 10%, transparent)",
                                     color: "var(--text-accent)",
-                                    border: "1px solid color-mix(in srgb, var(--text-accent) 20%, transparent)",
+                                    border:
+                                        "1px solid color-mix(in srgb, var(--text-accent) 20%, transparent)",
                                 }}
                             >
                                 {tag}

@@ -2,14 +2,16 @@ export interface User {
     id: string;
     name: string;
     avatar: string;
-    role: "ADMIN" | "DELEGADO" | "STAFF";
+    role: string;
 }
 
 export interface Post {
     id: string;
     user: User;
+    title?: string | null;
     content: string;
     createdAt: string;
+    updatedAt?: string;
     committeeId?: string;
     committeeTags?: string[];
     timestamp: number;

@@ -9,10 +9,10 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@repo/typescript-config": "*",
     "prettier": "^3.7.4",
     "turbo": "^2.8.13",
-    "typescript": "5.9.2",
-    "@repo/typescript-config": "*"
+    "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=18"
@@ -21,5 +21,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "express": "^5.2.1"
+  }
 }

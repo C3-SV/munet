@@ -1,18 +1,33 @@
 import React, { useState } from "react";
 
 interface PostEditorProps {
-    onPublish: (text: string) => void;
+    onPublish: (text: string) => Promise<void> | void;
+    disabled?: boolean;
 }
 
-export const PostEditor = ({ onPublish }: PostEditorProps) => {
+export const PostEditor = ({
+    onPublish,
+    disabled = false,
+}: PostEditorProps) => {
     const [postText, setPostText] = useState<string>("");
+    const [isPublishing, setIsPublishing] = useState(false);
 
-    const handlePublish = () => {
-        if (postText.trim()) {
-            onPublish(postText);
+    const handlePublish = async () => {
+        if (!postText.trim() || disabled || isPublishing) {
+            return;
+        }
+
+        setIsPublishing(true);
+
+        try {
+            await onPublish(postText);
             setPostText("");
+        } finally {
+            setIsPublishing(false);
         }
     };
+
+    const canPublish = Boolean(postText.trim()) && !disabled && !isPublishing;
 
     return (
         <div
@@ -28,11 +43,13 @@ export const PostEditor = ({ onPublish }: PostEditorProps) => {
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setPostText(e.target.value)
                 }
-                placeholder="¿Qué estás pensando?"
+                placeholder="Que estas pensando?"
                 maxLength={500}
+                disabled={disabled || isPublishing}
                 className="w-full min-h-28 p-5 text-[15px] font-body focus:outline-none resize-none bg-transparent"
                 style={{
                     color: "var(--text-primary)",
+                    opacity: disabled ? 0.6 : 1,
                 }}
             />
 
@@ -51,13 +68,15 @@ export const PostEditor = ({ onPublish }: PostEditorProps) => {
                 </span>
                 <button
                     onClick={handlePublish}
-                    disabled={!postText.trim()}
+                    disabled={!canPublish}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-body font-semibold transition-all text-sm active:scale-95"
                     style={{
-                        backgroundColor: postText.trim() ? "var(--bubble-me-bg)" : "var(--bg-surface-secondary)",
-                        color: postText.trim() ? "white" : "var(--text-muted)",
-                        border: `1px solid ${postText.trim() ? "transparent" : "var(--border-color)"}`,
-                        cursor: postText.trim() ? "pointer" : "not-allowed",
+                        backgroundColor: canPublish
+                            ? "var(--bubble-me-bg)"
+                            : "var(--bg-surface-secondary)",
+                        color: canPublish ? "white" : "var(--text-muted)",
+                        border: `1px solid ${canPublish ? "transparent" : "var(--border-color)"}`,
+                        cursor: canPublish ? "pointer" : "not-allowed",
                     }}
                 >
                     <svg
@@ -71,10 +90,10 @@ export const PostEditor = ({ onPublish }: PostEditorProps) => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                     >
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>
-                    Publicar
+                    {isPublishing ? "Publicando..." : "Publicar"}
                 </button>
             </div>
         </div>
