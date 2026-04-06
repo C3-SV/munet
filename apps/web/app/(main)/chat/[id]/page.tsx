@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
 import {
+    deleteConversationMessage,
     getConversationMessages,
     getConversations,
     sendConversationMessage,
@@ -27,6 +28,7 @@ const ChatRoomPage = () => {
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+    const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +52,18 @@ const ChatRoomPage = () => {
         [conversation, conversationId],
     );
 
-    const refreshMessages = async (markAsNew = false) => {
+    const refreshConversation = useCallback(async () => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const conversationList = await getConversations({ token, eventId });
+        setConversation(
+            conversationList.find((item) => item.id === conversationId) ?? null,
+        );
+    }, [conversationId, eventId, token]);
+
+    const refreshMessages = useCallback(async (markAsNew = false) => {
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -72,7 +85,7 @@ const ChatRoomPage = () => {
 
             return data;
         });
-    };
+    }, [conversationId, eventId, token]);
 
     useEffect(() => {
         if (!token || !eventId || !conversationId) {
@@ -124,7 +137,9 @@ const ChatRoomPage = () => {
         }
 
         const realtimeClient = supabaseBrowser;
-        const channel = realtimeClient.channel(`dm-messages:${conversationId}`);
+        realtimeClient.realtime.setAuth(token);
+
+        const channel = realtimeClient.channel(`dm-room:${conversationId}`);
 
         channel
             .on(
@@ -137,6 +152,19 @@ const ChatRoomPage = () => {
                 },
                 () => {
                     void refreshMessages(true);
+                    void refreshConversation();
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "dm_conversations",
+                    filter: `id=eq.${conversationId}`,
+                },
+                () => {
+                    void refreshConversation();
                 },
             )
             .subscribe();
@@ -144,7 +172,7 @@ const ChatRoomPage = () => {
         return () => {
             void realtimeClient.removeChannel(channel);
         };
-    }, [conversationId, eventId, token]);
+    }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -175,6 +203,51 @@ const ChatRoomPage = () => {
                     : "No se pudo enviar el mensaje.",
             );
             throw sendError;
+        }
+    };
+
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const shouldDelete = window.confirm(
+            "Este mensaje dejara de verse en la conversacion, pero quedara registrado en auditoria. Deseas eliminarlo?",
+        );
+
+        if (!shouldDelete) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setDeletingMessageIds((current) => new Set([...current, messageId]));
+            await deleteConversationMessage(conversationId, messageId, {
+                token,
+                eventId,
+            });
+            setMessages((current) =>
+                current.filter((message) => message.id !== messageId),
+            );
+            await refreshMessages(false);
+            await refreshConversation();
+            setNewMessageIds((current) => {
+                const next = new Set(current);
+                next.delete(messageId);
+                return next;
+            });
+        } catch (deleteError) {
+            setError(
+                deleteError instanceof Error
+                    ? deleteError.message
+                    : "No se pudo eliminar el mensaje.",
+            );
+        } finally {
+            setDeletingMessageIds((current) => {
+                const next = new Set(current);
+                next.delete(messageId);
+                return next;
+            });
         }
     };
 
@@ -226,6 +299,12 @@ const ChatRoomPage = () => {
                                 message={message}
                                 isMe={message.senderId === activeMembershipId}
                                 isNew={newMessageIds.has(message.id)}
+                                onDelete={
+                                    message.senderId === activeMembershipId
+                                        ? handleDeleteMessage
+                                        : undefined
+                                }
+                                isDeleting={deletingMessageIds.has(message.id)}
                             />
                         ))
                     ) : (

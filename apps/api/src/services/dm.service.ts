@@ -15,6 +15,37 @@ import {
 } from '../utils/dm.utils';
 import { normalize } from '../utils/posts.utils';
 
+const DELETED_DM_MESSAGE_STATUSES = [
+  process.env.DM_DELETED_MESSAGE_STATUS?.trim(),
+  'DELETED_BY_AUTHOR',
+  'ELIMINADO_AUTOR',
+  'DELETED',
+  'ELIMINADO',
+].filter((status): status is string => Boolean(status));
+
+const logDmMessageDeletionAudit = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  messageId: string;
+  outcome: 'SUCCESS' | 'FAILURE';
+  reason: string;
+}) => {
+  try {
+    await supabaseAdmin.from('audit_logs').insert({
+      event_id: params.eventId,
+      actor_membership_id: params.membership.id,
+      actor_role: params.membership.role,
+      action_type: 'DELETE_DM_MESSAGE',
+      entity_type: 'DM_MESSAGE',
+      entity_id: params.messageId,
+      outcome: params.outcome,
+      reason: params.reason,
+    });
+  } catch (error) {
+    console.error('Error logging DM message deletion audit:', error);
+  }
+};
+
 const findConversationForMembership = async (params: {
   conversationId: string;
   eventId: string;
@@ -363,5 +394,115 @@ export const createDmMessage = async (params: {
     body: {
       message: mapDmMessage(inserted as DmMessageRow),
     },
+  };
+};
+
+export const deleteDmMessage = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  conversationId: string;
+  messageId: string;
+}) => {
+  const access = await findConversationForMembership({
+    conversationId: params.conversationId,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
+  if (!access.allowed) {
+    return {
+      status: access.status,
+      body: { error: access.error },
+    };
+  }
+
+  const { data: message, error: messageError } = await supabaseAdmin
+    .from('dm_messages')
+    .select('id, event_id, conversation_id, author_membership_id, status')
+    .eq('id', params.messageId)
+    .eq('conversation_id', params.conversationId)
+    .eq('event_id', params.eventId)
+    .maybeSingle();
+
+  if (messageError) {
+    throw new Error(messageError.message);
+  }
+
+  if (!message) {
+    return {
+      status: 404,
+      body: { error: 'Mensaje no encontrado' },
+    };
+  }
+
+  if (message.author_membership_id !== params.membership.id) {
+    await logDmMessageDeletionAudit({
+      eventId: params.eventId,
+      membership: params.membership,
+      messageId: params.messageId,
+      outcome: 'FAILURE',
+      reason: 'Intento de eliminar un mensaje ajeno',
+    });
+
+    return {
+      status: 403,
+      body: { error: 'Solo puedes eliminar tus propios mensajes' },
+    };
+  }
+
+  if (message.status !== 'VISIBLE') {
+    return {
+      status: 200,
+      body: { success: true },
+    };
+  }
+
+  let updateErrorMessage: string | null = null;
+  let appliedStatus: string | null = null;
+
+  for (const status of DELETED_DM_MESSAGE_STATUSES) {
+    const { error: updateError } = await supabaseAdmin
+      .from('dm_messages')
+      .update({ status })
+      .eq('id', params.messageId);
+
+    if (!updateError) {
+      appliedStatus = status;
+      updateErrorMessage = null;
+      break;
+    }
+
+    updateErrorMessage = updateError.message;
+  }
+
+  if (!appliedStatus) {
+    await logDmMessageDeletionAudit({
+      eventId: params.eventId,
+      membership: params.membership,
+      messageId: params.messageId,
+      outcome: 'FAILURE',
+      reason: updateErrorMessage ?? 'No se encontro un estado de eliminacion valido',
+    });
+
+    return {
+      status: 400,
+      body: {
+        error:
+          'No se pudo eliminar el mensaje. Configura DM_DELETED_MESSAGE_STATUS con un valor real de dm_message_status_enum.',
+      },
+    };
+  }
+
+  await logDmMessageDeletionAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    messageId: params.messageId,
+    outcome: 'SUCCESS',
+    reason: `Mensaje eliminado por su autor con status ${appliedStatus}`,
+  });
+
+  return {
+    status: 200,
+    body: { success: true },
   };
 };

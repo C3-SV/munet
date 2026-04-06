@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatHeader } from "../../../components/chat/ChatHeader";
 import { ChatItem } from "../../../components/chat/ChatItem";
@@ -10,6 +10,7 @@ import {
     getConversations,
     searchParticipants,
 } from "../../../lib/api/chat";
+import { realtimeEnabled, supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
 
@@ -25,34 +26,37 @@ const Chats = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
+    const refreshConversations = useCallback(async (showLoader = false) => {
         if (!token || !eventId) {
             return;
         }
 
+        if (showLoader) {
+            setIsLoading(true);
+        }
+
+        try {
+            const data = await getConversations({ token, eventId });
+            setConversations(data);
+            setError(null);
+        } catch (loadError) {
+            setError(
+                loadError instanceof Error
+                    ? loadError.message
+                    : "No se pudieron cargar los mensajes.",
+            );
+        } finally {
+            if (showLoader) {
+                setIsLoading(false);
+            }
+        }
+    }, [eventId, token]);
+
+    useEffect(() => {
         let cancelled = false;
-
         const loadConversations = async () => {
-            try {
-                setIsLoading(true);
-                const data = await getConversations({ token, eventId });
-
-                if (!cancelled) {
-                    setConversations(data);
-                    setError(null);
-                }
-            } catch (loadError) {
-                if (!cancelled) {
-                    setError(
-                        loadError instanceof Error
-                            ? loadError.message
-                            : "No se pudieron cargar los mensajes.",
-                    );
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
+            if (!cancelled) {
+                await refreshConversations(true);
             }
         };
 
@@ -61,7 +65,48 @@ const Chats = () => {
         return () => {
             cancelled = true;
         };
-    }, [eventId, token]);
+    }, [refreshConversations]);
+
+    useEffect(() => {
+        if (!eventId || !supabaseBrowser || !token) {
+            return;
+        }
+
+        const realtimeClient = supabaseBrowser;
+        realtimeClient.realtime.setAuth(token);
+
+        const channel = realtimeClient.channel(`dm-inbox:${eventId}`);
+        const refreshInbox = () => {
+            void refreshConversations(false);
+        };
+
+        channel
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "dm_conversations",
+                    filter: `event_id=eq.${eventId}`,
+                },
+                refreshInbox,
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "dm_messages",
+                    filter: `event_id=eq.${eventId}`,
+                },
+                refreshInbox,
+            )
+            .subscribe();
+
+        return () => {
+            void realtimeClient.removeChannel(channel);
+        };
+    }, [eventId, refreshConversations, token]);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -159,6 +204,7 @@ const Chats = () => {
                             {isSearchMode
                                 ? `${participants.length} resultado${participants.length !== 1 ? "s" : ""}`
                                 : `${visibleConversations.length} conversacion${visibleConversations.length !== 1 ? "es" : ""}`}
+                            {realtimeEnabled && !isSearchMode ? " - Realtime activo" : ""}
                         </p>
                     </div>
 

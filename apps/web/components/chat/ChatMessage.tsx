@@ -5,9 +5,17 @@ interface ChatMessageProps {
     message: Message;
     isMe: boolean;
     isNew?: boolean;
+    onDelete?: (messageId: string) => void;
+    isDeleting?: boolean;
 }
 
-export const ChatMessage = ({ message, isMe, isNew }: ChatMessageProps) => {
+export const ChatMessage = ({
+    message,
+    isMe,
+    isNew,
+    onDelete,
+    isDeleting = false,
+}: ChatMessageProps) => {
     return (
         <div
             className={`flex w-full mb-3 ${isMe ? "justify-end" : "justify-start"} ${isNew ? "animate-message-in" : ""}`}
@@ -32,12 +40,23 @@ export const ChatMessage = ({ message, isMe, isNew }: ChatMessageProps) => {
                     {message.text}
                 </div>
                 <span
-                    className="text-[11px] mt-1.5 font-medium px-1"
+                    className="text-[11px] mt-1.5 font-medium px-1 flex items-center gap-2"
                     style={{
                         color: isMe ? "var(--text-muted)" : "var(--bubble-other-time)",
                     }}
                 >
-                    {message.timestamp}
+                    <span>{message.timestamp}</span>
+                    {isMe && onDelete && (
+                        <button
+                            type="button"
+                            disabled={isDeleting}
+                            onClick={() => onDelete(message.id)}
+                            className="font-semibold underline-offset-2 hover:underline disabled:opacity-60"
+                            style={{ color: "#ef4444" }}
+                        >
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                        </button>
+                    )}
                 </span>
             </div>
         </div>
