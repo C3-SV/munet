@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPostComment, getPostComments } from "../../lib/api/comments";
+import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import type { PostComment } from "../../types/common";
 
 type PostCommentsProps = {
@@ -44,33 +45,79 @@ export const PostComments = ({
     const [replyTo, setReplyTo] = useState<PostComment | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    const loadComments = async (options?: { showLoader?: boolean }) => {
+        const showLoader = options?.showLoader ?? true;
+
+        if (showLoader) {
+            setLoading(true);
+        }
+
+        try {
+            const data = await getPostComments(postId, { token, eventId });
+            setComments(data);
+            setError(null);
+        } catch (loadError) {
+            setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar comentarios");
+        } finally {
+            if (showLoader) {
+                setLoading(false);
+            }
+        }
+    };
+
     useEffect(() => {
         let cancelled = false;
 
-        const loadComments = async () => {
-            setLoading(true);
-            try {
-                const data = await getPostComments(postId, { token, eventId });
-
-                if (!cancelled) {
-                    setComments(data);
-                    setError(null);
-                }
-            } catch (loadError) {
-                if (!cancelled) {
-                    setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar comentarios");
-                }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
+        const bootstrap = async () => {
+            if (cancelled) {
+                return;
             }
+
+            await loadComments({ showLoader: true });
         };
 
-        void loadComments();
+        void bootstrap();
 
         return () => {
             cancelled = true;
+        };
+    }, [eventId, postId, token]);
+
+    useEffect(() => {
+        if (!realtimeEnabled || !supabaseBrowser) {
+            return;
+        }
+
+        const realtimeClient = supabaseBrowser;
+        let cancelled = false;
+        const channel = realtimeClient.channel(`post-comments:${postId}`);
+
+        const refreshComments = async () => {
+            if (cancelled) {
+                return;
+            }
+
+            await loadComments({ showLoader: false });
+        };
+
+        channel
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "post_comments",
+                    filter: `post_id=eq.${postId}`,
+                },
+                () => {
+                    void refreshComments();
+                },
+            )
+            .subscribe();
+
+        return () => {
+            cancelled = true;
+            void realtimeClient.removeChannel(channel);
         };
     }, [eventId, postId, token]);
 
@@ -112,6 +159,11 @@ export const PostComments = ({
             >
                 Comentarios
             </p>
+            {realtimeEnabled && (
+                <p className="mb-3 text-[10px] font-heading font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                    Realtime activo
+                </p>
+            )}
 
             {loading ? (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>

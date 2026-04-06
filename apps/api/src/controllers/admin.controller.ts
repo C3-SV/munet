@@ -325,7 +325,7 @@ export const createCommittee = async (
       });
     }
 
-    // 3. validar unicidad del code dentro del evento
+      // 3. validar unicidad del code dentro del evento
     const { data: existingCode } = await supabaseAdmin
       .from('committees')
       .select('id')
