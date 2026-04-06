@@ -44,3 +44,20 @@ export const createPostComment = async (
 
     return payload.comment;
 };
+
+export const deletePostComment = async (
+    postId: string,
+    commentId: string,
+    context: CommentContext,
+): Promise<PostComment> => {
+    const payload = await requestApi<{ comment: PostComment }>(
+        `/posts/${postId}/comments/${commentId}`,
+        {
+            method: "DELETE",
+            token: context.token,
+            eventId: context.eventId,
+        },
+    );
+
+    return payload.comment;
+};

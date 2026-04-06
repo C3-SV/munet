@@ -69,7 +69,7 @@ const CommitteeItem = ({
                     opacity: wall.canAccess ? 1 : 0.55,
                 }}
             >
-                <span className="flex-1 truncate">{wall.name}</span>
+                <span className="flex-1 truncate">{wall.committeeName ?? wall.name}</span>
                 {!wall.canAccess && (
                     <img
                         src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/lock.svg"

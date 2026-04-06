@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
-import { firstItem, getProfileName } from '../utils/posts.utils';
+import { firstItem, getCommitteeLabel, getProfileName } from '../utils/posts.utils';
+import { isAdminRole } from '../utils/rbac.utils';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
 type CommentRow = {
@@ -8,12 +9,26 @@ type CommentRow = {
   post_id: string;
   parent_comment_id: string | null;
   content: string;
+  status: string;
+  deleted_by_actor_type: 'AUTHOR' | 'ADMIN' | null;
+  author_membership_id: string;
   created_at: string;
   updated_at: string;
   event_memberships:
     | {
         id: string;
         role: string;
+        committee_id: string | null;
+        committees:
+          | {
+              name: string | null;
+              code: string | null;
+            }
+          | {
+              name: string | null;
+              code: string | null;
+            }[]
+          | null;
         profiles:
           | {
               first_name: string;
@@ -32,6 +47,17 @@ type CommentRow = {
     | {
         id: string;
         role: string;
+        committee_id: string | null;
+        committees:
+          | {
+              name: string | null;
+              code: string | null;
+            }
+          | {
+              name: string | null;
+              code: string | null;
+            }[]
+          | null;
         profiles:
           | {
               first_name: string;
@@ -55,11 +81,19 @@ const COMMENT_SELECT = `
   post_id,
   parent_comment_id,
   content,
+  status,
+  deleted_by_actor_type,
+  author_membership_id,
   created_at,
   updated_at,
   event_memberships!post_comments_author_membership_id_fkey (
     id,
     role,
+    committee_id,
+    committees (
+      name,
+      code
+    ),
     profiles (
       first_name,
       last_name,
@@ -69,25 +103,39 @@ const COMMENT_SELECT = `
   )
 `;
 
-const mapComment = (row: CommentRow) => {
-  const membership = firstItem(row.event_memberships);
-  const profile = firstItem(membership?.profiles);
+const buildDeletedMessage = (deletedByActorType: 'AUTHOR' | 'ADMIN' | null) => {
+  if (deletedByActorType === 'ADMIN') {
+    return 'Este comentario fue eliminado por un administrador.';
+  }
+
+  return 'Este comentario fue eliminado por el autor.';
+};
+
+const mapComment = (row: CommentRow, membership: AuthMembership) => {
+  const commentAuthorMembership = firstItem(row.event_memberships);
+  const profile = firstItem(commentAuthorMembership?.profiles);
+  const authorCommittee = getCommitteeLabel(firstItem(commentAuthorMembership?.committees));
+  const isDeleted = row.status === 'DELETED';
 
   return {
     id: row.id,
     postId: row.post_id,
     parentCommentId: row.parent_comment_id,
-    content: row.content,
+    content: isDeleted ? buildDeletedMessage(row.deleted_by_actor_type) : row.content,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     timestamp: new Date(row.created_at).getTime(),
+    isDeleted,
+    deletedByActorType: row.deleted_by_actor_type,
+    canDelete: isAdminRole(membership.role) || row.author_membership_id === membership.id,
     user: {
-      id: membership?.id ?? 'unknown',
+      id: commentAuthorMembership?.id ?? 'unknown',
       name: getProfileName(profile),
+      committeeName: authorCommittee,
       avatar:
         profile?.profile_image_path ??
         'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
-      role: membership?.role ?? 'DELEGADO',
+      role: commentAuthorMembership?.role ?? 'DELEGADO',
     },
   };
 };
@@ -99,7 +147,7 @@ const ensurePostAccess = async (params: {
 }) => {
   const { data: post, error } = await supabaseAdmin
     .from('posts')
-    .select('id, event_id, wall_id')
+    .select('id, event_id, wall_id, status')
     .eq('id', params.postId)
     .maybeSingle();
 
@@ -138,6 +186,7 @@ const ensurePostAccess = async (params: {
 
   return {
     allowed: true as const,
+    postStatus: post.status,
   };
 };
 
@@ -159,17 +208,20 @@ export const listCommentsByPost = async (params: {
     .from('post_comments')
     .select(COMMENT_SELECT)
     .eq('post_id', params.postId)
-    .eq('status', 'VISIBLE')
     .order('created_at', { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
+  const comments = ((data ?? []) as CommentRow[])
+    .filter((comment) => comment.status === 'VISIBLE' || comment.status === 'DELETED')
+    .map((comment) => mapComment(comment, params.membership));
+
   return {
     status: 200,
     body: {
-      comments: ((data ?? []) as CommentRow[]).map(mapComment),
+      comments,
     },
   };
 };
@@ -187,6 +239,13 @@ export const createPostComment = async (params: {
     return {
       status: access.status,
       body: { error: access.error },
+    };
+  }
+
+  if (access.postStatus === 'DELETED') {
+    return {
+      status: 400,
+      body: { error: 'No puedes comentar en una publicacion eliminada' },
     };
   }
 
@@ -250,7 +309,77 @@ export const createPostComment = async (params: {
   return {
     status: 201,
     body: {
-      comment: mapComment(inserted as CommentRow),
+      comment: mapComment(inserted as CommentRow, params.membership),
+    },
+  };
+};
+
+export const deletePostComment = async (params: {
+  postId: string;
+  commentId: string;
+  eventId: string;
+  membership: AuthMembership;
+}) => {
+  const access = await ensurePostAccess(params);
+
+  if (!access.allowed) {
+    return {
+      status: access.status,
+      body: { error: access.error },
+    };
+  }
+
+  const { data: comment, error: commentError } = await supabaseAdmin
+    .from('post_comments')
+    .select('id, post_id, author_membership_id')
+    .eq('id', params.commentId)
+    .maybeSingle();
+
+  if (commentError) {
+    throw new Error(commentError.message);
+  }
+
+  if (!comment || comment.post_id !== params.postId) {
+    return {
+      status: 404,
+      body: { error: 'Comentario no encontrado en este post' },
+    };
+  }
+
+  const isAdmin = isAdminRole(params.membership.role);
+  const isAuthor = comment.author_membership_id === params.membership.id;
+
+  if (!isAdmin && !isAuthor) {
+    return {
+      status: 403,
+      body: { error: 'No tienes permisos para eliminar este comentario' },
+    };
+  }
+
+  const deletedByActorType = isAuthor ? 'AUTHOR' : 'ADMIN';
+
+  const { data: updatedComment, error: updateError } = await supabaseAdmin
+    .from('post_comments')
+    .update({
+      status: 'DELETED',
+      deleted_by_actor_type: deletedByActorType,
+      deleted_at: new Date().toISOString(),
+    })
+    .eq('id', params.commentId)
+    .select(COMMENT_SELECT)
+    .single();
+
+  if (updateError || !updatedComment) {
+    return {
+      status: 400,
+      body: { error: updateError?.message ?? 'No se pudo eliminar el comentario' },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      comment: mapComment(updatedComment as CommentRow, params.membership),
     },
   };
 };

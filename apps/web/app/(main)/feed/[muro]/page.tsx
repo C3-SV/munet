@@ -126,13 +126,16 @@ const Feed = () => {
     }, [activeWall?.id, eventId, isForbidden, muroParam, token]);
 
     const comitesDisponibles = useMemo(() => {
-        const uniqueTags = new Set<string>();
+        const committees = new Set<string>();
 
         posts.forEach((post) => {
-            post.committeeTags?.forEach((tag) => uniqueTags.add(tag));
+            const committeeName = post.user.committeeName?.trim();
+            if (committeeName) {
+                committees.add(committeeName);
+            }
         });
 
-        return [...uniqueTags].sort((a, b) => a.localeCompare(b));
+        return [...committees].sort((a, b) => a.localeCompare(b));
     }, [posts]);
 
     const formatRelativeTime = (timestamp: number) => {
@@ -187,11 +190,28 @@ const Feed = () => {
 
         const matchesCommittee =
             selectedCommittees.length === 0 ||
-            (post.committeeTags &&
-                post.committeeTags.some((tag) => selectedCommittees.includes(tag)));
+            (post.user.committeeName &&
+                selectedCommittees.includes(post.user.committeeName));
 
         return matchesSearch && matchesCommittee;
     });
+
+    const handlePostUpdated = (updatedPost: Post) => {
+        setPosts((currentPosts) =>
+            currentPosts.map((post) =>
+                post.id === updatedPost.id
+                    ? {
+                          ...post,
+                          ...updatedPost,
+                          user: {
+                              ...post.user,
+                              ...updatedPost.user,
+                          },
+                      }
+                    : post,
+            ),
+        );
+    };
 
     const sortedAndFilteredPosts = [...filteredPosts].sort((a, b) => {
         if (sortOrder === "recent") {
@@ -326,6 +346,7 @@ const Feed = () => {
                                         token={token}
                                         eventId={eventId}
                                         canComment={Boolean(activeWall?.canAccess)}
+                                        onPostUpdated={handlePostUpdated}
                                     />
                                 ))
                             ) : (

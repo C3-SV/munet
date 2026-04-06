@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPostComment, getPostComments } from "../../lib/api/comments";
+import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import type { PostComment } from "../../types/common";
 
@@ -44,6 +44,7 @@ export const PostComments = ({
     const [inputValue, setInputValue] = useState("");
     const [replyTo, setReplyTo] = useState<PostComment | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
     const loadComments = async (options?: { showLoader?: boolean }) => {
         const showLoader = options?.showLoader ?? true;
@@ -151,6 +152,38 @@ export const PostComments = ({
         }
     };
 
+    const handleDeleteComment = async (comment: PostComment) => {
+        if (!comment.canDelete || comment.isDeleted || deletingCommentId) {
+            return;
+        }
+
+        try {
+            setDeletingCommentId(comment.id);
+            setError(null);
+
+            const deletedComment = await deletePostComment(postId, comment.id, {
+                token,
+                eventId,
+            });
+
+            setComments((current) =>
+                current.map((item) =>
+                    item.id === comment.id
+                        ? deletedComment
+                        : item,
+                ),
+            );
+
+            if (replyTo?.id === comment.id) {
+                setReplyTo(null);
+            }
+        } catch (deleteError) {
+            setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el comentario");
+        } finally {
+            setDeletingCommentId(null);
+        }
+    };
+
     return (
         <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border-color)" }}>
             <p
@@ -171,57 +204,96 @@ export const PostComments = ({
                 </p>
             ) : comments.length > 0 ? (
                 <div className="space-y-3">
-                    {comments.map((comment) => (
-                        <div
-                            key={comment.id}
-                            className="rounded-xl p-3"
-                            style={{
-                                backgroundColor: "var(--bg-surface-secondary)",
-                                border: "1px solid var(--border-color)",
-                            }}
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <img
-                                        src={comment.user.avatar}
-                                        alt={comment.user.name}
-                                        className="size-7 rounded-full object-cover"
-                                        style={{ border: "1px solid var(--border-color)" }}
-                                    />
-                                    <div className="min-w-0">
-                                        <p
-                                            className="text-sm font-semibold font-heading truncate"
-                                            style={{ color: "var(--text-primary)" }}
-                                        >
-                                            {comment.user.name}
-                                        </p>
-                                        <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                            {formatRelativeTime(comment.timestamp)}
-                                        </p>
+                    {comments.map((comment) => {
+                        const authorLabel = `${comment.user.name} | ${comment.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
+
+                        return (
+                            <div
+                                key={comment.id}
+                                className="rounded-xl p-3"
+                                style={{
+                                    backgroundColor: "var(--bg-surface-secondary)",
+                                    border: "1px solid var(--border-color)",
+                                }}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <img
+                                            src={comment.user.avatar}
+                                            alt={comment.user.name}
+                                            className="size-7 rounded-full object-cover"
+                                            style={{ border: "1px solid var(--border-color)" }}
+                                        />
+                                        <div className="min-w-0">
+                                            <p
+                                                className="text-sm font-semibold font-heading truncate"
+                                                style={{ color: "var(--text-primary)" }}
+                                            >
+                                                {authorLabel}
+                                            </p>
+                                            <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                                {formatRelativeTime(comment.timestamp)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        {!comment.isDeleted && !disabled && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setReplyTo(comment)}
+                                                className="text-xs font-semibold font-heading"
+                                                style={{ color: "var(--text-accent)" }}
+                                            >
+                                                Responder
+                                            </button>
+                                        )}
+                                        {comment.canDelete && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleDeleteComment(comment)}
+                                                disabled={comment.isDeleted || deletingCommentId === comment.id}
+                                                className="text-xs font-semibold font-heading"
+                                                style={{
+                                                    color: comment.isDeleted ? "var(--text-muted)" : "#b91c1c",
+                                                    cursor:
+                                                        comment.isDeleted || deletingCommentId === comment.id
+                                                            ? "not-allowed"
+                                                            : "pointer",
+                                                    opacity:
+                                                        comment.isDeleted || deletingCommentId === comment.id
+                                                            ? 0.6
+                                                            : 1,
+                                                }}
+                                            >
+                                                {comment.isDeleted
+                                                    ? "Eliminado"
+                                                    : deletingCommentId === comment.id
+                                                      ? "Eliminando..."
+                                                      : "Eliminar"}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setReplyTo(comment)}
-                                    className="text-xs font-semibold font-heading"
-                                    style={{ color: "var(--text-accent)" }}
+                                {comment.parentCommentId && (
+                                    <p className="mt-2 text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                        Respuesta a {byId.get(comment.parentCommentId)?.user.name ?? "comentario"}
+                                    </p>
+                                )}
+
+                                <p
+                                    className="mt-2 text-sm font-body"
+                                    style={{
+                                        color: comment.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
+                                        fontStyle: comment.isDeleted ? "italic" : "normal",
+                                    }}
                                 >
-                                    Responder
-                                </button>
-                            </div>
-
-                            {comment.parentCommentId && (
-                                <p className="mt-2 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                    Respuesta a {byId.get(comment.parentCommentId)?.user.name ?? "comentario"}
+                                    {comment.content}
                                 </p>
-                            )}
-
-                            <p className="mt-2 text-sm font-body" style={{ color: "var(--text-primary)" }}>
-                                {comment.content}
-                            </p>
-                        </div>
-                    ))}
+                            </div>
+                        );
+                    })}
                 </div>
             ) : (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>

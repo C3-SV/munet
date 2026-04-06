@@ -47,26 +47,40 @@ export const getProfileName = (
   return profile.display_name ?? (`${profile.first_name} ${profile.last_name}`.trim() || 'Participante');
 };
 
+const buildDeletedMessage = (deletedByActorType: 'AUTHOR' | 'ADMIN' | null) => {
+  if (deletedByActorType === 'ADMIN') {
+    return 'Esta publicacion fue eliminada por un administrador.';
+  }
+
+  return 'Esta publicacion fue eliminada por el autor.';
+};
+
 export const mapPost = (post: PostRow) => {
   const membership = firstItem(post.event_memberships);
   const profile = firstItem(membership?.profiles);
+  const authorCommittee = getCommitteeLabel(firstItem(membership?.committees));
 
   const committeeTags =
     post.post_committee_tags
       ?.map((tag) => getCommitteeLabel(firstItem(tag.committees)))
       .filter((tag): tag is string => Boolean(tag)) ?? [];
 
+  const isDeleted = post.status === 'DELETED';
+
   return {
     id: post.id,
-    content: post.content,
+    content: isDeleted ? buildDeletedMessage(post.deleted_by_actor_type) : post.content,
     title: post.title,
     createdAt: post.created_at,
     updatedAt: post.updated_at,
     timestamp: new Date(post.created_at).getTime(),
     committeeTags,
+    isDeleted,
+    deletedByActorType: post.deleted_by_actor_type,
     user: {
       id: membership?.id ?? 'unknown',
       name: getProfileName(profile),
+      committeeName: authorCommittee,
       avatar:
         profile?.profile_image_path ??
         'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',

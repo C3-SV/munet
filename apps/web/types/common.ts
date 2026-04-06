@@ -1,6 +1,7 @@
 export interface User {
     id: string;
     name: string;
+    committeeName?: string | null;
     avatar: string;
     role: string;
 }
@@ -14,6 +15,9 @@ export interface Post {
     updatedAt?: string;
     committeeId?: string;
     committeeTags?: string[];
+    isDeleted?: boolean;
+    deletedByActorType?: "AUTHOR" | "ADMIN" | null;
+    canDelete?: boolean;
     timestamp: number;
 }
 
@@ -25,6 +29,9 @@ export interface PostComment {
     content: string;
     createdAt: string;
     updatedAt?: string;
+    isDeleted?: boolean;
+    deletedByActorType?: "AUTHOR" | "ADMIN" | null;
+    canDelete?: boolean;
     timestamp: number;
 }
 

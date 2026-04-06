@@ -1,7 +1,3 @@
-/**
- * Representa un muro tal como viene desde Supabase.
- * Puede ser un muro general, de avisos o asociado a un comité.
- */
 export type WallRecord = {
   id: string;
   event_id: string;
@@ -20,14 +16,13 @@ export type WallRecord = {
     | null;
 };
 
-/**
- * Representa un post crudo traído desde Supabase.
- * Incluye relaciones anidadas con membership, profile y tags de comité.
- */
 export type PostRow = {
   id: string;
+  author_membership_id: string;
   content: string;
   title: string | null;
+  status: string;
+  deleted_by_actor_type: 'AUTHOR' | 'ADMIN' | null;
   created_at: string;
   updated_at: string;
   event_memberships:
@@ -36,6 +31,17 @@ export type PostRow = {
         role: string;
         delegation_name: string | null;
         institution_name: string | null;
+        committee_id: string | null;
+        committees:
+          | {
+              name: string | null;
+              code: string | null;
+            }
+          | {
+              name: string | null;
+              code: string | null;
+            }[]
+          | null;
         profiles:
           | {
               first_name: string;
@@ -50,6 +56,17 @@ export type PostRow = {
         role: string;
         delegation_name: string | null;
         institution_name: string | null;
+        committee_id: string | null;
+        committees:
+          | {
+              name: string | null;
+              code: string | null;
+            }
+          | {
+              name: string | null;
+              code: string | null;
+            }[]
+          | null;
         profiles:
           | {
               first_name: string;
@@ -77,14 +94,13 @@ export type PostRow = {
     | null;
 };
 
-/**
- * Campos que se seleccionan al consultar posts.
- * Se deja en una constante para reutilizarla en listados y creación.
- */
 export const POST_SELECT = `
   id,
+  author_membership_id,
   content,
   title,
+  status,
+  deleted_by_actor_type,
   created_at,
   updated_at,
   event_memberships!posts_author_membership_id_fkey (
@@ -92,6 +108,11 @@ export const POST_SELECT = `
     role,
     delegation_name,
     institution_name,
+    committee_id,
+    committees (
+      name,
+      code
+    ),
     profiles (
       first_name,
       last_name,

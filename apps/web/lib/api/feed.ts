@@ -57,3 +57,16 @@ export const publishFeedPost = async ({
 
     return payload.post;
 };
+
+export const deleteFeedPost = async (
+    postId: string,
+    context: FeedRequestContext,
+): Promise<Post> => {
+    const payload = await requestApi<{ post: Post }>(`/posts/${postId}`, {
+        method: "DELETE",
+        token: context.token,
+        eventId: context.eventId,
+    });
+
+    return payload.post;
+};
