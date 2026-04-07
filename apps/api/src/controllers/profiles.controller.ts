@@ -69,6 +69,38 @@ const getActiveMembership = (req: Request) => {
   return req.auth?.memberships.find((membership) => membership.eventId === eventId) ?? null;
 };
 
+const PROFILE_IMAGES_BUCKET =
+  process.env.SUPABASE_PROFILE_IMAGES_BUCKET?.trim() || 'profile-images';
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const extractStorageObjectPath = (publicUrl: string | null | undefined, bucket: string) => {
+  if (!publicUrl) {
+    return null;
+  }
+
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const markerIndex = publicUrl.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  return publicUrl.slice(markerIndex + marker.length);
+};
+
+const extensionFromMimeType = (mimeType: string) => {
+  if (mimeType === 'image/png') {
+    return 'png';
+  }
+
+  if (mimeType === 'image/webp') {
+    return 'webp';
+  }
+
+  return 'jpg';
+};
+
 const loadMembershipProfile = async (membershipId: string, eventId: string) => {
   const { data, error } = await supabaseAdmin
     .from('event_memberships')
@@ -220,6 +252,109 @@ export const updateMyProfile = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'No se pudo actualizar tu perfil' });
+  }
+};
+
+export const uploadMyAvatar = async (req: Request, res: Response) => {
+  try {
+    const activeMembership = getActiveMembership(req);
+
+    if (!activeMembership) {
+      return res.status(400).json({ error: 'x-event-id es requerido' });
+    }
+
+    const { file_name, mime_type, base64_data } = req.body as {
+      file_name?: string;
+      mime_type?: string;
+      base64_data?: string;
+    };
+
+    const mimeType = mime_type?.trim().toLowerCase();
+
+    if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
+      return res.status(400).json({ error: 'Formato de imagen no permitido' });
+    }
+
+    if (!base64_data?.trim()) {
+      return res.status(400).json({ error: 'No se recibio el archivo a subir' });
+    }
+
+    const decoded = Buffer.from(base64_data, 'base64');
+
+    if (!decoded.length || decoded.length > MAX_AVATAR_BYTES) {
+      return res
+        .status(400)
+        .json({ error: 'La imagen debe tener un tamano maximo de 5MB' });
+    }
+
+    const existing = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const profile = firstItem(existing.profiles);
+
+    if (!profile?.id) {
+      return res.status(404).json({ error: 'No hay registro de perfil para editar' });
+    }
+
+    const extension = extensionFromMimeType(mimeType);
+    const safeNameToken =
+      (file_name ?? 'avatar')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 32) || 'avatar';
+    const objectPath = `${activeMembership.eventId}/${activeMembership.id}/${Date.now()}-${safeNameToken}.${extension}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(PROFILE_IMAGES_BUCKET)
+      .upload(objectPath, decoded, {
+        contentType: mimeType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from(PROFILE_IMAGES_BUCKET)
+      .getPublicUrl(objectPath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        profile_image_path: publicUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    const previousObjectPath = extractStorageObjectPath(
+      profile.profile_image_path,
+      PROFILE_IMAGES_BUCKET
+    );
+
+    if (previousObjectPath && previousObjectPath !== objectPath) {
+      await supabaseAdmin.storage.from(PROFILE_IMAGES_BUCKET).remove([previousObjectPath]);
+    }
+
+    const updated = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    return res.json({ profile: formatProfileResponse(updated) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudo subir la foto de perfil' });
   }
 };
 

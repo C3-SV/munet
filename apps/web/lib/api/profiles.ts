@@ -37,6 +37,41 @@ export const updateMyProfile = async (
     return payload.profile;
 };
 
+export const uploadMyAvatar = async (
+    file: File,
+    context: ProfileContext,
+): Promise<MyProfile> => {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            if (typeof reader.result !== "string") {
+                reject(new Error("No se pudo leer la imagen seleccionada"));
+                return;
+            }
+
+            const separator = reader.result.indexOf(",");
+            resolve(separator >= 0 ? reader.result.slice(separator + 1) : reader.result);
+        };
+
+        reader.onerror = () => reject(new Error("No se pudo leer la imagen seleccionada"));
+        reader.readAsDataURL(file);
+    });
+
+    const payload = await requestApi<{ profile: MyProfile }>("/profiles/me/avatar", {
+        method: "POST",
+        token: context.token,
+        eventId: context.eventId,
+        body: {
+            file_name: file.name,
+            mime_type: file.type,
+            base64_data: base64Data,
+        },
+    });
+
+    return payload.profile;
+};
+
 export const getPublicProfile = async (
     membershipId: string,
     context: ProfileContext,

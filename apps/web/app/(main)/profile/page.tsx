@@ -3,9 +3,12 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
-import { getMyProfile, updateMyProfile } from "../../../lib/api/profiles";
+import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { MyProfile } from "../../../types/common";
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const ProfilePage = () => {
     const router = useRouter();
@@ -15,6 +18,8 @@ const ProfilePage = () => {
     const [profileData, setProfileData] = useState<MyProfile | null>(null);
     const [displayName, setDisplayName] = useState("");
     const [bio, setBio] = useState("");
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +77,51 @@ const ProfilePage = () => {
         }
     };
 
+    const handleAvatarSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] ?? null;
+
+        if (!file) {
+            setAvatarFile(null);
+            return;
+        }
+
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            setError("Solo se permiten imagenes JPG, PNG o WEBP.");
+            setAvatarFile(null);
+            event.currentTarget.value = "";
+            return;
+        }
+
+        if (file.size > MAX_AVATAR_BYTES) {
+            setError("La imagen debe pesar maximo 5MB.");
+            setAvatarFile(null);
+            event.currentTarget.value = "";
+            return;
+        }
+
+        setError(null);
+        setAvatarFile(file);
+    };
+
+    const handleAvatarUpload = async () => {
+        if (!token || !eventId || !avatarFile) {
+            return;
+        }
+
+        try {
+            setUploadingAvatar(true);
+            setError(null);
+
+            const updated = await uploadMyAvatar(avatarFile, { token, eventId });
+            setProfileData(updated);
+            setAvatarFile(null);
+        } catch (uploadError) {
+            setError(uploadError instanceof Error ? uploadError.message : "No se pudo subir la foto.");
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
     if (!profileData) {
         return (
             <div className="p-4 sm:p-6 lg:p-12">
@@ -120,6 +170,54 @@ const ProfilePage = () => {
 
                     <div className="p-6 sm:p-8 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-2 sm:col-span-2">
+                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                    Foto de perfil
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        onChange={handleAvatarSelection}
+                                        className="w-full sm:max-w-sm p-2.5 rounded-xl font-body text-sm outline-none"
+                                        style={{
+                                            backgroundColor: "var(--bg-input)",
+                                            border: "1px solid var(--input-border)",
+                                            color: "var(--text-primary)",
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleAvatarUpload()}
+                                        disabled={!avatarFile || uploadingAvatar}
+                                        className="w-full sm:w-auto px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
+                                        style={{
+                                            backgroundColor:
+                                                !avatarFile || uploadingAvatar
+                                                    ? "var(--bg-surface-secondary)"
+                                                    : "var(--bubble-me-bg)",
+                                            border:
+                                                !avatarFile || uploadingAvatar
+                                                    ? "1px solid var(--border-color)"
+                                                    : "1px solid transparent",
+                                            color:
+                                                !avatarFile || uploadingAvatar
+                                                    ? "var(--text-muted)"
+                                                    : "white",
+                                            cursor:
+                                                !avatarFile || uploadingAvatar ? "not-allowed" : "pointer",
+                                        }}
+                                    >
+                                        {uploadingAvatar ? "Subiendo..." : "Subir foto"}
+                                    </button>
+                                </div>
+                                {avatarFile && (
+                                    <p className="text-xs font-body" style={{ color: "var(--text-secondary)" }}>
+                                        Archivo seleccionado: {avatarFile.name}
+                                    </p>
+                                )}
+                            </div>
+
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
                                     Nombre mostrado
