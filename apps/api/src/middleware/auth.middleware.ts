@@ -4,20 +4,7 @@ import {
   getMembershipsByUserId,
   getUserBySupabaseAuthId,
 } from '../services/auth-context.service';
-
-declare global {
-  namespace Express {
-    interface Request {
-      auth?: {
-        token: string;
-        supabaseAuthUserId: string;
-        userId: string;
-        memberships: any[];
-        currentMembership?: any;
-      };
-    }
-  }
-}
+import { isAdminRole } from '../utils/rbac.utils';
 
 const readBearerToken = (authorizationHeader?: string | null) => {
   if (!authorizationHeader) {
@@ -92,9 +79,7 @@ export const requireEventMembership = (
   const memberships = req.auth?.memberships ?? [];
 
   const globalAdminMembership = memberships.find(
-    (m) =>
-      (m.role === 'ADMIN_MUN') &&
-      m.account_status === 'ACTIVE'
+    (m) => isAdminRole(m.role) && m.accountStatus === 'ACTIVE'
   );
 
   if (globalAdminMembership) {
@@ -103,14 +88,14 @@ export const requireEventMembership = (
   }
 
   const membership = memberships.find(
-    (m) => m.event_id === eventId
+    (m) => m.eventId === eventId
   );
 
   if (!membership) {
     return res.status(403).json({ error: 'No perteneces a este evento' });
   }
 
-  if (membership.account_status !== 'ACTIVE') {
+  if (membership.accountStatus !== 'ACTIVE') {
     return res.status(403).json({ error: 'Membership no activa' });
   }
 

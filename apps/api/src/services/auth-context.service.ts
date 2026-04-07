@@ -3,6 +3,7 @@ import type { AuthMembership } from '../types/auth-context';
 
 type MembershipRow = {
   id: string;
+  user_id: string;
   event_id: string;
   role: string;
   committee_id: string | null;
@@ -64,6 +65,7 @@ export const getMembershipsByUserId = async (userId: string) => {
     .select(
       `
         id,
+        user_id,
         event_id,
         role,
         committee_id,
@@ -95,6 +97,7 @@ export const getMembershipsByUserId = async (userId: string) => {
 
     return {
       id: row.id,
+      userId: row.user_id,
       eventId: row.event_id,
       eventName: event?.name ?? 'Evento',
       eventSlug: event?.slug ?? '',

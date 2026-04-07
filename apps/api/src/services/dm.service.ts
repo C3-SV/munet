@@ -380,6 +380,8 @@ export const createDmMessage = async (params: {
       author_membership_id: params.membership.id,
       content,
       status: 'VISIBLE',
+      updated_at: new Date().toISOString(),
+      updated_by_membership_id: params.membership.id,
     })
     .select('id, event_id, conversation_id, author_membership_id, content, status, created_at')
     .single();
@@ -480,7 +482,13 @@ export const deleteDmMessage = async (params: {
   for (const status of DELETED_DM_MESSAGE_STATUSES) {
     const { error: updateError } = await supabaseAdmin
       .from('dm_messages')
-      .update({ status })
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+        updated_by_membership_id: params.membership.id,
+        deleted_at: new Date().toISOString(),
+        deleted_by_membership_id: params.membership.id,
+      })
       .eq('id', params.messageId);
 
     if (!updateError) {

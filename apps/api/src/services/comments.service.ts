@@ -221,6 +221,7 @@ export const listCommentsByPost = async (params: {
   const { data, error } = await supabaseAdmin
     .from('post_comments')
     .select(COMMENT_SELECT)
+    .eq('event_id', params.eventId)
     .eq('post_id', params.postId)
     .order('created_at', { ascending: true });
 
@@ -286,6 +287,7 @@ export const createPostComment = async (params: {
       .from('post_comments')
       .select('id, post_id, parent_comment_id')
       .eq('id', parentCommentId)
+      .eq('event_id', params.eventId)
       .maybeSingle();
 
     if (parentError) {
@@ -313,6 +315,8 @@ export const createPostComment = async (params: {
       event_id: params.eventId,
       post_id: params.postId,
       author_membership_id: params.membership.id,
+      created_by_membership_id: params.membership.id,
+      updated_by_membership_id: params.membership.id,
       parent_comment_id: parentCommentId,
       content,
       status: 'VISIBLE',
@@ -364,6 +368,7 @@ export const deletePostComment = async (params: {
     .from('post_comments')
     .select('id, post_id, author_membership_id')
     .eq('id', params.commentId)
+    .eq('event_id', params.eventId)
     .maybeSingle();
 
   if (commentError) {
@@ -395,6 +400,7 @@ export const deletePostComment = async (params: {
       status: 'DELETED',
       deleted_by_actor_type: deletedByActorType,
       deleted_at: new Date().toISOString(),
+      updated_by_membership_id: params.membership.id,
     })
     .eq('id', params.commentId)
     .select(COMMENT_SELECT)

@@ -233,6 +233,7 @@ const validateCommitteeForEvent = async (eventId: string, committeeId: string) =
 const uploadAvatarForMembership = async (params: {
   eventId: string;
   membershipId: string;
+  actorMembershipId?: string;
   fileName?: string;
   mimeType?: string;
   base64Data?: string;
@@ -309,6 +310,7 @@ const uploadAvatarForMembership = async (params: {
     .update({
       profile_image_path: publicUrl,
       updated_at: new Date().toISOString(),
+      updated_by_membership_id: params.actorMembershipId ?? null,
     })
     .eq('id', profile.id);
 
@@ -396,6 +398,7 @@ export const updateMyProfile = async (req: Request, res: Response) => {
         bio: bio ?? profile.bio,
         profile_image_path: profile_image_path ?? profile.profile_image_path,
         updated_at: new Date().toISOString(),
+        updated_by_membership_id: activeMembership.id,
       })
       .eq('id', profile.id);
 
@@ -507,6 +510,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
         : profile.display_name,
       bio: hasOwn(payload, 'bio') ? normalizeNullableText(payload.bio) : profile.bio,
       updated_at: new Date().toISOString(),
+      updated_by_membership_id: adminContext.membership.id,
     };
 
     const membershipUpdate = {
@@ -518,6 +522,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
         : existing.institution_name,
       committee_id: committeeIdToSave,
       updated_at: new Date().toISOString(),
+      updated_by_user_id: adminContext.membership.userId,
     };
 
     const { error: profileError } = await supabaseAdmin
@@ -582,6 +587,7 @@ export const uploadMyAvatar = async (req: Request, res: Response) => {
     const result = await uploadAvatarForMembership({
       eventId: activeMembership.eventId,
       membershipId: activeMembership.id,
+      actorMembershipId: activeMembership.id,
       fileName: file_name,
       mimeType: mime_type,
       base64Data: base64_data,
@@ -630,6 +636,7 @@ export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => 
     const result = await uploadAvatarForMembership({
       eventId: adminContext.membership.eventId,
       membershipId: targetMembershipId,
+      actorMembershipId: adminContext.membership.id,
       fileName: file_name,
       mimeType: mime_type,
       base64Data: base64_data,

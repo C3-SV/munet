@@ -1,5 +1,6 @@
 export type AuthMembership = {
   id: string;
+  userId: string;
   eventId: string;
   eventName: string;
   eventSlug: string;
@@ -17,4 +18,5 @@ export type AuthContext = {
   supabaseAuthUserId: string;
   userId: string;
   memberships: AuthMembership[];
+  currentMembership?: AuthMembership;
 };

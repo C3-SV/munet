@@ -68,6 +68,8 @@ export const activateAccount = async (req: Request, res: Response) => {
       .update({
         supabase_auth_user_id: authUserId,
         email,
+        updated_by_user_id: membership.user_id,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', membership.user_id);
 
@@ -81,6 +83,8 @@ export const activateAccount = async (req: Request, res: Response) => {
       .update({
         account_status: 'ACTIVE',
         activated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        updated_by_user_id: membership.user_id,
       })
       .eq('id', membership.id);
 
@@ -179,6 +183,8 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
       .from('event_memberships')
       .update({
         last_login_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        updated_by_user_id: user.id,
       })
       .eq('user_id', user.id)
       .eq('account_status', 'ACTIVE');

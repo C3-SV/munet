@@ -40,6 +40,7 @@ export type AuditOutcome = 'SUCCESS' | 'FAILURE';
 export const logAudit = async (params: {
   eventId: string;
   membership?: AuthMembership;
+  actorUserId?: string;
   actorMembershipId?: string;
   actorRole?: string;
   actionType: AuditActionType;
@@ -51,6 +52,7 @@ export const logAudit = async (params: {
   try {
     await supabaseAdmin.from('audit_logs').insert({
       event_id: params.eventId,
+      actor_user_id: params.membership?.userId ?? params.actorUserId ?? null,
       actor_membership_id: params.membership?.id ?? params.actorMembershipId ?? null,
       actor_role: params.membership?.role ?? params.actorRole ?? null,
       action_type: params.actionType,

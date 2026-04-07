@@ -23,7 +23,7 @@ export type PostRow = {
   content: string;
   title: string | null;
   status: string;
-  deleted_by_actor_type: 'AUTHOR' | 'ADMIN' | null;
+  deleted_by_membership_id: 'AUTHOR' | 'ADMIN' | null;
   created_at: string;
   updated_at: string;
   event_memberships:
@@ -102,7 +102,7 @@ export const POST_SELECT = `
   content,
   title,
   status,
-  deleted_by_actor_type,
+  deleted_by_membership_id,
   created_at,
   updated_at,
   event_memberships!posts_author_membership_id_fkey (

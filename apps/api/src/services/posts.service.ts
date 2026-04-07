@@ -375,6 +375,7 @@ export const getPostsByWall = async (params: {
   const { data: posts, error: postsError } = await supabaseAdmin
     .from('posts')
     .select(POST_SELECT)
+    .eq('event_id', params.eventId)
     .eq('wall_id', matchedWall.id)
     .order('created_at', { ascending: false });
 
@@ -472,6 +473,8 @@ export const createPostService = async (payload: {
       event_id: eventId,
       wall_id: matchedWall.id,
       author_membership_id: membership.id,
+      created_by_membership_id: membership.id,
+      updated_by_membership_id: membership.id,
       post_type: postType,
       content: content.trim(),
     })
@@ -641,25 +644,60 @@ export const voteOnPollService = async (params: {
     };
   }
 
-  const { error: upsertError } = await supabaseAdmin.from('poll_votes').upsert(
-    {
+  const { data: existingVotes, error: existingVotesError } = await supabaseAdmin
+    .from('poll_votes')
+    .select('id')
+    .eq('poll_id', poll.id)
+    .eq('voter_membership_id', params.membership.id)
+    .order('voted_at', { ascending: false });
+
+  if (existingVotesError) {
+    throw new Error(existingVotesError.message);
+  }
+
+  const latestVoteId = existingVotes?.[0]?.id ?? null;
+  const staleVoteIds = (existingVotes ?? []).slice(1).map((vote) => vote.id);
+
+  if (latestVoteId) {
+    const { error: updateVoteError } = await supabaseAdmin
+      .from('poll_votes')
+      .update({
+        option_id: optionId,
+        voted_at: new Date().toISOString(),
+      })
+      .eq('id', latestVoteId);
+
+    if (updateVoteError) {
+      return {
+        status: 400,
+        body: { error: updateVoteError.message ?? 'No se pudo registrar el voto' },
+      };
+    }
+
+    if (staleVoteIds.length > 0) {
+      const { error: cleanupError } = await supabaseAdmin
+        .from('poll_votes')
+        .delete()
+        .in('id', staleVoteIds);
+
+      if (cleanupError) {
+        throw new Error(cleanupError.message);
+      }
+    }
+  } else {
+    const { error: insertVoteError } = await supabaseAdmin.from('poll_votes').insert({
       poll_id: poll.id,
       option_id: optionId,
-      event_id: params.eventId,
-      wall_id: access.post.wallId,
       voter_membership_id: params.membership.id,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      onConflict: 'poll_id,voter_membership_id',
-    }
-  );
+      voted_at: new Date().toISOString(),
+    });
 
-  if (upsertError) {
-    return {
-      status: 400,
-      body: { error: upsertError.message ?? 'No se pudo registrar el voto' },
-    };
+    if (insertVoteError) {
+      return {
+        status: 400,
+        body: { error: insertVoteError.message ?? 'No se pudo registrar el voto' },
+      };
+    }
   }
 
   await logAudit({
@@ -763,7 +801,6 @@ export const closePollService = async (params: {
       status: 'CLOSED',
       closed_at: new Date().toISOString(),
       closed_by_membership_id: params.membership.id,
-      updated_at: new Date().toISOString(),
     })
     .eq('id', poll.id);
 
@@ -868,8 +905,9 @@ export const deletePostService = async (params: {
     .from('posts')
     .update({
       status: 'DELETED',
-      deleted_by_actor_type: deletedByActorType,
+      deleted_by_membership_id: deletedByActorType,
       deleted_at: new Date().toISOString(),
+      updated_by_membership_id: params.membership.id,
     })
     .eq('id', post.id)
     .select(POST_SELECT)

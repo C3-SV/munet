@@ -20,6 +20,7 @@ export const createAccount = async (
   res: Response
 ) => {
   try {
+    const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
       participant_code,
@@ -73,7 +74,10 @@ export const createAccount = async (
     // 3. crear user vacío
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .insert({})
+      .insert({
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
+      })
       .select()
       .single();
 
@@ -93,7 +97,9 @@ export const createAccount = async (
         delegation_name,
         institution_name,
         account_status: 'PENDING_ACTIVATION',
-        status_changed_at: new Date().toISOString()
+        status_changed_at: new Date().toISOString(),
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
       })
       .select()
       .single();
@@ -113,7 +119,8 @@ export const createAccount = async (
         last_name,
         display_name: display_name ?? null,
         bio: bio ?? null,
-        profile_image_path: null
+        profile_image_path: null,
+        updated_by_membership_id: membership.id,
       })
       .select()
       .single();
@@ -124,6 +131,7 @@ export const createAccount = async (
 
     await logAudit({
       eventId: event_id,
+      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_ACCOUNT',
       entityType: 'ACCOUNT',
@@ -158,6 +166,7 @@ export const createEvent = async (
   res: Response
 ) => {
   try {
+    const actorUserId = req.auth?.userId ?? null;
     const { name, slug, description, start_date, end_date } = req.body;
 
     // 1. validaciones básicas
@@ -186,7 +195,9 @@ export const createEvent = async (
         start_date,
         end_date,
         status: 'ACTIVE',
-        is_read_only: false
+        is_read_only: false,
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
       })
       .select()
       .single();
@@ -197,6 +208,7 @@ export const createEvent = async (
 
     await logAudit({
       eventId: event.id,
+      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_EVENT',
       entityType: 'EVENT',
@@ -231,6 +243,7 @@ export const createMembership = async (
   res: Response
 ) => {
   try {
+    const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
       user_id,
@@ -296,7 +309,9 @@ export const createMembership = async (
         delegation_name,
         institution_name,
         account_status: 'PENDING_ACTIVATION',
-        status_changed_at: new Date().toISOString()
+        status_changed_at: new Date().toISOString(),
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
       })
       .select()
       .single();
@@ -307,6 +322,7 @@ export const createMembership = async (
 
     await logAudit({
       eventId: event_id,
+      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_MEMBERSHIP',
       entityType: 'MEMBERSHIP',
@@ -339,6 +355,7 @@ export const createCommittee = async (
   res: Response
 ) => {
   try {
+    const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
       name,
@@ -408,7 +425,9 @@ export const createCommittee = async (
         code,
         description,
         sort_order: sort_order ?? 0,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
       })
       .select()
       .single();
@@ -419,6 +438,7 @@ export const createCommittee = async (
 
     await logAudit({
       eventId: event_id,
+      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_COMMITTEE',
       entityType: 'COMMITTEE',

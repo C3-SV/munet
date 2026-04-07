@@ -137,7 +137,6 @@ const Feed = () => {
                     event: "*",
                     schema: "public",
                     table: "poll_votes",
-                    filter: `wall_id=eq.${activeWall.id}`,
                 },
                 () => {
                     void refreshPosts();
