@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { authContextRequest, loginRequest } from "../lib/api/auth";
+import { 
+  authContextRequest, 
+  loginRequest,
+  validateActivationRequest,
+  activateAccountRequest,
+  type ActivateAccountPayload 
+} from "../lib/api/auth";
 import type {
   AuthSession,
   AuthUser,
@@ -69,6 +75,8 @@ type AuthState = {
   needsEventSelection: () => boolean;
   setActiveMembership: (membershipId: string) => void;
   refreshContext: () => Promise<void>;
+  validateActivation: (participantCode: string) => Promise<any[]>;
+  activateAccount: (payload: ActivateAccountPayload) => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -81,6 +89,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   hydrated: false,
   error: null,
+
+  validateActivation: async (participantCode: string) => {
+    try {
+      set({ loading: true, error: null });
+      const data = await validateActivationRequest(participantCode);
+      set({ loading: false });
+      return data.events || [];
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error al validar la cuenta";
+      set({ loading: false, error: message });
+      throw err;
+    }
+  },
+
+  activateAccount: async (payload: ActivateAccountPayload) => {
+    try {
+      set({ loading: true, error: null });
+      await activateAccountRequest(payload);
+      set({ loading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error al activar la cuenta";
+      set({ loading: false, error: message });
+      throw err;
+    }
+  },
 
   login: async (payload) => {
     try {

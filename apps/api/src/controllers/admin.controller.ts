@@ -493,7 +493,9 @@ export const getEventsByParticipantCode = async (
           end_date
         )
       `)
-      .eq('participant_code', participant_code);
+      .eq('participant_code', participant_code)
+      .eq('account_status', 'PENDING_ACTIVATION')
+      .is('deleted_at', null);
 
     if (error) {
       return res.status(400).json({ error: error.message });
