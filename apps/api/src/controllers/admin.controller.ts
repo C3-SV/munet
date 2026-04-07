@@ -145,7 +145,7 @@ export const createEvent = async (
         description,
         start_date,
         end_date,
-        status: 'DRAFT',
+        status: 'ACTIVE',
         is_read_only: false
       })
       .select()
