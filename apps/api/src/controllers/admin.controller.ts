@@ -8,6 +8,10 @@ type CreateAccountBody = {
   committee_id?: string;
   delegation_name?: string;
   institution_name?: string;
+  first_name: string;
+  last_name: string;
+  display_name?: string;
+  bio?: string;
 };
 
 export const createAccount = async (
@@ -21,12 +25,16 @@ export const createAccount = async (
       role,
       committee_id,
       delegation_name,
-      institution_name
+      institution_name,
+      first_name,
+      last_name,
+      display_name,
+      bio
     } = req.body;
 
-    if (!event_id || !participant_code || !role) {
+    if (!event_id || !participant_code || !role || !first_name || !last_name) {
       return res.status(400).json({
-        error: 'event_id, participant_code y role son requeridos'
+        error: 'event_id, participant_code, role, first_name y last_name son requeridos'
       });
     }
 
@@ -42,7 +50,7 @@ export const createAccount = async (
       return res.status(400).json({ error: 'Código ya existe' });
     }
 
-    // validar el commimte id
+    // 2. validar committee_id
     if (committee_id) {
       const { data: committee } = await supabaseAdmin
         .from('committees')
@@ -61,7 +69,7 @@ export const createAccount = async (
       }
     }
 
-    // 2. crear user vacío
+    // 3. crear user vacío
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .insert({})
@@ -72,7 +80,7 @@ export const createAccount = async (
       return res.status(400).json({ error: 'Error creando user' });
     }
 
-    // 3. crear membership
+    // 4. crear membership
     const { data: membership, error: membershipError } = await supabaseAdmin
       .from('event_memberships')
       .insert({
@@ -89,14 +97,35 @@ export const createAccount = async (
       .select()
       .single();
 
-    if (membershipError) {
-      return res.status(400).json({ error: membershipError.message });
+    if (membershipError || !membership) {
+      return res.status(400).json({
+        error: membershipError?.message || 'Error creando membership'
+      });
+    }
+
+    // 5. crear profile
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        event_membership_id: membership.id,
+        first_name,
+        last_name,
+        display_name: display_name ?? null,
+        bio: bio ?? null,
+        profile_image_path: null
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      return res.status(400).json({ error: profileError.message });
     }
 
     return res.json({
       message: 'Cuenta creada correctamente',
       user,
-      membership
+      membership,
+      profile
     });
 
   } catch (error) {
@@ -325,7 +354,7 @@ export const createCommittee = async (
       });
     }
 
-      // 3. validar unicidad del code dentro del evento
+    // 3. validar unicidad del code dentro del evento
     const { data: existingCode } = await supabaseAdmin
       .from('committees')
       .select('id')
