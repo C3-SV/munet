@@ -1,6 +1,4 @@
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-    "http://localhost:3002";
+import { API_URL, buildApiUrl } from "./base-url";
 
 export class ApiError extends Error {
     status: number;
@@ -26,7 +24,7 @@ export const requestApi = async <T>(
     path: string,
     { method = "GET", token, eventId, body, cache = "no-store" }: RequestOptions,
 ): Promise<T> => {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(buildApiUrl(API_URL, path), {
         method,
         headers: {
             "Content-Type": "application/json",

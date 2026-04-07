@@ -8,13 +8,15 @@ import adminRoutes from './routes/admin.routes';
 import eventsRoutes from './routes/events.routes';
 import profilesRoutes from './routes/profiles.routes';
 import dmRoutes from './routes/dm.routes';
+import { normalizeAllowedOrigin } from './lib/cors';
 
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3002);
+const allowedOrigin = normalizeAllowedOrigin(process.env.WEB_APP_URL);
 
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', process.env.WEB_APP_URL ?? 'http://localhost:3000');
+    res.header('Access-Control-Allow-Origin', allowedOrigin);
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-event-id');
     
