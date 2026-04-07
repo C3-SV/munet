@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
+import bcrypt from 'bcrypt';
 
 type CreateAccountBody = {
   event_id: string;
@@ -13,6 +14,7 @@ type CreateAccountBody = {
   last_name: string;
   display_name?: string;
   bio?: string;
+  initial_password: string;
 };
 
 export const createAccount = async (
@@ -20,7 +22,6 @@ export const createAccount = async (
   res: Response
 ) => {
   try {
-    const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
       participant_code,
@@ -31,12 +32,21 @@ export const createAccount = async (
       first_name,
       last_name,
       display_name,
-      bio
+      bio,
+      initial_password
     } = req.body;
 
-    if (!event_id || !participant_code || !role || !first_name || !last_name) {
+    if (
+      !event_id ||
+      !participant_code ||
+      !role ||
+      !first_name ||
+      !last_name ||
+      !initial_password
+    ) {
       return res.status(400).json({
-        error: 'event_id, participant_code, role, first_name y last_name son requeridos'
+        error:
+          'event_id, participant_code, role, first_name, last_name e initial_password son requeridos'
       });
     }
 
@@ -74,10 +84,7 @@ export const createAccount = async (
     // 3. crear user vacío
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .insert({
-        created_by_user_id: actorUserId,
-        updated_by_user_id: actorUserId,
-      })
+      .insert({})
       .select()
       .single();
 
@@ -85,7 +92,10 @@ export const createAccount = async (
       return res.status(400).json({ error: 'Error creando user' });
     }
 
-    // 4. crear membership
+    // 4. hashear contraseña inicial
+    const initialPasswordHash = await bcrypt.hash(initial_password, 10);
+
+    // 5. crear membership
     const { data: membership, error: membershipError } = await supabaseAdmin
       .from('event_memberships')
       .insert({
@@ -98,8 +108,7 @@ export const createAccount = async (
         institution_name,
         account_status: 'PENDING_ACTIVATION',
         status_changed_at: new Date().toISOString(),
-        created_by_user_id: actorUserId,
-        updated_by_user_id: actorUserId,
+        initial_password_hash: initialPasswordHash
       })
       .select()
       .single();
@@ -110,7 +119,7 @@ export const createAccount = async (
       });
     }
 
-    // 5. crear profile
+    // 6. crear profile
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
@@ -119,8 +128,7 @@ export const createAccount = async (
         last_name,
         display_name: display_name ?? null,
         bio: bio ?? null,
-        profile_image_path: null,
-        updated_by_membership_id: membership.id,
+        profile_image_path: null
       })
       .select()
       .single();
@@ -131,7 +139,6 @@ export const createAccount = async (
 
     await logAudit({
       eventId: event_id,
-      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_ACCOUNT',
       entityType: 'ACCOUNT',
@@ -146,7 +153,6 @@ export const createAccount = async (
       membership,
       profile
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
@@ -451,6 +457,57 @@ export const createCommittee = async (
       message: 'Comité creado correctamente',
       committee
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+export const getEventsByParticipantCode = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { participant_code } = req.params;
+
+    if (!participant_code) {
+      return res.status(400).json({
+        error: 'participant_code es requerido'
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('event_memberships')
+      .select(`
+        id,
+        participant_code,
+        account_status,
+        role,
+        event_id,
+        events (
+          id,
+          name,
+          slug,
+          status,
+          start_date,
+          end_date
+        )
+      `)
+      .eq('participant_code', participant_code);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const events = (data ?? []).map((item: any) => ({
+      membership_id: item.id,
+      participant_code: item.participant_code,
+      account_status: item.account_status,
+      role: item.role,
+      event: Array.isArray(item.events) ? item.events[0] : item.events
+    }));
+
+    return res.json({ events });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });

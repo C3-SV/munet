@@ -1,11 +1,28 @@
 import { Request, Response } from 'express';
-import { createAuthClient, supabaseAdmin } from '../lib/supabase';
-import { getMembershipsByUserId } from '../services/auth-context.service';
+import bcrypt from 'bcrypt';
+import { supabaseAdmin, createAuthClient } from '../lib/supabase';
 import { logAuthAttempt } from '../utils/auth.logger';
+import { getMembershipsByUserId } from '../services/auth-context.service';
 
-export const activateAccount = async (req: Request, res: Response) => {
+type ActivateAccountBody = {
+  participant_code: string;
+  event_id: string;
+  initial_password: string;
+  new_password: string;
+};
+
+export const activateAccount = async (
+  req: Request<{}, {}, ActivateAccountBody>,
+  res: Response
+) => {
   try {
-    const { participant_code, event_id, password } = req.body;
+    const { participant_code, event_id, initial_password, new_password } = req.body;
+
+    if (!participant_code || !event_id || !initial_password || !new_password) {
+      return res.status(400).json({
+        error: 'participant_code, event_id, initial_password y new_password son requeridos',
+      });
+    }
 
     // 1. buscar membership
     const { data: membership, error: findError } = await supabaseAdmin
@@ -13,9 +30,14 @@ export const activateAccount = async (req: Request, res: Response) => {
       .select('*')
       .eq('participant_code', participant_code)
       .eq('event_id', event_id)
-      .single();
+      .maybeSingle();
 
-    if (findError || !membership) {
+    if (findError) {
+      console.error(findError);
+      return res.status(500).json({ error: 'Error consultando membership' });
+    }
+
+    if (!membership) {
       await logAuthAttempt({
         event_id,
         participant_code,
@@ -23,6 +45,7 @@ export const activateAccount = async (req: Request, res: Response) => {
         result: 'FAILURE',
         failure_reason: 'MEMBERSHIP_NOT_FOUND',
       });
+
       return res.status(404).json({ error: 'Membership no encontrado' });
     }
 
@@ -36,17 +59,53 @@ export const activateAccount = async (req: Request, res: Response) => {
         result: 'FAILURE',
         failure_reason: 'ALREADY_ACTIVATED',
       });
+
       return res.status(400).json({ error: 'Cuenta ya activada o invalida' });
     }
 
-    // 3. crear usuario en Supabase Auth
+    // 3. validar contraseña inicial
+    if (!membership.initial_password_hash) {
+      await logAuthAttempt({
+        event_id,
+        participant_code,
+        event_membership_id: membership.id,
+        attempt_type: 'ACTIVATION',
+        result: 'FAILURE',
+        failure_reason: 'INITIAL_PASSWORD_NOT_CONFIGURED',
+      });
+
+      return res.status(400).json({
+        error: 'La cuenta no tiene contraseña inicial configurada',
+      });
+    }
+
+    const isInitialPasswordValid = await bcrypt.compare(
+      initial_password,
+      membership.initial_password_hash
+    );
+
+    if (!isInitialPasswordValid) {
+      await logAuthAttempt({
+        event_id,
+        participant_code,
+        event_membership_id: membership.id,
+        attempt_type: 'ACTIVATION',
+        result: 'FAILURE',
+        failure_reason: 'INVALID_INITIAL_PASSWORD',
+      });
+
+      return res.status(401).json({ error: 'Contraseña inicial invalida' });
+    }
+
+    // 4. crear usuario en Supabase Auth con la nueva contraseña
     const email = `${participant_code}@munet.local`;
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: new_password,
+        email_confirm: true,
+      });
 
     if (authError) {
       await logAuthAttempt({
@@ -57,18 +116,18 @@ export const activateAccount = async (req: Request, res: Response) => {
         result: 'FAILURE',
         failure_reason: authError.message,
       });
+
       return res.status(400).json({ error: authError.message });
     }
 
     const authUserId = authData.user.id;
 
-    // 4. insertar en tabla users
+    // 5. actualizar users
     const { error: userError } = await supabaseAdmin
       .from('users')
       .update({
         supabase_auth_user_id: authUserId,
         email,
-        updated_by_user_id: membership.user_id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', membership.user_id);
@@ -77,18 +136,22 @@ export const activateAccount = async (req: Request, res: Response) => {
       return res.status(400).json({ error: userError.message });
     }
 
-    // 5. actualizar membership
-    await supabaseAdmin
+    // 6. actualizar membership
+    const { error: membershipUpdateError } = await supabaseAdmin
       .from('event_memberships')
       .update({
         account_status: 'ACTIVE',
         activated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        updated_by_user_id: membership.user_id,
+        initial_password_hash: null,
       })
       .eq('id', membership.id);
 
-    // 6. log intento
+    if (membershipUpdateError) {
+      return res.status(400).json({ error: membershipUpdateError.message });
+    }
+
+    // 7. log intento
     await logAuthAttempt({
       event_id,
       participant_code,
