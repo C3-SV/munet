@@ -25,6 +25,7 @@ export const PostEditor = ({
     const [validationError, setValidationError] = useState<string | null>(null);
 
     const normalizedPollOptions = useMemo(
+        // Limpia opciones para validacion y envio de encuestas.
         () => pollOptions.map((option) => option.trim()).filter((option) => option.length > 0),
         [pollOptions],
     );
@@ -37,12 +38,14 @@ export const PostEditor = ({
         (postType === "TEXT" ? canPublishText : canPublishText && canPublishPoll);
 
     const resetEditor = () => {
+        // Resetea formulario tras publicacion exitosa.
         setPostText("");
         setPollOptions(["", ""]);
         setValidationError(null);
     };
 
     const handlePublish = async () => {
+        // Valida reglas de encuesta y delega persistencia al contenedor.
         if (!canPublish) {
             return;
         }
@@ -68,12 +71,14 @@ export const PostEditor = ({
     };
 
     const updatePollOption = (index: number, value: string) => {
+        // Actualiza una opcion puntual sin perder el resto del arreglo.
         setPollOptions((current) =>
             current.map((option, itemIndex) => (itemIndex === index ? value : option)),
         );
     };
 
     const addPollOption = () => {
+        // Permite agregar opciones hasta el limite de negocio.
         if (pollOptions.length >= MAX_POLL_OPTIONS) {
             return;
         }
@@ -82,6 +87,7 @@ export const PostEditor = ({
     };
 
     const removePollOption = (index: number) => {
+        // Mantiene minimo de 2 opciones para cumplir validacion.
         if (pollOptions.length <= 2) {
             return;
         }

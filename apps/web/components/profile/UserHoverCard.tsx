@@ -29,6 +29,7 @@ export const UserHoverCard = ({
     const isSelfProfile = activeMembershipId === membershipId;
 
     const openCard = () => {
+        // Mantiene abierto el hover al moverse entre trigger y tarjeta.
         if (closeTimerRef.current) {
             clearTimeout(closeTimerRef.current);
             closeTimerRef.current = null;
@@ -38,6 +39,7 @@ export const UserHoverCard = ({
     };
 
     const scheduleCloseCard = () => {
+        // Cierre diferido para evitar parpadeos en hover rapido.
         if (closeTimerRef.current) {
             clearTimeout(closeTimerRef.current);
         }
@@ -57,6 +59,7 @@ export const UserHoverCard = ({
     }, []);
 
     const handleOpenChat = async () => {
+        // Abre chat directo: backend reusa o crea conversacion segun corresponda.
         if (!token || !eventId || isSelfProfile || isOpeningChat) {
             return;
         }

@@ -28,6 +28,7 @@ export default function MainLayout({
     );
 
     useEffect(() => {
+        // Recupera auth desde localStorage al montar el layout protegido.
         hydrateAuth();
     }, [hydrateAuth]);
 
@@ -41,6 +42,7 @@ export default function MainLayout({
             return;
         }
 
+        // Guard de evento activo: delegados autoentran, admins van a selector.
         if (!activeEventId || !activeMembershipId) {
             const hasAdminMembership = memberships.some((membership) =>
                 isAdminRole(membership.role),
@@ -58,6 +60,7 @@ export default function MainLayout({
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     if (!hydrated || !token || !activeEventId || !activeMembershipId) {
+        // Pantalla de espera mientras se resuelve sesion/contexto activo.
         return (
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>

@@ -11,6 +11,11 @@ type ActivateAccountBody = {
     new_password: string;
 };
 
+// Flujo de activación:
+// 1) valida membership pendiente por código + evento
+// 2) verifica contraseña inicial de un solo uso
+// 3) crea usuario en Supabase Auth
+// 4) marca membership como ACTIVE
 export const activateAccount = async (
     req: Request<{}, {}, ActivateAccountBody>,
     res: Response,
@@ -199,6 +204,11 @@ type LoginBody = {
     password: string;
 };
 
+// Login por participant_code:
+// - localiza membership ACTIVE
+// - resuelve usuario base y su email
+// - autentica con Supabase Auth
+// - devuelve sesión + memberships para contexto frontend
 export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
     try {
         const { participant_code, password } = req.body;
@@ -309,6 +319,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
     }
 };
 
+// Refresca contexto de sesión usando token bearer actual.
 export const getAuthContext = async (req: Request, res: Response) => {
     try {
         if (!req.auth) {

@@ -5,6 +5,7 @@ import { firstItem, getCommitteeLabel, getProfileName } from '../utils/posts.uti
 import { isAdminRole } from '../utils/rbac.utils';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
+// Representa un comentario con joins de author/profile para responder al cliente.
 type CommentRow = {
   id: string;
   post_id: string;
@@ -104,6 +105,7 @@ const COMMENT_SELECT = `
   )
 `;
 
+// Mensaje visible cuando el comentario fue marcado como eliminado.
 const buildDeletedMessage = (deletedByActorType: 'AUTHOR' | 'ADMIN' | null) => {
   if (deletedByActorType === 'ADMIN') {
     return 'Este comentario fue eliminado por un administrador.';
@@ -112,6 +114,7 @@ const buildDeletedMessage = (deletedByActorType: 'AUTHOR' | 'ADMIN' | null) => {
   return 'Este comentario fue eliminado por el autor.';
 };
 
+// Mapea fila de BD al shape de UI/API.
 const mapComment = (row: CommentRow, membership: AuthMembership) => {
   const commentAuthorMembership = firstItem(row.event_memberships);
   const profile = firstItem(commentAuthorMembership?.profiles);
@@ -153,6 +156,7 @@ type EnsurePostAccessResult =
       error: string;
     };
 
+// Valida que el usuario tenga acceso al post/muro antes de operar comentarios.
 const ensurePostAccess = async (params: {
   postId: string;
   eventId: string;
@@ -205,6 +209,7 @@ const ensurePostAccess = async (params: {
   };
 };
 
+// Lista comentarios visibles de un post.
 export const listCommentsByPost = async (params: {
   postId: string;
   eventId: string;
@@ -243,6 +248,7 @@ export const listCommentsByPost = async (params: {
   };
 };
 
+// Crea comentario nuevo (o respuesta de un nivel) en un post permitido.
 export const createPostComment = async (params: {
   postId: string;
   eventId: string;
@@ -352,6 +358,7 @@ export const createPostComment = async (params: {
   };
 };
 
+// Soft delete de comentario, permitido a autor o admin.
 export const deletePostComment = async (params: {
   postId: string;
   commentId: string;

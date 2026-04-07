@@ -20,9 +20,11 @@ const MEMBERSHIPS_KEY = "munet_memberships";
 const ACTIVE_EVENT_KEY = "munet_active_event";
 const ACTIVE_MEMBERSHIP_KEY = "munet_active_membership";
 
+// Normaliza roles para reglas de ruteo y permisos en frontend.
 const normalizeRole = (role: string | null | undefined) =>
   (role ?? "").trim().toUpperCase();
 
+// Identifica membresias administrativas que requieren selector de evento.
 export const isAdminRole = (role: string | null | undefined) => {
   const normalized = normalizeRole(role);
 
@@ -33,6 +35,7 @@ export const isAdminRole = (role: string | null | undefined) => {
   );
 };
 
+// Regla central: solo admins pasan por select-event de forma obligatoria.
 const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   if (memberships.length === 0) {
     return true;
@@ -45,6 +48,7 @@ const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   return false;
 };
 
+// Para delegados se auto-selecciona su unica membership.
 const resolveAutoMembership = (memberships: MembershipSummary[]) => {
   if (memberships.length === 0) {
     return null;
@@ -90,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hydrated: false,
   error: null,
 
+  // Valida si el codigo tiene cuentas pendientes de activacion.
   validateActivation: async (participantCode: string) => {
     try {
       set({ loading: true, error: null });
@@ -103,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  // Completa activacion inicial con password temporal + password nueva.
   activateAccount: async (payload: ActivateAccountPayload) => {
     try {
       set({ loading: true, error: null });
@@ -115,6 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  // Login principal: persiste sesion y decide si requiere selector de evento.
   login: async (payload) => {
     try {
       set({ loading: true, error: null });
@@ -160,6 +167,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  // Limpia sesion local completa y reinicia estado en memoria.
   logout: () => {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(TOKEN_KEY);
@@ -181,6 +189,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  // Restaura sesion desde localStorage al iniciar la app.
   hydrateAuth: () => {
     const sessionRaw = localStorage.getItem(SESSION_KEY);
     const token = localStorage.getItem(TOKEN_KEY);
@@ -220,6 +229,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
+  // Expone regla reutilizable para guards de rutas.
   needsEventSelection: () => {
     const state = get();
 
@@ -234,6 +244,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return userNeedsEventSelection(state.memberships);
   },
 
+  // Cambia contexto activo de evento/membership y lo persiste.
   setActiveMembership: (membershipId) => {
     const membership = get().memberships.find((item) => item.id === membershipId);
 
@@ -250,6 +261,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  // Refresca memberships desde API manteniendo membership activa si sigue valida.
   refreshContext: async () => {
     const { token } = get();
 

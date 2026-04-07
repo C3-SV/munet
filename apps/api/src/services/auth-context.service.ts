@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
 
+// Resultado compacto de joins para construir contexto de memberships.
 type MembershipRow = {
   id: string;
   user_id: string;
@@ -41,6 +42,7 @@ type MembershipRow = {
     | null;
 };
 
+// Helper para normalizar relaciones one-to-one/one-to-many de Supabase.
 const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -49,6 +51,7 @@ const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
+// Busca el usuario interno MUNET por auth.uid() de Supabase.
 export const getUserBySupabaseAuthId = async (supabaseAuthUserId: string) => {
   const { data: user, error } = await supabaseAdmin
     .from('users')
@@ -63,6 +66,7 @@ export const getUserBySupabaseAuthId = async (supabaseAuthUserId: string) => {
   return user;
 };
 
+// Devuelve memberships activas y no eliminadas para construir sesión frontend.
 export const getMembershipsByUserId = async (userId: string) => {
   const { data, error } = await supabaseAdmin
     .from('event_memberships')
@@ -125,3 +129,4 @@ export const getMembershipsByUserId = async (userId: string) => {
     })
     .filter((membership): membership is AuthMembership => Boolean(membership));
 };
+

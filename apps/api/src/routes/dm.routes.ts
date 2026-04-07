@@ -11,6 +11,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Módulo de mensajería directa (conversaciones, participantes y mensajes).
 router.get('/conversations', requireAuth, listConversations);
 router.post('/conversations', requireAuth, createConversation);
 router.get('/participants', requireAuth, listParticipants);

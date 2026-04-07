@@ -6,6 +6,7 @@ import {
 } from '../services/auth-context.service';
 import { isAdminRole } from '../utils/rbac.utils';
 
+// Extrae y valida formato "Bearer <token>" del header Authorization.
 const readBearerToken = (authorizationHeader?: string | null) => {
   if (!authorizationHeader) {
     return null;
@@ -20,6 +21,10 @@ const readBearerToken = (authorizationHeader?: string | null) => {
   return token.trim();
 };
 
+// Middleware de autenticación base:
+// 1) valida JWT en Supabase
+// 2) resuelve usuario interno MUNET
+// 3) carga memberships activas y las adjunta en req.auth
 export const requireAuth = async (
   req: Request,
   res: Response,
@@ -62,6 +67,9 @@ export const requireAuth = async (
   }
 };
 
+// Middleware de contexto por evento.
+// Permite identificar la membership activa para el event_id solicitado.
+// Si el usuario tiene rol admin, habilita acceso transversal por evento.
 export const requireEventMembership = (
   req: Request,
   res: Response,
@@ -103,6 +111,7 @@ export const requireEventMembership = (
   return next();
 };
 
+// Middleware de autorización por roles explícitos.
 export const requireRole = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const membership = req.auth?.currentMembership;

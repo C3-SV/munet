@@ -4,6 +4,8 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Rutas de administración para catálogos y altas operativas.
+// Actualmente exigen autenticación; autorización fina se valida en controllers/servicios.
 router.post(
   '/events',
   requireAuth,

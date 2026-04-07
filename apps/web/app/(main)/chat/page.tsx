@@ -38,6 +38,7 @@ const Chats = () => {
             : "";
 
     const refreshConversations = useCallback(async (showLoader = false) => {
+        // Refresco reutilizable del inbox, usado en carga inicial y realtime.
         if (!token || !eventId) {
             return;
         }
@@ -64,6 +65,7 @@ const Chats = () => {
     }, [eventId, token]);
 
     useEffect(() => {
+        // Carga inicial de conversaciones.
         let cancelled = false;
         const loadConversations = async () => {
             if (!cancelled) {
@@ -79,6 +81,7 @@ const Chats = () => {
     }, [refreshConversations]);
 
     useEffect(() => {
+        // Flujo deep-link `/chat?with=<membershipId>`: abre o crea conversacion y redirige.
         if (
             !targetMembershipIdFromQuery ||
             !token ||
@@ -150,6 +153,7 @@ const Chats = () => {
     ]);
 
     useEffect(() => {
+        // Realtime para inbox: cambios en conversaciones o mensajes.
         if (!eventId || !supabaseBrowser || !token) {
             return;
         }
@@ -191,6 +195,7 @@ const Chats = () => {
     }, [eventId, refreshConversations, token]);
 
     useEffect(() => {
+        // Busqueda con debounce de participantes para iniciar chats nuevos.
         if (!token || !eventId) {
             return;
         }
@@ -236,6 +241,7 @@ const Chats = () => {
     }, [eventId, searchTerm, token]);
 
     const handleSelectParticipant = async (participant: ChatParticipant) => {
+        // Al seleccionar participante se crea/reutiliza conversacion y se navega al room.
         if (!token || !eventId) {
             return;
         }

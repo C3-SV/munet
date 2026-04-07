@@ -57,6 +57,7 @@ const PublicProfilePage = () => {
     );
 
     useEffect(() => {
+        // Carga perfil publico del participante seleccionado.
         if (!membershipId || !token || !eventId) {
             return;
         }
@@ -93,6 +94,7 @@ const PublicProfilePage = () => {
     }, [eventId, membershipId, token]);
 
     useEffect(() => {
+        // Solo admins cargan comites para editar membership de terceros.
         if (!canEditProfile || !token || !eventId) {
             return;
         }
@@ -121,6 +123,7 @@ const PublicProfilePage = () => {
     }, [canEditProfile, eventId, token]);
 
     const resetEditForm = () => {
+        // Rehidrata formulario admin desde el perfil actualmente cargado.
         if (!profile) {
             return;
         }
@@ -142,6 +145,7 @@ const PublicProfilePage = () => {
     };
 
     const handleOpenChat = async () => {
+        // Navega al chat por id de conversacion (nunca por membership id).
         if (!token || !eventId || !membershipId || activeMembershipId === membershipId || isOpeningChat) {
             return;
         }
@@ -166,6 +170,7 @@ const PublicProfilePage = () => {
     };
 
     const handleAvatarSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+        // Valida formato/peso antes de habilitar subida de avatar.
         const file = event.target.files?.[0] ?? null;
 
         if (!file) {
@@ -192,6 +197,7 @@ const PublicProfilePage = () => {
     };
 
     const handleUploadAvatar = async () => {
+        // Sube avatar del tercero desde flujo admin.
         if (!token || !eventId || !membershipId || !avatarFile || !canEditProfile) {
             return;
         }
@@ -220,6 +226,7 @@ const PublicProfilePage = () => {
     };
 
     const handleSaveProfile = async () => {
+        // Persiste edicion administrativa (rol se mantiene read-only).
         if (!token || !eventId || !membershipId || !canEditProfile) {
             return;
         }

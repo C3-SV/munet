@@ -6,6 +6,7 @@ import type {
 } from '../types/dm.types';
 import { firstItem, getProfileName } from './posts.utils';
 
+// Fallback de avatar cuando el perfil no tiene imagen cargada.
 const avatarForName = (name: string) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=E5E7EB&color=111827`;
 
@@ -30,6 +31,7 @@ export const DM_MEMBERSHIP_SELECT = `
   )
 `;
 
+// Select reusable para joins completos de conversaciones con participantes.
 export const DM_CONVERSATION_SELECT = `
   id,
   event_id,
@@ -47,6 +49,7 @@ export const DM_CONVERSATION_SELECT = `
   )
 `;
 
+// Mapea una membership al DTO de participante en modulo de mensajes.
 export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
   const profile = firstItem(membership?.profiles);
   const committee = firstItem(membership?.committees);
@@ -65,6 +68,7 @@ export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
   };
 };
 
+// Mapea fila de mensaje a objeto de UI.
 export const mapDmMessage = (message: DmMessageRow) => ({
   id: message.id,
   conversationId: message.conversation_id,
@@ -77,6 +81,7 @@ export const mapDmMessage = (message: DmMessageRow) => ({
   }),
 });
 
+// Mapea conversacion y resuelve quien es "la otra persona" para el usuario actual.
 export const mapDmConversation = (
   conversation: DmConversationRow,
   currentMembershipId: string,

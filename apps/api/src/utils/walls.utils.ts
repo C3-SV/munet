@@ -1,5 +1,6 @@
 import type { WallRecord } from '../types/posts.types';
 
+// Helpers base para comparar strings y generar slugs estables.
 const normalize = (value: string | null | undefined) =>
   (value ?? '')
     .normalize('NFD')
@@ -14,6 +15,7 @@ const slugify = (value: string | null | undefined) =>
 
 export type WallKind = 'general' | 'announcements' | 'committee' | 'other';
 
+// Clasifica un muro para aplicar reglas de UI/RBAC en API y frontend.
 export const getWallKind = (wall: Pick<WallRecord, 'committee_id' | 'name' | 'wall_type'>): WallKind => {
   if (wall.committee_id) {
     return 'committee';
@@ -38,6 +40,7 @@ export const getWallKind = (wall: Pick<WallRecord, 'committee_id' | 'name' | 'wa
   return 'other';
 };
 
+// Genera slug semantico (general, avisos, comite-*) a partir del registro real.
 export const buildWallSlug = (wall: WallRecord) => {
   const kind = getWallKind(wall);
 

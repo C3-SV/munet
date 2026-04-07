@@ -30,6 +30,7 @@ export const PostCard = ({
     const authorLabel = `${post.user.name} | ${post.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
 
     const handleDeletePost = async () => {
+        // Soft delete con confirmacion previa; backend decide permiso final.
         if (!post.canDelete || post.isDeleted || isDeleting) {
             return;
         }
@@ -55,6 +56,7 @@ export const PostCard = ({
     };
 
     const handleVoteOption = async (optionId: string) => {
+        // Voto de encuesta (crea o reemplaza voto activo del usuario).
         if (!post.poll || !post.poll.canVote || post.isDeleted || votingOptionId) {
             return;
         }
@@ -72,6 +74,7 @@ export const PostCard = ({
     };
 
     const handleClosePoll = async () => {
+        // Cierre manual de encuesta; solo disponible para el autor.
         if (!post.poll || !post.poll.canClose || post.isDeleted || isClosingPoll) {
             return;
         }

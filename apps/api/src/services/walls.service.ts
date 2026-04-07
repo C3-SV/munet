@@ -4,6 +4,7 @@ import type { WallRecord } from '../types/posts.types';
 import { canAccessCommitteeWall, canPublishInAnnouncements } from '../utils/rbac.utils';
 import { buildWallSlug, getWallKind } from '../utils/walls.utils';
 
+// DTO final de muro consumido por frontend/sidebar/feed.
 export type WallView = {
   id: string;
   eventId: string;
@@ -18,6 +19,7 @@ export type WallView = {
   canPublish: boolean;
 };
 
+// Normaliza relaciones retornadas por Supabase.
 const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -26,6 +28,7 @@ const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
+// Carga muros activos/no eliminados de un evento.
 export const loadWallsByEvent = async (eventId: string) => {
   const { data: walls, error } = await supabaseAdmin
     .from('walls')
@@ -62,6 +65,7 @@ export const loadWallsByEvent = async (eventId: string) => {
   });
 };
 
+// Enriquecer un muro con permisos efectivos para la membership dada.
 export const mapWallForMembership = (
   wall: WallRecord,
   membership: AuthMembership

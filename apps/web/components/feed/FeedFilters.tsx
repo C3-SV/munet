@@ -42,6 +42,7 @@ export const FeedFilters = ({
     const sortRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Cierra dropdowns al hacer click fuera de cada panel.
         const handleClickOutside = (event: MouseEvent) => {
             if (committeeRef.current && !committeeRef.current.contains(event.target as Node)) {
                 setIsCommitteeFilterOpen(false);

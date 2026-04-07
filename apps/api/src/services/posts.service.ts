@@ -57,11 +57,13 @@ type NormalizedPost = ReturnType<typeof mapPost> & {
   poll: PollView | null;
 };
 
+// Normaliza el tipo de post para soportar valores legacy sin romper la API.
 const normalizePostType = (value: string | null | undefined): PostType => {
   const normalized = (value ?? '').trim().toUpperCase();
   return normalized === 'POLL' ? 'POLL' : 'TEXT';
 };
 
+// Limpia opciones vacias/duplicadas para encuestas antes de persistir.
 const normalizePollOptions = (rawOptions: string[] | undefined) => {
   const options = (rawOptions ?? [])
     .map((option) => option.trim())
@@ -81,6 +83,7 @@ const normalizePollOptions = (rawOptions: string[] | undefined) => {
   return unique;
 };
 
+// Arma el shape final de post con permisos de borrado para el usuario actual.
 const normalizePost = (post: PostRow, membership: AuthMembership): NormalizedPost => {
   const isAdmin = isAdminRole(membership.role);
   const mapped = mapPost(post);
@@ -93,6 +96,7 @@ const normalizePost = (post: PostRow, membership: AuthMembership): NormalizedPos
   };
 };
 
+// Wrapper de auditoria para acciones especificas de encuestas.
 const logPollAudit = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -112,6 +116,7 @@ const logPollAudit = async (params: {
   });
 };
 
+// Enriquece posts tipo encuesta con opciones, votos y estado del voto propio.
 const attachPollDataToPosts = async (params: {
   posts: NormalizedPost[];
   sourcePosts: PostRow[];
@@ -241,6 +246,7 @@ const attachPollDataToPosts = async (params: {
   });
 };
 
+// Carga un post puntual y lo devuelve en el mismo formato del feed.
 const buildPostResponseById = async (params: {
   postId: string;
   eventId: string;
@@ -273,6 +279,7 @@ const buildPostResponseById = async (params: {
   return enriched;
 };
 
+// Resuelve y valida contexto de acceso a un post dentro del evento activo.
 const resolvePostContext = async (params: {
   postId: string;
   eventId: string;
@@ -331,6 +338,7 @@ const resolvePostContext = async (params: {
   };
 };
 
+// Busca la encuesta asociada a un post de tipo POLL.
 const loadPollByPost = async (params: { postId: string; eventId: string }) => {
   const { data: poll, error } = await supabaseAdmin
     .from('polls')
@@ -348,6 +356,7 @@ const loadPollByPost = async (params: { postId: string; eventId: string }) => {
   return (poll as PollRow | null) ?? null;
 };
 
+// Lista posts por muro aplicando RBAC, soft delete y enriquecimiento de encuestas.
 export const getPostsByWall = async (params: {
   muro?: string;
   eventId: string;
@@ -406,6 +415,7 @@ export const getPostsByWall = async (params: {
   };
 };
 
+// Crea publicaciones de texto o encuesta validando permisos del muro destino.
 export const createPostService = async (payload: {
   muro?: string;
   content?: string;
@@ -573,6 +583,7 @@ export const createPostService = async (payload: {
   };
 };
 
+// Registra o reemplaza el voto de un usuario en una encuesta abierta.
 export const voteOnPollService = async (params: {
   postId: string;
   eventId: string;
@@ -730,6 +741,7 @@ export const voteOnPollService = async (params: {
   };
 };
 
+// Permite cerrar encuesta solo a su autor y audita exito/fallo.
 export const closePollService = async (params: {
   postId: string;
   eventId: string;
@@ -849,6 +861,7 @@ export const closePollService = async (params: {
   };
 };
 
+// Soft delete de post con regla autor/admin y mensaje visible para UI.
 export const deletePostService = async (params: {
   postId: string;
   eventId: string;

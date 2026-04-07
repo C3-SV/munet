@@ -9,6 +9,7 @@ export const Footer = () => {
     const isDark = theme === "dark";
 
     return (
+        // Footer global que adapta contraste del logo segun tema activo.
         <footer
             className="w-full py-5 px-4 sm:px-6 lg:px-12 mt-auto shrink-0"
             style={{

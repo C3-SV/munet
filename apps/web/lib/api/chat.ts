@@ -13,6 +13,7 @@ type ChatContext = {
 export const getConversations = async (
     context: ChatContext,
 ): Promise<ConversationSummary[]> => {
+    // Inbox de conversaciones DM para la membership activa.
     const payload = await requestApi<{ conversations: ConversationSummary[] }>(
         "/dm/conversations",
         {
@@ -30,6 +31,7 @@ export const searchParticipants = async (
     query: string,
     context: ChatContext,
 ): Promise<ChatParticipant[]> => {
+    // Busca participantes en el evento para iniciar conversacion.
     const searchParams = new URLSearchParams();
 
     if (query.trim()) {
@@ -54,6 +56,7 @@ export const createConversation = async (
     targetMembershipId: string,
     context: ChatContext,
 ): Promise<ConversationSummary> => {
+    // Reutiliza conversacion existente o crea una nueva con la otra persona.
     const payload = await requestApi<{ conversation: ConversationSummary }>(
         "/dm/conversations",
         {
@@ -71,6 +74,7 @@ export const getConversationMessages = async (
     conversationId: string,
     context: ChatContext,
 ): Promise<DirectMessage[]> => {
+    // Carga historial visible de una conversacion puntual.
     const payload = await requestApi<{ messages: DirectMessage[] }>(
         `/dm/conversations/${conversationId}/messages`,
         {
@@ -89,6 +93,7 @@ export const sendConversationMessage = async (
     content: string,
     context: ChatContext,
 ): Promise<DirectMessage> => {
+    // Envia mensaje directo y devuelve el mensaje creado.
     const payload = await requestApi<{ message: DirectMessage }>(
         `/dm/conversations/${conversationId}/messages`,
         {
@@ -107,6 +112,7 @@ export const deleteConversationMessage = async (
     messageId: string,
     context: ChatContext,
 ): Promise<void> => {
+    // Elimina (soft delete) un mensaje del autor en esa conversacion.
     await requestApi<{ success: boolean }>(
         `/dm/conversations/${conversationId}/messages/${messageId}`,
         {

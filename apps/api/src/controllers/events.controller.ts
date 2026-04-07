@@ -3,9 +3,11 @@ import { supabaseAdmin } from '../lib/supabase';
 import { loadWallsByEvent, mapWallForMembership } from '../services/walls.service';
 import { isAdminRole } from '../utils/rbac.utils';
 
+// Resuelve la membership del usuario para el evento solicitado.
 const resolveMembershipForEvent = (req: Request, eventId: string) =>
   req.auth?.memberships.find((membership) => membership.eventId === eventId) ?? null;
 
+// Lista muros del evento y agrega flags de acceso/publicación según RBAC.
 export const listEventWalls = async (req: Request, res: Response) => {
   try {
     const eventId = String(req.params.eventId);
@@ -44,6 +46,7 @@ export const listEventWalls = async (req: Request, res: Response) => {
   }
 };
 
+// Lista comités del evento con marcador canAccess para UI.
 export const listEventCommittees = async (req: Request, res: Response) => {
   try {
     const eventId = String(req.params.eventId);

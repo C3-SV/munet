@@ -17,6 +17,8 @@ type CreateAccountBody = {
   initial_password: string;
 };
 
+// Crea una cuenta operativa completa:
+// user + membership + profile, dejando la cuenta en PENDING_ACTIVATION.
 export const createAccount = async (
   req: Request<{}, {}, CreateAccountBody>,
   res: Response
@@ -177,6 +179,7 @@ type CreateEventBody = {
   end_date?: string;
 };
 
+// Alta de evento con validación de slug único.
 export const createEvent = async (
   req: Request<{}, {}, CreateEventBody>,
   res: Response
@@ -255,6 +258,7 @@ type CreateMembershipBody = {
   institution_name?: string;
 };
 
+// Crea membership para un usuario existente dentro de un evento.
 export const createMembership = async (
   req: Request<{}, {}, CreateMembershipBody>,
   res: Response
@@ -369,6 +373,7 @@ type CreateCommitteeBody = {
   sort_order?: number;
 };
 
+// Crea comité dentro de un evento, validando unicidad de nombre/código.
 export const createCommittee = async (
   req: Request<{}, {}, CreateCommitteeBody>,
   res: Response
@@ -479,6 +484,7 @@ export const createCommittee = async (
   }
 };
 
+// Devuelve eventos/memberships pendientes de activación para un participant_code.
 export const getEventsByParticipantCode = async (
   req: Request,
   res: Response

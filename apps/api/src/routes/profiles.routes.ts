@@ -11,6 +11,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Perfil propio y perfiles públicos por membership dentro del evento activo.
 router.get('/me', requireAuth, getMyProfile);
 router.patch('/me', requireAuth, updateMyProfile);
 router.post('/me/avatar', requireAuth, uploadMyAvatar);

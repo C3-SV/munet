@@ -14,10 +14,12 @@ const ThemeContext = createContext<ThemeContextType>({
     toggleTheme: () => {},
 });
 
+// Provider global del tema; sincroniza estado React + clase `dark` + localStorage.
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const [theme, setTheme] = useState<Theme>("light");
 
     useEffect(() => {
+        // Hidrata el tema guardado del usuario al montar la app.
         const stored = localStorage.getItem("munet-theme") as Theme | null;
         if (stored) {
             setTheme(stored);
@@ -25,6 +27,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, []);
 
+    // Alterna tema y persiste preferencia para futuros inicios de sesion.
     const toggleTheme = () => {
         const next = theme === "light" ? "dark" : "light";
         setTheme(next);
@@ -39,4 +42,5 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     );
 };
 
+// Hook de conveniencia para acceder al contexto de tema en componentes.
 export const useTheme = () => useContext(ThemeContext);

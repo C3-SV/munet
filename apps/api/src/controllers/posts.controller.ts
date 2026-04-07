@@ -8,11 +8,14 @@ import {
   voteOnPollService,
 } from '../services/posts.service';
 
+// Obtiene la membership del usuario para el evento activo.
 const resolveMembership = (req: Request, eventId: string) =>
   req.auth?.memberships.find((membership) => membership.eventId === eventId) ?? null;
 
+// Normaliza lectura de x-event-id desde headers.
 const readEventId = (req: Request) => req.header('x-event-id')?.trim();
 
+// GET /posts -> devuelve posts del muro solicitado con validación RBAC.
 export const listPosts = async (req: Request, res: Response) => {
   try {
     const muro = String(req.query.muro ?? 'general');
@@ -37,6 +40,7 @@ export const listPosts = async (req: Request, res: Response) => {
   }
 };
 
+// POST /posts -> crea publicación de texto o encuesta.
 export const createPost = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -74,6 +78,7 @@ export const createPost = async (req: Request, res: Response) => {
   }
 };
 
+// DELETE /posts/:postId -> soft delete del post (autor o admin).
 export const deletePost = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -101,6 +106,7 @@ export const deletePost = async (req: Request, res: Response) => {
   }
 };
 
+// GET /posts/:postId/comments -> listado plano de comentarios del post.
 export const listComments = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -128,6 +134,7 @@ export const listComments = async (req: Request, res: Response) => {
   }
 };
 
+// POST /posts/:postId/comments -> crea comentario/respuesta (profundidad 1).
 export const createComment = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -162,6 +169,7 @@ export const createComment = async (req: Request, res: Response) => {
   }
 };
 
+// DELETE /posts/:postId/comments/:commentId -> soft delete de comentario.
 export const deleteComment = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -190,6 +198,7 @@ export const deleteComment = async (req: Request, res: Response) => {
   }
 };
 
+// POST /posts/:postId/poll/vote -> registra o reemplaza el voto del usuario.
 export const voteOnPoll = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -222,6 +231,7 @@ export const voteOnPoll = async (req: Request, res: Response) => {
   }
 };
 
+// POST /posts/:postId/poll/close -> cierre de encuesta por su creador.
 export const closePoll = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);

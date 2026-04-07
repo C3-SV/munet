@@ -13,6 +13,7 @@ type PostCommentsProps = {
 };
 
 const formatRelativeTime = (timestamp: number) => {
+    // Formato compacto para timestamps de comentarios.
     const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 
     if (diffInMinutes < 1) {
@@ -50,6 +51,7 @@ export const PostComments = ({
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
     const loadComments = async (options?: { showLoader?: boolean }) => {
+        // Fetch reutilizable para carga inicial y refrescos por realtime.
         const showLoader = options?.showLoader ?? true;
 
         if (showLoader) {
@@ -70,6 +72,7 @@ export const PostComments = ({
     };
 
     useEffect(() => {
+        // Bootstrap inicial de comentarios por post.
         let cancelled = false;
 
         const bootstrap = async () => {
@@ -88,6 +91,7 @@ export const PostComments = ({
     }, [eventId, postId, token]);
 
     useEffect(() => {
+        // Realtime de comentarios por `post_id`.
         if (!realtimeEnabled || !supabaseBrowser) {
             return;
         }
@@ -134,6 +138,7 @@ export const PostComments = ({
     );
 
     const submitComment = async () => {
+        // Aplica debounce/cooldown para evitar doble envio por doble click.
         const normalizedContent = inputValue.trim();
 
         if (!normalizedContent || isSubmitting || disabled) {
@@ -170,6 +175,7 @@ export const PostComments = ({
     };
 
     const handleDeleteComment = async (comment: PostComment) => {
+        // Soft delete de comentario con mensaje de confirmacion.
         if (!comment.canDelete || comment.isDeleted || deletingCommentId) {
             return;
         }

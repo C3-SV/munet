@@ -24,6 +24,7 @@ const DELETED_DM_MESSAGE_STATUSES = [
   'ELIMINADO',
 ].filter((status): status is string => Boolean(status));
 
+// Centraliza auditoria de borrado de mensajes directos.
 const logDmMessageDeletionAudit = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -42,6 +43,7 @@ const logDmMessageDeletionAudit = async (params: {
   });
 };
 
+// Valida que la membership pertenezca a la conversacion y que siga activa.
 const findConversationForMembership = async (params: {
   conversationId: string;
   eventId: string;
@@ -92,6 +94,7 @@ const findConversationForMembership = async (params: {
   };
 };
 
+// Obtiene el ultimo mensaje visible por conversacion para armar previews.
 const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
   if (conversationIds.length === 0) {
     return new Map<string, DmConversationLatestMessage>();
@@ -120,6 +123,7 @@ const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
   return latestByConversation;
 };
 
+// Lista conversaciones DM del usuario en el evento activo.
 export const listDmConversations = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -158,6 +162,7 @@ export const listDmConversations = async (params: {
   };
 };
 
+// Busca participantes para iniciar chat filtrando por texto libre.
 export const searchDmParticipants = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -201,6 +206,7 @@ export const searchDmParticipants = async (params: {
   };
 };
 
+// Reutiliza conversacion existente entre dos memberships o crea una nueva.
 export const createOrReuseDmConversation = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -309,6 +315,7 @@ export const createOrReuseDmConversation = async (params: {
   };
 };
 
+// Lista mensajes visibles de una conversacion validando pertenencia.
 export const listDmMessages = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -348,6 +355,7 @@ export const listDmMessages = async (params: {
   };
 };
 
+// Crea mensaje directo y actualiza marcador de ultimo mensaje.
 export const createDmMessage = async (params: {
   eventId: string;
   membership: AuthMembership;
@@ -420,6 +428,7 @@ export const createDmMessage = async (params: {
   };
 };
 
+// Soft delete de mensaje DM, permitido solo al autor del mensaje.
 export const deleteDmMessage = async (params: {
   eventId: string;
   membership: AuthMembership;

@@ -37,6 +37,7 @@ export type AuditEntityType =
 
 export type AuditOutcome = 'SUCCESS' | 'FAILURE';
 
+// Inserta un evento en audit_logs con fallback a membership o actor explicito.
 export const logAudit = async (params: {
   eventId: string;
   membership?: AuthMembership;

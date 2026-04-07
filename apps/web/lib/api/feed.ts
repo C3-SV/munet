@@ -34,6 +34,7 @@ export const getFeedPosts = async (
     muro: string,
     context: FeedRequestContext,
 ): Promise<FeedResponse> =>
+    // Carga feed de un muro con control RBAC aplicado por backend.
     requestApi<FeedResponse>(`/posts?muro=${encodeURIComponent(muro)}`, {
         method: "GET",
         token: context.token,
@@ -49,6 +50,7 @@ export const publishFeedPost = async ({
     token,
     eventId,
 }: CreatePostInput): Promise<Post> => {
+    // Publica texto o encuesta segun `post_type`.
     const payload = await requestApi<{ post: Post }>("/posts", {
         method: "POST",
         token,
@@ -68,6 +70,7 @@ export const deleteFeedPost = async (
     postId: string,
     context: FeedRequestContext,
 ): Promise<Post> => {
+    // Soft delete del post; backend devuelve entidad actualizada.
     const payload = await requestApi<{ post: Post }>(`/posts/${postId}`, {
         method: "DELETE",
         token: context.token,
@@ -82,6 +85,7 @@ export const voteOnFeedPoll = async (
     optionId: string,
     context: FeedRequestContext,
 ): Promise<Post> => {
+    // Registra/actualiza voto de encuesta y retorna post enriquecido.
     const payload = await requestApi<{ post: Post }>(`/posts/${postId}/poll/vote`, {
         method: "POST",
         token: context.token,
@@ -98,6 +102,7 @@ export const closeFeedPoll = async (
     postId: string,
     context: FeedRequestContext,
 ): Promise<Post> => {
+    // Cierra encuesta (accion permitida solo al autor en backend).
     const payload = await requestApi<{ post: Post }>(`/posts/${postId}/poll/close`, {
         method: "POST",
         token: context.token,

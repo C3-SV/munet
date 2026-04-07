@@ -11,6 +11,7 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const handleSend = async () => {
+        // Evita envios vacios/duplicados y limpia input tras exito.
         if (!text.trim() || disabled || isSending) {
             return;
         }
@@ -25,6 +26,7 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
     };
 
     useEffect(() => {
+        // Auto-ajusta alto del textarea segun contenido (hasta maximo definido).
         if (textareaRef.current) {
             textareaRef.current.style.height = "auto";
             textareaRef.current.style.height =

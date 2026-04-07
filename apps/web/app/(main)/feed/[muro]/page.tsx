@@ -30,6 +30,7 @@ const Feed = () => {
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
 
     useEffect(() => {
+        // Carga inicial del muro activo (incluye control de acceso 403).
         if (!token || !eventId) {
             return;
         }
@@ -79,6 +80,7 @@ const Feed = () => {
     }, [eventId, muroParam, token]);
 
     useEffect(() => {
+        // Realtime: sincroniza cambios en posts/polls/votos del muro actual.
         if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden) {
             return;
         }
@@ -151,6 +153,7 @@ const Feed = () => {
     }, [activeWall?.id, eventId, isForbidden, muroParam, token]);
 
     useEffect(() => {
+        // Carga catalogo de comites del evento para filtro del muro general.
         if (!token || !eventId) {
             return;
         }
@@ -188,6 +191,7 @@ const Feed = () => {
     }, [eventId, token]);
 
     const comitesDisponibles = useMemo(() => {
+        // Prioriza catalogo del evento; usa fallback desde posts si falla API.
         if (allEventCommittees.length > 0) {
             return allEventCommittees;
         }
@@ -205,6 +209,7 @@ const Feed = () => {
     }, [allEventCommittees, posts]);
 
     const formatRelativeTime = (timestamp: number) => {
+        // Formateo liviano para mostrar tiempo relativo en tarjetas del feed.
         const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 
         if (diffInMinutes < 1) {
@@ -229,6 +234,7 @@ const Feed = () => {
         postType: "TEXT" | "POLL";
         pollOptions?: string[];
     }) => {
+        // Publica y actualiza estado local optimistamente con el post retornado.
         if (!token || !eventId) {
             throw new Error("No hay sesion activa");
         }
@@ -256,6 +262,7 @@ const Feed = () => {
     };
 
     const filteredPosts = posts.filter((post) => {
+        // Filtro combinado de busqueda libre + comites seleccionados.
         const matchesSearch =
             post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
             post.user.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -269,6 +276,7 @@ const Feed = () => {
     });
 
     const handlePostUpdated = (updatedPost: Post) => {
+        // Reconcilia actualizaciones parciales (votos/cierre/delete) sin recargar todo.
         setPosts((currentPosts) =>
             currentPosts.map((post) =>
                 post.id === updatedPost.id
@@ -286,6 +294,7 @@ const Feed = () => {
     };
 
     const handlePostDeleted = (postId: string) => {
+        // Remueve post de la lista tras confirmacion de borrado exitoso.
         setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
     };
 

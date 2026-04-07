@@ -26,6 +26,7 @@ const ProfilePage = () => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
+        // Carga perfil propio del evento activo.
         if (!token || !eventId) {
             return;
         }
@@ -56,6 +57,7 @@ const ProfilePage = () => {
     }, [eventId, token]);
 
     const saveProfile = async () => {
+        // Guarda nombre visible/bio sin tocar campos bloqueados.
         if (!token || !eventId || !profileData) {
             return;
         }
@@ -80,6 +82,7 @@ const ProfilePage = () => {
     };
 
     const handleAvatarSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+        // Validaciones de archivo antes de intentar subida.
         const file = event.target.files?.[0] ?? null;
 
         if (!file) {
@@ -106,6 +109,7 @@ const ProfilePage = () => {
     };
 
     const handleAvatarUpload = async () => {
+        // Sube avatar al backend (storage) y refresca estado local.
         if (!token || !eventId || !avatarFile) {
             return;
         }

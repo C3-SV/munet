@@ -10,6 +10,7 @@ export const getPostComments = async (
     postId: string,
     context: CommentContext,
 ): Promise<PostComment[]> => {
+    // Lista comentarios de un post en el evento activo.
     const payload = await requestApi<{ comments: PostComment[] }>(
         `/posts/${postId}/comments`,
         {
@@ -27,6 +28,7 @@ export const createPostComment = async (
     postId: string,
     context: CommentContext & { content: string; parentCommentId?: string | null },
 ): Promise<PostComment> => {
+    // Crea comentario o respuesta simple (1 nivel) segun parent_comment_id.
     const payload = await requestApi<{ comment: PostComment }>(
         `/posts/${postId}/comments`,
         {
@@ -50,6 +52,7 @@ export const deletePostComment = async (
     commentId: string,
     context: CommentContext,
 ): Promise<PostComment> => {
+    // Soft delete de comentario con reglas autor/admin en backend.
     const payload = await requestApi<{ comment: PostComment }>(
         `/posts/${postId}/comments/${commentId}`,
         {

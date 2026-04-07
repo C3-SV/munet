@@ -17,6 +17,7 @@ const SelectEventPage = () => {
     const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
 
     useEffect(() => {
+        // Hidrata sesion guardada antes de aplicar reglas de redireccion.
         hydrateAuth();
     }, [hydrateAuth]);
 
@@ -35,11 +36,13 @@ const SelectEventPage = () => {
         );
         const firstMembership = memberships[0];
 
+        // Si ya existe contexto activo no debe quedarse en selector.
         if (activeEventId && activeMembershipId) {
             router.replace("/feed");
             return;
         }
 
+        // Participantes sin rol admin entran directo al primer evento.
         if (!hasAdminMembership && firstMembership) {
             setActiveMembership(firstMembership.id);
             router.replace("/feed");
@@ -47,6 +50,7 @@ const SelectEventPage = () => {
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleChooseEvent = (membershipId: string) => {
+        // Seleccion explicita de contexto para admins (o multi-evento).
         setActiveMembership(membershipId);
         router.replace("/feed");
     };

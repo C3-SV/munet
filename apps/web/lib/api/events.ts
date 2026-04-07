@@ -30,6 +30,7 @@ export type EventCommittee = {
 export const getEventWalls = async (
     context: EventContext,
 ): Promise<EventWallsResponse> =>
+    // Devuelve todos los muros del evento con bandera `canAccess` por usuario.
     requestApi<EventWallsResponse>(`/events/${context.eventId}/walls`, {
         method: "GET",
         token: context.token,
@@ -40,6 +41,7 @@ export const getEventWalls = async (
 export const getEventCommittees = async (
     context: EventContext,
 ): Promise<EventCommittee[]> => {
+    // Lista comites activos del evento para sidebar/filtros/formularios.
     const payload = await requestApi<{ committees: EventCommittee[] }>(
         `/events/${context.eventId}/committees`,
         {

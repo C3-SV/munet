@@ -7,6 +7,7 @@ type ProfileContext = {
 };
 
 export const getMyProfile = async (context: ProfileContext): Promise<MyProfile> => {
+    // Perfil del usuario autenticado en el evento activo.
     const payload = await requestApi<{ profile: MyProfile }>("/profiles/me", {
         method: "GET",
         token: context.token,
@@ -23,6 +24,7 @@ export const updateMyProfile = async (
         avatar?: string;
     },
 ): Promise<MyProfile> => {
+    // Actualiza campos editables de perfil propio.
     const payload = await requestApi<{ profile: MyProfile }>("/profiles/me", {
         method: "PATCH",
         token: context.token,
@@ -41,6 +43,7 @@ export const uploadMyAvatar = async (
     file: File,
     context: ProfileContext,
 ): Promise<MyProfile> => {
+    // Convierte archivo a base64 para enviarlo al endpoint de avatar.
     const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
 
@@ -84,6 +87,7 @@ export const updatePublicProfileAsAdmin = async (
         committeeId?: string | null;
     },
 ): Promise<PublicProfile> => {
+    // Edicion administrativa de perfil de terceros (sin cambiar rol).
     const payload = await requestApi<{ profile: PublicProfile }>(
         `/profiles/${membershipId}`,
         {
@@ -110,6 +114,7 @@ export const uploadPublicAvatarAsAdmin = async (
     file: File,
     context: ProfileContext,
 ): Promise<PublicProfile> => {
+    // Sube avatar de un tercero desde flujo administrativo.
     const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
 
@@ -148,6 +153,7 @@ export const getPublicProfile = async (
     membershipId: string,
     context: ProfileContext,
 ): Promise<PublicProfile> => {
+    // Consulta perfil publico de una membership.
     const payload = await requestApi<{ profile: PublicProfile }>(
         `/profiles/${membershipId}`,
         {

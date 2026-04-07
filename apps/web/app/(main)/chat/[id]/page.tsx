@@ -55,6 +55,7 @@ const ChatRoomPage = () => {
     );
 
     const refreshConversation = useCallback(async () => {
+        // Refresca metadata de la conversacion (participant/last message).
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -66,6 +67,7 @@ const ChatRoomPage = () => {
     }, [conversationId, eventId, token]);
 
     const refreshMessages = useCallback(async (markAsNew = false) => {
+        // Refresca mensajes y marca como nuevos los que no estaban en memoria.
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -90,6 +92,7 @@ const ChatRoomPage = () => {
     }, [conversationId, eventId, token]);
 
     useEffect(() => {
+        // Carga inicial del room; si llega membershipId accidental intenta resolver conversacion.
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -155,6 +158,7 @@ const ChatRoomPage = () => {
     }, [conversationId, eventId, router, token]);
 
     useEffect(() => {
+        // Realtime de la conversacion: mensajes y cambios de cabecera.
         if (!conversationId || !supabaseBrowser || !token || !eventId) {
             return;
         }
@@ -198,10 +202,12 @@ const ChatRoomPage = () => {
     }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
     useEffect(() => {
+        // Mantiene scroll al final cuando cambia el historial visible.
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const handleSendMessage = async (text: string) => {
+        // Envia mensaje y agrega resultado local para respuesta inmediata.
         if (!token || !eventId || !conversationId) {
             return;
         }
@@ -230,6 +236,7 @@ const ChatRoomPage = () => {
     };
 
     const handleDeleteMessage = async (messageId: string) => {
+        // Elimina mensaje propio con confirmacion y refresco posterior.
         if (!token || !eventId || !conversationId) {
             return;
         }

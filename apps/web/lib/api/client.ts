@@ -24,6 +24,7 @@ export const requestApi = async <T>(
     path: string,
     { method = "GET", token, eventId, body, cache = "no-store" }: RequestOptions,
 ): Promise<T> => {
+    // Cliente base para requests autenticados; agrega token y evento activo.
     const response = await fetch(buildApiUrl(API_URL, path), {
         method,
         headers: {
@@ -37,6 +38,7 @@ export const requestApi = async <T>(
 
     const payload = await response.json().catch(() => ({}));
 
+    // Homologa errores backend para manejo centralizado en UI.
     if (!response.ok) {
         throw new ApiError(
             (payload as { error?: string })?.error ?? "Error en la solicitud",

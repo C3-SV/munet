@@ -13,6 +13,8 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Feed y publicaciones (texto/encuestas) con comentarios asociados.
+// Todas las rutas requieren sesión válida.
 router.get('/', requireAuth, listPosts);
 router.post('/', requireAuth, createPost);
 router.delete('/:postId', requireAuth, deletePost);

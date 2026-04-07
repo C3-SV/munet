@@ -17,6 +17,7 @@ export const ChatItem = ({
     lastMessage,
     unreadCount,
 }: ChatItemProps) => {
+    // Contenido comun para modo `Link` (inbox) y modo `button` (busqueda).
     const content = (
         <>
             <div className="relative shrink-0">

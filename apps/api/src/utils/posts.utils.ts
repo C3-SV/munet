@@ -1,6 +1,7 @@
 import type { PostRow, WallRecord } from '../types/posts.types';
 import { buildWallSlug } from './walls.utils';
 
+// Normaliza texto para comparaciones insensibles a tildes/case.
 export const normalize = (value: string | null | undefined) =>
   (value ?? '')
     .normalize('NFD')
@@ -8,6 +9,7 @@ export const normalize = (value: string | null | undefined) =>
     .toLowerCase()
     .trim();
 
+// Toma el primer elemento cuando Supabase retorna arrays por joins.
 export const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -16,6 +18,7 @@ export const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
+// Construye etiqueta de comite visible, ignorando comites eliminados.
 export const getCommitteeLabel = (
   committee:
     | {
@@ -56,6 +59,7 @@ const buildDeletedMessage = (deletedByActorType: 'AUTHOR' | 'ADMIN' | null) => {
   return 'Esta publicacion fue eliminada por el autor.';
 };
 
+// Convierte una fila de post + joins al DTO que consume el frontend.
 export const mapPost = (post: PostRow) => {
   const membership = firstItem(post.event_memberships);
   const profile = firstItem(membership?.profiles);
@@ -92,6 +96,7 @@ export const mapPost = (post: PostRow) => {
   };
 };
 
+// Busca muro por slug semantico o por nombre como fallback.
 export const findWallBySlug = (walls: WallRecord[], slug: string) => {
   const normalizedSlug = normalize(slug);
 

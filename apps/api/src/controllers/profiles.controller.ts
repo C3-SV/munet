@@ -62,8 +62,10 @@ const firstItem = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
+// Toma event_id activo desde el header usado por el frontend.
 const getActiveEventId = (req: Request) => req.header('x-event-id')?.trim();
 
+// Resuelve membership activa del usuario autenticado para ese evento.
 const getActiveMembership = (req: Request) => {
   const eventId = getActiveEventId(req);
 
@@ -79,6 +81,7 @@ const PROFILE_IMAGES_BUCKET =
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+// Extrae la ruta interna del objeto en Storage a partir de una URL pública.
 const extractStorageObjectPath = (publicUrl: string | null | undefined, bucket: string) => {
   if (!publicUrl) {
     return null;
@@ -94,6 +97,7 @@ const extractStorageObjectPath = (publicUrl: string | null | undefined, bucket: 
   return publicUrl.slice(markerIndex + marker.length);
 };
 
+// Traduce MIME type a extensión de archivo para persistencia en bucket.
 const extensionFromMimeType = (mimeType: string) => {
   if (mimeType === 'image/png') {
     return 'png';
@@ -106,6 +110,7 @@ const extensionFromMimeType = (mimeType: string) => {
   return 'jpg';
 };
 
+// Carga membership + profile + comité + usuario para construir vistas de perfil.
 const loadMembershipProfile = async (membershipId: string, eventId: string) => {
   const { data, error } = await supabaseAdmin
     .from('event_memberships')
@@ -150,6 +155,7 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
   return (data as MembershipProfileRow | null) ?? null;
 };
 
+// Normaliza estructura de respuesta de perfil para frontend.
 const formatProfileResponse = (row: MembershipProfileRow) => {
   const profile = firstItem(row.profiles);
   const committee = firstItem(row.committees);
@@ -190,9 +196,11 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
   };
 };
 
+// Helper para detectar si una propiedad viene explícitamente en el payload.
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(payload, key);
 
+// Convierte strings vacíos en null para persistencia consistente.
 const normalizeNullableText = (value: unknown) => {
   if (value === null) {
     return null;
@@ -206,6 +214,7 @@ const normalizeNullableText = (value: unknown) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+// Valida que el actor actual sea admin en el evento activo.
 const requireAdminMembership = (req: Request) => {
   const activeMembership = getActiveMembership(req);
 
@@ -220,6 +229,7 @@ const requireAdminMembership = (req: Request) => {
   return { membership: activeMembership } as const;
 };
 
+// Verifica que un comité pertenezca al evento activo.
 const validateCommitteeForEvent = async (eventId: string, committeeId: string) => {
   const { data: committee, error } = await supabaseAdmin
     .from('committees')
@@ -236,6 +246,7 @@ const validateCommitteeForEvent = async (eventId: string, committeeId: string) =
   return Boolean(committee);
 };
 
+// Sube avatar a Supabase Storage, actualiza profile_image_path y limpia imagen anterior.
 const uploadAvatarForMembership = async (params: {
   eventId: string;
   membershipId: string;
@@ -350,6 +361,7 @@ const uploadAvatarForMembership = async (params: {
   } as const;
 };
 
+// GET /profiles/me
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
     const activeMembership = getActiveMembership(req);
@@ -371,6 +383,7 @@ export const getMyProfile = async (req: Request, res: Response) => {
   }
 };
 
+// PATCH /profiles/me
 export const updateMyProfile = async (req: Request, res: Response) => {
   try {
     const activeMembership = getActiveMembership(req);
@@ -435,6 +448,7 @@ export const updateMyProfile = async (req: Request, res: Response) => {
   }
 };
 
+// PATCH /profiles/:membershipId (solo admin)
 export const updatePublicProfileAsAdmin = async (req: Request, res: Response) => {
   try {
     const adminContext = requireAdminMembership(req);
@@ -577,6 +591,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
   }
 };
 
+// POST /profiles/me/avatar
 export const uploadMyAvatar = async (req: Request, res: Response) => {
   try {
     const activeMembership = getActiveMembership(req);
@@ -619,6 +634,7 @@ export const uploadMyAvatar = async (req: Request, res: Response) => {
   }
 };
 
+// POST /profiles/:membershipId/avatar (solo admin)
 export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => {
   try {
     const adminContext = requireAdminMembership(req);
@@ -668,6 +684,7 @@ export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => 
   }
 };
 
+// GET /profiles/:membershipId (perfil público contextual al evento activo)
 export const getPublicProfile = async (req: Request, res: Response) => {
   try {
     const activeMembership = getActiveMembership(req);

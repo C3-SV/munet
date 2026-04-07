@@ -13,6 +13,7 @@ export interface ActivateAccountPayload {
     new_password: string;
 }
 
+// Hace login con `participant_code + password` y devuelve contexto inicial.
 export async function loginRequest(
     payload: LoginPayload,
 ): Promise<LoginResponse> {
@@ -38,6 +39,7 @@ export async function loginRequest(
     return data;
 }
 
+// Obtiene contexto auth actualizado (usuario + memberships activas).
 export async function authContextRequest(token: string): Promise<{
     user: AuthUser;
     memberships: MembershipSummary[];
@@ -61,6 +63,7 @@ export async function authContextRequest(token: string): Promise<{
     return data;
 }
 
+// Valida cuentas pendientes de activacion por codigo de participante.
 export async function validateActivationRequest(
     participant_code: string,
 ): Promise<{ success: boolean; events: any[] }> {
@@ -92,6 +95,7 @@ export async function validateActivationRequest(
     };
 }
 
+// Completa activacion inicial de cuenta en un evento puntual.
 export async function activateAccountRequest(
     payload: ActivateAccountPayload,
 ): Promise<{ success: boolean }> {

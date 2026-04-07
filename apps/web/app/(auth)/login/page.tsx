@@ -52,6 +52,7 @@ const Login = () => {
     }, [clearError, hydrateAuth]);
 
     useEffect(() => {
+        // Guard de sesion en login: delegados van directo a feed, admins a select-event.
         if (!hydrated) return;
         if (!token) return;
 
@@ -73,6 +74,7 @@ const Login = () => {
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleLogin = async () => {
+        // Ejecuta login y aplica la misma regla de redireccion segun rol/membership.
         try {
             setSuccessMessage("");
             await login({

@@ -8,11 +8,14 @@ import {
   searchDmParticipants,
 } from '../services/dm.service';
 
+// Lee event_id activo desde header para todos los endpoints de DM.
 const readEventId = (req: Request) => req.header('x-event-id')?.trim();
 
+// Obtiene membership del usuario para el evento activo.
 const resolveMembership = (req: Request, eventId: string) =>
   req.auth?.memberships.find((membership) => membership.eventId === eventId) ?? null;
 
+// GET /dm/conversations -> lista conversaciones visibles del usuario.
 export const listConversations = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -35,6 +38,7 @@ export const listConversations = async (req: Request, res: Response) => {
   }
 };
 
+// GET /dm/participants -> búsqueda de posibles destinatarios por evento.
 export const listParticipants = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -62,6 +66,7 @@ export const listParticipants = async (req: Request, res: Response) => {
   }
 };
 
+// POST /dm/conversations -> reusa conversación existente o crea una nueva.
 export const createConversation = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -89,6 +94,7 @@ export const createConversation = async (req: Request, res: Response) => {
   }
 };
 
+// GET /dm/conversations/:id/messages -> mensajes de la conversación.
 export const listMessages = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -116,6 +122,7 @@ export const listMessages = async (req: Request, res: Response) => {
   }
 };
 
+// POST /dm/conversations/:id/messages -> envía mensaje al chat.
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -144,6 +151,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   }
 };
 
+// DELETE /dm/conversations/:id/messages/:messageId -> soft delete del mensaje propio.
 export const deleteMessage = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);

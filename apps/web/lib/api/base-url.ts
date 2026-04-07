@@ -1,5 +1,6 @@
 const DEFAULT_API_URL = "http://localhost:3002";
 
+// Limpia y normaliza base URL para evitar dobles slash al concatenar.
 export const normalizeApiBaseUrl = (value?: string): string => {
     const trimmedValue = value?.trim();
 
@@ -10,6 +11,7 @@ export const normalizeApiBaseUrl = (value?: string): string => {
     return trimmedValue.replace(/\/+$/, "");
 };
 
+// Construye URL final de API manteniendo formato consistente.
 export const buildApiUrl = (baseUrl: string, path: string): string => {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 

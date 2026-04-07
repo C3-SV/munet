@@ -17,6 +17,7 @@ type NavItem = {
     canAccess: boolean;
 };
 
+// Item base de navegacion lateral (muro general/avisos).
 const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
     <Link
         href={item.href}
@@ -48,6 +49,7 @@ const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
     </Link>
 );
 
+// Render de cada muro de comite, incluyendo estado visual de acceso restringido.
 const CommitteeItem = ({
     wall,
     pathname,
@@ -107,12 +109,14 @@ export const Sidebar = () => {
     const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
 
     useEffect(() => {
+        // Mantiene abierto acordeon de comites cuando la ruta ya apunta a uno.
         if (pathname?.includes("comite")) {
             setIsComitesOpen(true);
         }
     }, [pathname]);
 
     useEffect(() => {
+        // Carga muros visibles del evento para construir menu dinamico.
         if (!token || !activeEventId) {
             return;
         }
@@ -144,6 +148,7 @@ export const Sidebar = () => {
     }, [activeEventId, token]);
 
     useEffect(() => {
+        // Carga avatar de perfil para el bloque inferior del sidebar.
         if (!token || !activeEventId) {
             setProfileAvatar(null);
             return;
@@ -183,6 +188,7 @@ export const Sidebar = () => {
     const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
 
     const navigation: NavItem[] = [
+        // Entradas base del menu construidas desde muros reales.
         ...(generalWall
             ? [
                   {
