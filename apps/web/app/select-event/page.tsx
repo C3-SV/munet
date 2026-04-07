@@ -36,8 +36,14 @@ const SelectEventPage = () => {
         );
         const firstMembership = memberships[0];
 
-        // Si ya existe contexto activo no debe quedarse en selector.
+        // Si ya existe contexto activo:
+        // - Admin puede quedarse en selector para cambiar de evento manualmente.
+        // - Participante debe volver al feed.
         if (activeEventId && activeMembershipId) {
+            if (hasAdminMembership) {
+                return;
+            }
+
             router.replace("/feed");
             return;
         }
