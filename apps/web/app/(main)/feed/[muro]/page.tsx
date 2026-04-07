@@ -119,6 +119,30 @@ const Feed = () => {
                     void refreshPosts();
                 },
             )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "polls",
+                    filter: `wall_id=eq.${activeWall.id}`,
+                },
+                () => {
+                    void refreshPosts();
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "poll_votes",
+                    filter: `wall_id=eq.${activeWall.id}`,
+                },
+                () => {
+                    void refreshPosts();
+                },
+            )
             .subscribe();
 
         return () => {
@@ -201,7 +225,11 @@ const Feed = () => {
         return `hace ${diffInDays} dia${diffInDays === 1 ? "" : "s"}`;
     };
 
-    const handlePublishPost = async (text: string) => {
+    const handlePublishPost = async (draft: {
+        content: string;
+        postType: "TEXT" | "POLL";
+        pollOptions?: string[];
+    }) => {
         if (!token || !eventId) {
             throw new Error("No hay sesion activa");
         }
@@ -210,7 +238,9 @@ const Feed = () => {
             setError(null);
             const newPost = await publishFeedPost({
                 muro: muroParam,
-                content: text,
+                content: draft.content,
+                postType: draft.postType,
+                pollOptions: draft.pollOptions,
                 token,
                 eventId,
             });

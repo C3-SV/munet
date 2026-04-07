@@ -8,6 +8,7 @@ export interface User {
 
 export interface Post {
     id: string;
+    postType?: "TEXT" | "POLL";
     user: User;
     title?: string | null;
     content: string;
@@ -18,7 +19,26 @@ export interface Post {
     isDeleted?: boolean;
     deletedByActorType?: "AUTHOR" | "ADMIN" | null;
     canDelete?: boolean;
+    poll?: PollData | null;
     timestamp: number;
+}
+
+export interface PollOption {
+    id: string;
+    text: string;
+    votes: number;
+    percentage: number;
+    isSelectedByMe: boolean;
+}
+
+export interface PollData {
+    id: string;
+    status: "OPEN" | "CLOSED";
+    isClosed: boolean;
+    totalVotes: number;
+    canVote: boolean;
+    canClose: boolean;
+    options: PollOption[];
 }
 
 export interface PostComment {

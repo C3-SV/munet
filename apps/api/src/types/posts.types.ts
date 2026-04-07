@@ -19,6 +19,7 @@ export type WallRecord = {
 export type PostRow = {
   id: string;
   author_membership_id: string;
+  post_type: string;
   content: string;
   title: string | null;
   status: string;
@@ -97,6 +98,7 @@ export type PostRow = {
 export const POST_SELECT = `
   id,
   author_membership_id,
+  post_type,
   content,
   title,
   status,

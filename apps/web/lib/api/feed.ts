@@ -26,6 +26,8 @@ type FeedRequestContext = {
 type CreatePostInput = FeedRequestContext & {
     muro: string;
     content: string;
+    postType?: "TEXT" | "POLL";
+    pollOptions?: string[];
 };
 
 export const getFeedPosts = async (
@@ -42,6 +44,8 @@ export const getFeedPosts = async (
 export const publishFeedPost = async ({
     muro,
     content,
+    postType,
+    pollOptions,
     token,
     eventId,
 }: CreatePostInput): Promise<Post> => {
@@ -52,6 +56,8 @@ export const publishFeedPost = async ({
         body: {
             muro,
             content,
+            post_type: postType ?? "TEXT",
+            poll_options: pollOptions,
         },
     });
 
@@ -64,6 +70,36 @@ export const deleteFeedPost = async (
 ): Promise<Post> => {
     const payload = await requestApi<{ post: Post }>(`/posts/${postId}`, {
         method: "DELETE",
+        token: context.token,
+        eventId: context.eventId,
+    });
+
+    return payload.post;
+};
+
+export const voteOnFeedPoll = async (
+    postId: string,
+    optionId: string,
+    context: FeedRequestContext,
+): Promise<Post> => {
+    const payload = await requestApi<{ post: Post }>(`/posts/${postId}/poll/vote`, {
+        method: "POST",
+        token: context.token,
+        eventId: context.eventId,
+        body: {
+            option_id: optionId,
+        },
+    });
+
+    return payload.post;
+};
+
+export const closeFeedPoll = async (
+    postId: string,
+    context: FeedRequestContext,
+): Promise<Post> => {
+    const payload = await requestApi<{ post: Post }>(`/posts/${postId}/poll/close`, {
+        method: "POST",
         token: context.token,
         eventId: context.eventId,
     });

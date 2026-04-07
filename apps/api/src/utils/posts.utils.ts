@@ -69,6 +69,7 @@ export const mapPost = (post: PostRow) => {
 
   return {
     id: post.id,
+    postType: post.post_type,
     content: isDeleted ? buildDeletedMessage(post.deleted_by_actor_type) : post.content,
     title: post.title,
     createdAt: post.created_at,
@@ -77,6 +78,7 @@ export const mapPost = (post: PostRow) => {
     committeeTags,
     isDeleted,
     deletedByActorType: post.deleted_by_actor_type,
+    poll: null,
     user: {
       id: membership?.id ?? 'unknown',
       name: getProfileName(profile),
