@@ -119,7 +119,7 @@ export const PostEditor = ({
                                 : "1px solid var(--border-color)",
                     }}
                 >
-                    Publicacion
+                    Publicación
                 </button>
                 <button
                     type="button"
@@ -144,7 +144,7 @@ export const PostEditor = ({
                 onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setPostText(event.target.value)
                 }
-                placeholder={postType === "POLL" ? "Escribe la pregunta de la encuesta..." : "Que estas pensando?"}
+                placeholder={postType === "POLL" ? "Escribe la pregunta de la encuesta..." : "¿Qué estás pensando?"}
                 maxLength={MAX_POST_LENGTH}
                 disabled={disabled || isPublishing}
                 className="w-full min-h-28 p-5 text-[15px] font-body focus:outline-none resize-none bg-transparent"
@@ -161,7 +161,7 @@ export const PostEditor = ({
                             <input
                                 value={option}
                                 onChange={(event) => updatePollOption(index, event.target.value)}
-                                placeholder={`Opcion ${index + 1}`}
+                                placeholder={`Opción ${index + 1}`}
                                 className="flex-1 rounded-lg px-3 py-2 text-sm font-body outline-none"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
@@ -203,7 +203,7 @@ export const PostEditor = ({
                                     : "pointer",
                         }}
                     >
-                        + Agregar opcion
+                        + Agregar opción
                     </button>
                 </div>
             )}

@@ -48,7 +48,7 @@ const ChatRoomPage = () => {
                       name: "Delegado",
                       avatar: `https://ui-avatars.com/api/?name=Delegado&background=E5E7EB&color=111827`,
                       role: "DELEGADO",
-                      committee: "Comite",
+                      committee: "Comité",
                       lastActive: "desconocido",
                   },
         [conversation, conversationId],

@@ -318,7 +318,7 @@ const PublicProfilePage = () => {
                                     <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                         |
                                     </span>
-                                    {profile.committee?.name ?? "Sin comite"}
+                                    {profile.committee?.name ?? "Sin comité"}
                                 </p>
                             </div>
                         </div>
@@ -344,10 +344,10 @@ const PublicProfilePage = () => {
 
                             <div>
                                 <p className="text-xs font-bold font-heading uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                                    Biografia
+                                    Biografía
                                 </p>
                                 <p className="text-sm font-body mt-1 whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>
-                                    {profile.profile.bio || "Este participante aun no ha agregado una biografia."}
+                                    {profile.profile.bio || "Este participante aún no ha agregado una biografía."}
                                 </p>
                             </div>
 
@@ -548,7 +548,7 @@ const PublicProfilePage = () => {
 
                                         <div className="space-y-2">
                                             <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                                Comite
+                                                Comité
                                             </label>
                                             <select
                                                 value={committeeId}
@@ -556,7 +556,7 @@ const PublicProfilePage = () => {
                                                 className="w-full p-3 rounded-xl font-body text-sm outline-none"
                                                 style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                                             >
-                                                <option value="">Sin comite</option>
+                                                <option value="">Sin comité</option>
                                                 {committees.map((committee) => (
                                                     <option key={committee.id} value={committee.id}>
                                                         {committee.name}
@@ -607,7 +607,7 @@ const PublicProfilePage = () => {
 
                                     <div className="space-y-2">
                                         <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                            Biografia
+                                            Biografía
                                         </label>
                                         <textarea
                                             value={bio}

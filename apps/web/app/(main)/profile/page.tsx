@@ -164,7 +164,7 @@ const ProfilePage = () => {
                         Mi perfil
                     </h1>
                     <p className="font-body mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                        Informacion publica y credenciales del evento actual.
+                        Información pública y credenciales del evento actual.
                     </p>
                 </header>
 
@@ -185,7 +185,7 @@ const ProfilePage = () => {
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                     |
                                 </span>
-                                {profileData.committee?.name ?? "Sin comite"}
+                                {profileData.committee?.name ?? "Sin comité"}
                             </p>
                         </div>
                     </div>
@@ -307,12 +307,12 @@ const ProfilePage = () => {
 
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                    Comite
+                                    Comité
                                 </label>
                                 <input
                                     type="text"
                                     readOnly
-                                    value={profileData.committee?.name ?? "Sin comite"}
+                                    value={profileData.committee?.name ?? "Sin comité"}
                                     className="w-full p-3 rounded-xl font-body text-sm outline-none cursor-not-allowed"
                                     style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
                                 />
@@ -321,7 +321,7 @@ const ProfilePage = () => {
 
                         <div className="space-y-2">
                             <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                Biografia
+                                Biografía
                             </label>
                             <textarea
                                 value={bio}

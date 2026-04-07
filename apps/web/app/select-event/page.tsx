@@ -110,8 +110,8 @@ const SelectEventPage = () => {
                             </p>
                             <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
                                 {membership.committeeName
-                                    ? `Comite: ${membership.committeeName}`
-                                    : "Comite: No asignado"}
+                                    ? `Comité: ${membership.committeeName}`
+                                    : "Comité: No asignado"}
                             </p>
                             <p className="mt-4 text-xs font-semibold font-heading uppercase tracking-wider" style={{ color: "var(--text-accent)" }}>
                                 Entrar al evento

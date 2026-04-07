@@ -46,7 +46,7 @@ export const Footer = () => {
                         onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
                         onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
                     >
-                        Soporte tecnico
+                        Soporte técnico
                     </Link>
                     <Link
                         href="#"
@@ -55,7 +55,7 @@ export const Footer = () => {
                         onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
                         onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
                     >
-                        Terminos de uso
+                        Términos de uso
                     </Link>
                 </div>
             </div>

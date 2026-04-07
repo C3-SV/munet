@@ -348,7 +348,7 @@ export const Sidebar = () => {
                                     alt=""
                                 />
                                 <span className="flex-1 text-sm font-semibold font-heading">
-                                    Muros de comites
+                                    Muros de comités
                                 </span>
                                 <span style={{ opacity: 0.4 }}>
                                     {isComitesOpen ? "v" : ">"}
@@ -376,7 +376,7 @@ export const Sidebar = () => {
                                             className="text-xs font-body py-2"
                                             style={{ color: "var(--text-muted)" }}
                                         >
-                                            Sin comites disponibles.
+                                            Sin comités disponibles.
                                         </li>
                                     )}
                                 </ul>
