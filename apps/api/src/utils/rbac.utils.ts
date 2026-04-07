@@ -33,4 +33,4 @@ export const canAccessCommitteeWall = (params: {
 };
 
 export const canPublishInAnnouncements = (role: string) =>
-  isAdminRole(role) || isModeratorRole(role);
+  isAdminRole(role);

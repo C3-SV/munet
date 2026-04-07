@@ -10,7 +10,7 @@ import {
     getConversations,
     searchParticipants,
 } from "../../../lib/api/chat";
-import { realtimeEnabled, supabaseBrowser } from "../../../lib/supabase";
+import { supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
 
@@ -286,7 +286,6 @@ const Chats = () => {
                             {isSearchMode
                                 ? `${participants.length} resultado${participants.length !== 1 ? "s" : ""}`
                                 : `${visibleConversations.length} conversacion${visibleConversations.length !== 1 ? "es" : ""}`}
-                            {realtimeEnabled && !isSearchMode ? " - Realtime activo" : ""}
                         </p>
                     </div>
 

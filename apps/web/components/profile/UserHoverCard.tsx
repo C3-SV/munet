@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createConversation } from "../../lib/api/chat";
 import { useAuthStore } from "../../stores/auth.store";
 
@@ -24,7 +24,37 @@ export const UserHoverCard = ({
     const eventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const [isOpeningChat, setIsOpeningChat] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isSelfProfile = activeMembershipId === membershipId;
+
+    const openCard = () => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
+
+        setIsOpen(true);
+    };
+
+    const scheduleCloseCard = () => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+        }
+
+        closeTimerRef.current = setTimeout(() => {
+            setIsOpen(false);
+            closeTimerRef.current = null;
+        }, 140);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) {
+                clearTimeout(closeTimerRef.current);
+            }
+        };
+    }, []);
 
     const handleOpenChat = async () => {
         if (!token || !eventId || isSelfProfile || isOpeningChat) {
@@ -40,16 +70,25 @@ export const UserHoverCard = ({
             router.push(`/chat/${conversation.id}`);
         } finally {
             setIsOpeningChat(false);
+            setIsOpen(false);
         }
     };
 
     return (
-        <div className="relative group/hover-card inline-block">
+        <div
+            className="relative inline-block"
+            onMouseEnter={openCard}
+            onMouseLeave={scheduleCloseCard}
+        >
             {children}
 
             <div
-                className="absolute left-0 top-full mt-2 z-30 w-64 rounded-xl p-4 opacity-0 pointer-events-none transition-all duration-150 group-hover/hover-card:opacity-100 group-hover/hover-card:pointer-events-auto"
+                className="absolute left-0 top-full z-30 w-64 rounded-xl p-4 transition-all duration-150"
                 style={{
+                    marginTop: "6px",
+                    opacity: isOpen ? 1 : 0,
+                    pointerEvents: isOpen ? "auto" : "none",
+                    transform: isOpen ? "translateY(0)" : "translateY(-2px)",
                     backgroundColor: "var(--bg-surface)",
                     border: "1px solid var(--border-color)",
                     boxShadow: "var(--shadow-md)",

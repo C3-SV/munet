@@ -39,12 +39,15 @@ export const PostComments = ({
     eventId,
     disabled = false,
 }: PostCommentsProps) => {
+    const COMMENT_SUBMIT_COOLDOWN_MS = 1200;
     const [comments, setComments] = useState<PostComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [inputValue, setInputValue] = useState("");
     const [replyTo, setReplyTo] = useState<PostComment | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
     const loadComments = async (options?: { showLoader?: boolean }) => {
         const showLoader = options?.showLoader ?? true;
@@ -131,24 +134,38 @@ export const PostComments = ({
     );
 
     const submitComment = async () => {
-        if (!inputValue.trim()) {
+        const normalizedContent = inputValue.trim();
+
+        if (!normalizedContent || isSubmitting || disabled) {
+            return;
+        }
+
+        const now = Date.now();
+
+        if (now - lastSubmitAt < COMMENT_SUBMIT_COOLDOWN_MS) {
+            setError("Espera un momento antes de enviar otro comentario.");
             return;
         }
 
         try {
+            setIsSubmitting(true);
+            setError(null);
+
             const newComment = await createPostComment(postId, {
                 token,
                 eventId,
-                content: inputValue,
+                content: normalizedContent,
                 parentCommentId: replyTo?.id,
             });
 
             setComments((current) => [...current, newComment]);
             setInputValue("");
             setReplyTo(null);
-            setError(null);
+            setLastSubmitAt(now);
         } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : "No se pudo comentar");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -200,11 +217,6 @@ export const PostComments = ({
             >
                 Comentarios
             </p>
-            {realtimeEnabled && (
-                <p className="mb-3 text-[10px] font-heading font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                    Realtime activo
-                </p>
-            )}
 
             {loading ? (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>
@@ -336,39 +348,39 @@ export const PostComments = ({
                     <input
                         value={inputValue}
                         onChange={(event) => setInputValue(event.target.value)}
-                        disabled={disabled}
+                        disabled={disabled || isSubmitting}
                         placeholder="Escribe un comentario..."
                         className="flex-1 rounded-lg px-3 py-2 text-sm font-body outline-none"
                         style={{
                             backgroundColor: "var(--bg-input)",
                             border: "1px solid var(--input-border)",
                             color: "var(--text-primary)",
-                            opacity: disabled ? 0.6 : 1,
+                            opacity: disabled || isSubmitting ? 0.6 : 1,
                         }}
                     />
                     <button
                         type="button"
                         onClick={submitComment}
-                        disabled={disabled || !inputValue.trim()}
+                        disabled={disabled || isSubmitting || !inputValue.trim()}
                         className="rounded-lg px-4 py-2 text-sm font-heading font-semibold"
                         style={{
                             backgroundColor:
-                                disabled || !inputValue.trim()
+                                disabled || isSubmitting || !inputValue.trim()
                                     ? "var(--bg-surface-secondary)"
                                     : "var(--bubble-me-bg)",
                             color:
-                                disabled || !inputValue.trim()
+                                disabled || isSubmitting || !inputValue.trim()
                                     ? "var(--text-muted)"
                                     : "white",
                             border:
-                                disabled || !inputValue.trim()
+                                disabled || isSubmitting || !inputValue.trim()
                                     ? "1px solid var(--border-color)"
                                     : "1px solid transparent",
                             cursor:
-                                disabled || !inputValue.trim() ? "not-allowed" : "pointer",
+                                disabled || isSubmitting || !inputValue.trim() ? "not-allowed" : "pointer",
                         }}
                     >
-                        Comentar
+                        {isSubmitting ? "Enviando..." : "Comentar"}
                     </button>
                 </div>
                 {error && (

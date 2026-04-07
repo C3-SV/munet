@@ -140,11 +140,23 @@ const mapComment = (row: CommentRow, membership: AuthMembership) => {
   };
 };
 
+type EnsurePostAccessResult =
+  | {
+      allowed: true;
+      postStatus: string;
+      wall: ReturnType<typeof mapWallForMembership>;
+    }
+  | {
+      allowed: false;
+      status: number;
+      error: string;
+    };
+
 const ensurePostAccess = async (params: {
   postId: string;
   eventId: string;
   membership: AuthMembership;
-}) => {
+}): Promise<EnsurePostAccessResult> => {
   const { data: post, error } = await supabaseAdmin
     .from('posts')
     .select('id, event_id, wall_id, status')
@@ -187,6 +199,7 @@ const ensurePostAccess = async (params: {
   return {
     allowed: true as const,
     postStatus: post.status,
+    wall: wallView,
   };
 };
 
@@ -246,6 +259,13 @@ export const createPostComment = async (params: {
     return {
       status: 400,
       body: { error: 'No puedes comentar en una publicacion eliminada' },
+    };
+  }
+
+  if (access.wall.kind === 'announcements' && !access.wall.canPublish) {
+    return {
+      status: 403,
+      body: { error: 'No tienes permisos para comentar en avisos' },
     };
   }
 

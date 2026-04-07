@@ -8,7 +8,7 @@ import { PostEditor } from "../../../../components/feed/PostEditor";
 import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
-import { realtimeEnabled, supabaseBrowser } from "../../../../lib/supabase";
+import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { Post } from "../../../../types/common";
 
@@ -270,6 +270,11 @@ const Feed = () => {
             ? activeWall.committeeName ?? activeWall.name
             : activeWall.name
         : "Muro";
+    const canCommentInWall = activeWall
+        ? activeWall.kind === "announcements"
+            ? activeWall.canPublish
+            : activeWall.canAccess
+        : false;
 
     return (
         <div className="p-4 sm:p-6 lg:p-12">
@@ -287,24 +292,6 @@ const Feed = () => {
                     >
                         {headerTitle}
                     </h1>
-                    {realtimeEnabled && !isForbidden && (
-                        <span
-                            className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em]"
-                            style={{
-                                backgroundColor:
-                                    "color-mix(in srgb, var(--text-accent) 12%, transparent)",
-                                color: "var(--text-accent)",
-                                border:
-                                    "1px solid color-mix(in srgb, var(--text-accent) 18%, transparent)",
-                            }}
-                        >
-                            <span
-                                className="block size-2 rounded-full"
-                                style={{ backgroundColor: "currentColor" }}
-                            />
-                            Realtime activo
-                        </span>
-                    )}
                 </header>
 
                 {!isForbidden && activeWall?.canPublish && (
@@ -392,7 +379,7 @@ const Feed = () => {
                                         }}
                                         token={token}
                                         eventId={eventId}
-                                        canComment={Boolean(activeWall?.canAccess)}
+                                        canComment={canCommentInWall}
                                         onPostUpdated={handlePostUpdated}
                                     />
                                 ))
