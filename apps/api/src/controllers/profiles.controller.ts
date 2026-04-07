@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
+import { isAdminRole } from '../utils/rbac.utils';
 
 type MembershipProfileRow = {
   id: string;
   event_id: string;
   role: string;
+  committee_id: string | null;
   delegation_name: string | null;
   institution_name: string | null;
   account_status: string;
@@ -109,6 +111,7 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
         id,
         event_id,
         role,
+        committee_id,
         delegation_name,
         institution_name,
         account_status,
@@ -179,6 +182,163 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
     },
     email: user?.email ?? null,
   };
+};
+
+const hasOwn = (payload: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(payload, key);
+
+const normalizeNullableText = (value: unknown) => {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const requireAdminMembership = (req: Request) => {
+  const activeMembership = getActiveMembership(req);
+
+  if (!activeMembership) {
+    return { error: 'x-event-id es requerido' } as const;
+  }
+
+  if (!isAdminRole(activeMembership.role)) {
+    return { error: 'No tienes permisos para editar perfiles de terceros' } as const;
+  }
+
+  return { membership: activeMembership } as const;
+};
+
+const validateCommitteeForEvent = async (eventId: string, committeeId: string) => {
+  const { data: committee, error } = await supabaseAdmin
+    .from('committees')
+    .select('id')
+    .eq('id', committeeId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return Boolean(committee);
+};
+
+const uploadAvatarForMembership = async (params: {
+  eventId: string;
+  membershipId: string;
+  fileName?: string;
+  mimeType?: string;
+  base64Data?: string;
+}) => {
+  const mimeType = params.mimeType?.trim().toLowerCase();
+
+  if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
+    return {
+      status: 400,
+      body: { error: 'Formato de imagen no permitido' },
+    } as const;
+  }
+
+  if (!params.base64Data?.trim()) {
+    return {
+      status: 400,
+      body: { error: 'No se recibio el archivo a subir' },
+    } as const;
+  }
+
+  const decoded = Buffer.from(params.base64Data, 'base64');
+
+  if (!decoded.length || decoded.length > MAX_AVATAR_BYTES) {
+    return {
+      status: 400,
+      body: { error: 'La imagen debe tener un tamano maximo de 5MB' },
+    } as const;
+  }
+
+  const existing = await loadMembershipProfile(params.membershipId, params.eventId);
+
+  if (!existing) {
+    return {
+      status: 404,
+      body: { error: 'Perfil no encontrado' },
+    } as const;
+  }
+
+  const profile = firstItem(existing.profiles);
+
+  if (!profile?.id) {
+    return {
+      status: 404,
+      body: { error: 'No hay registro de perfil para editar' },
+    } as const;
+  }
+
+  const extension = extensionFromMimeType(mimeType);
+  const safeNameToken =
+    (params.fileName ?? 'avatar')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 32) || 'avatar';
+  const objectPath = `${params.eventId}/${params.membershipId}/${Date.now()}-${safeNameToken}.${extension}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(PROFILE_IMAGES_BUCKET)
+    .upload(objectPath, decoded, {
+      contentType: mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const { data: publicUrlData } = supabaseAdmin.storage
+    .from(PROFILE_IMAGES_BUCKET)
+    .getPublicUrl(objectPath);
+  const publicUrl = publicUrlData.publicUrl;
+
+  const { error: updateError } = await supabaseAdmin
+    .from('profiles')
+    .update({
+      profile_image_path: publicUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', profile.id);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  const previousObjectPath = extractStorageObjectPath(
+    profile.profile_image_path,
+    PROFILE_IMAGES_BUCKET
+  );
+
+  if (previousObjectPath && previousObjectPath !== objectPath) {
+    await supabaseAdmin.storage.from(PROFILE_IMAGES_BUCKET).remove([previousObjectPath]);
+  }
+
+  const updated = await loadMembershipProfile(params.membershipId, params.eventId);
+
+  if (!updated) {
+    return {
+      status: 404,
+      body: { error: 'Perfil no encontrado' },
+    } as const;
+  }
+
+  return {
+    status: 200,
+    body: {
+      profile: formatProfileResponse(updated),
+    },
+  } as const;
 };
 
 export const getMyProfile = async (req: Request, res: Response) => {
@@ -255,6 +415,135 @@ export const updateMyProfile = async (req: Request, res: Response) => {
   }
 };
 
+export const updatePublicProfileAsAdmin = async (req: Request, res: Response) => {
+  try {
+    const adminContext = requireAdminMembership(req);
+
+    if ('error' in adminContext) {
+      const status = adminContext.error === 'x-event-id es requerido' ? 400 : 403;
+      return res.status(status).json({ error: adminContext.error });
+    }
+
+    const targetMembershipId = String(req.params.membershipId ?? '').trim();
+
+    if (!targetMembershipId) {
+      return res.status(400).json({ error: 'membershipId es requerido' });
+    }
+
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    if (hasOwn(payload, 'role')) {
+      return res.status(400).json({ error: 'El rol no se puede editar desde este endpoint' });
+    }
+
+    const existing = await loadMembershipProfile(
+      targetMembershipId,
+      adminContext.membership.eventId
+    );
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const profile = firstItem(existing.profiles);
+
+    if (!profile?.id) {
+      return res.status(404).json({ error: 'No hay registro de perfil para editar' });
+    }
+
+    const firstNameCandidate = hasOwn(payload, 'first_name')
+      ? normalizeNullableText(payload.first_name)
+      : profile.first_name;
+    const lastNameCandidate = hasOwn(payload, 'last_name')
+      ? normalizeNullableText(payload.last_name)
+      : profile.last_name;
+
+    if (!firstNameCandidate) {
+      return res.status(400).json({ error: 'first_name no puede estar vacio' });
+    }
+
+    if (!lastNameCandidate) {
+      return res.status(400).json({ error: 'last_name no puede estar vacio' });
+    }
+
+    let committeeIdToSave = existing.committee_id;
+    if (hasOwn(payload, 'committee_id')) {
+      const rawCommittee = payload.committee_id;
+      committeeIdToSave =
+        typeof rawCommittee === 'string' && rawCommittee.trim().length > 0
+          ? rawCommittee.trim()
+          : null;
+
+      if (committeeIdToSave) {
+        const committeeExists = await validateCommitteeForEvent(
+          adminContext.membership.eventId,
+          committeeIdToSave
+        );
+
+        if (!committeeExists) {
+          return res
+            .status(400)
+            .json({ error: 'El comite seleccionado no pertenece al evento actual' });
+        }
+      }
+    }
+
+    const profileUpdate = {
+      first_name: firstNameCandidate,
+      last_name: lastNameCandidate,
+      display_name: hasOwn(payload, 'display_name')
+        ? normalizeNullableText(payload.display_name)
+        : profile.display_name,
+      bio: hasOwn(payload, 'bio') ? normalizeNullableText(payload.bio) : profile.bio,
+      updated_at: new Date().toISOString(),
+    };
+
+    const membershipUpdate = {
+      delegation_name: hasOwn(payload, 'delegation_name')
+        ? normalizeNullableText(payload.delegation_name)
+        : existing.delegation_name,
+      institution_name: hasOwn(payload, 'institution_name')
+        ? normalizeNullableText(payload.institution_name)
+        : existing.institution_name,
+      committee_id: committeeIdToSave,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update(profileUpdate)
+      .eq('id', profile.id);
+
+    if (profileError) {
+      throw new Error(profileError.message);
+    }
+
+    const { error: membershipError } = await supabaseAdmin
+      .from('event_memberships')
+      .update(membershipUpdate)
+      .eq('id', targetMembershipId)
+      .eq('event_id', adminContext.membership.eventId);
+
+    if (membershipError) {
+      throw new Error(membershipError.message);
+    }
+
+    const updated = await loadMembershipProfile(
+      targetMembershipId,
+      adminContext.membership.eventId
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    return res.json({ profile: formatProfileResponse(updated) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudo actualizar el perfil del participante' });
+  }
+};
+
 export const uploadMyAvatar = async (req: Request, res: Response) => {
   try {
     const activeMembership = getActiveMembership(req);
@@ -269,92 +558,54 @@ export const uploadMyAvatar = async (req: Request, res: Response) => {
       base64_data?: string;
     };
 
-    const mimeType = mime_type?.trim().toLowerCase();
+    const result = await uploadAvatarForMembership({
+      eventId: activeMembership.eventId,
+      membershipId: activeMembership.id,
+      fileName: file_name,
+      mimeType: mime_type,
+      base64Data: base64_data,
+    });
 
-    if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
-      return res.status(400).json({ error: 'Formato de imagen no permitido' });
-    }
-
-    if (!base64_data?.trim()) {
-      return res.status(400).json({ error: 'No se recibio el archivo a subir' });
-    }
-
-    const decoded = Buffer.from(base64_data, 'base64');
-
-    if (!decoded.length || decoded.length > MAX_AVATAR_BYTES) {
-      return res
-        .status(400)
-        .json({ error: 'La imagen debe tener un tamano maximo de 5MB' });
-    }
-
-    const existing = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Perfil no encontrado' });
-    }
-
-    const profile = firstItem(existing.profiles);
-
-    if (!profile?.id) {
-      return res.status(404).json({ error: 'No hay registro de perfil para editar' });
-    }
-
-    const extension = extensionFromMimeType(mimeType);
-    const safeNameToken =
-      (file_name ?? 'avatar')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '')
-        .slice(0, 32) || 'avatar';
-    const objectPath = `${activeMembership.eventId}/${activeMembership.id}/${Date.now()}-${safeNameToken}.${extension}`;
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(PROFILE_IMAGES_BUCKET)
-      .upload(objectPath, decoded, {
-        contentType: mimeType,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
-
-    const { data: publicUrlData } = supabaseAdmin.storage
-      .from(PROFILE_IMAGES_BUCKET)
-      .getPublicUrl(objectPath);
-
-    const publicUrl = publicUrlData.publicUrl;
-
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        profile_image_path: publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', profile.id);
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
-    const previousObjectPath = extractStorageObjectPath(
-      profile.profile_image_path,
-      PROFILE_IMAGES_BUCKET
-    );
-
-    if (previousObjectPath && previousObjectPath !== objectPath) {
-      await supabaseAdmin.storage.from(PROFILE_IMAGES_BUCKET).remove([previousObjectPath]);
-    }
-
-    const updated = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
-
-    if (!updated) {
-      return res.status(404).json({ error: 'Perfil no encontrado' });
-    }
-
-    return res.json({ profile: formatProfileResponse(updated) });
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'No se pudo subir la foto de perfil' });
+  }
+};
+
+export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => {
+  try {
+    const adminContext = requireAdminMembership(req);
+
+    if ('error' in adminContext) {
+      const status = adminContext.error === 'x-event-id es requerido' ? 400 : 403;
+      return res.status(status).json({ error: adminContext.error });
+    }
+
+    const targetMembershipId = String(req.params.membershipId ?? '').trim();
+
+    if (!targetMembershipId) {
+      return res.status(400).json({ error: 'membershipId es requerido' });
+    }
+
+    const { file_name, mime_type, base64_data } = req.body as {
+      file_name?: string;
+      mime_type?: string;
+      base64_data?: string;
+    };
+
+    const result = await uploadAvatarForMembership({
+      eventId: adminContext.membership.eventId,
+      membershipId: targetMembershipId,
+      fileName: file_name,
+      mimeType: mime_type,
+      base64Data: base64_data,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudo subir la foto de perfil del participante' });
   }
 };
 
