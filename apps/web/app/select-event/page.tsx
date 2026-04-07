@@ -44,6 +44,7 @@ const SelectEventPage = () => {
 
         // Participantes sin rol admin entran directo al primer evento.
         if (!hasAdminMembership && firstMembership) {
+            // Aunque esté en /select-event, el delegado no debe quedarse aquí.
             setActiveMembership(firstMembership.id);
             router.replace("/feed");
         }

@@ -70,10 +70,12 @@ const getActiveMembership = (req: Request) => {
   const eventId = getActiveEventId(req);
 
   if (!eventId) {
+    // Si no hay evento activo no podemos resolver perfil contextual.
     return null;
   }
 
   return req.auth?.memberships.find((membership) => membership.eventId === eventId) ?? null;
+  // La membership activa amarra permisos, auditoria y scoping de datos por evento.
 };
 
 const PROFILE_IMAGES_BUCKET =
@@ -91,6 +93,7 @@ const extractStorageObjectPath = (publicUrl: string | null | undefined, bucket: 
   const markerIndex = publicUrl.indexOf(marker);
 
   if (markerIndex === -1) {
+    // URL externa o formato inesperado: no intentamos borrar objeto previo.
     return null;
   }
 
@@ -149,6 +152,7 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
     .maybeSingle();
 
   if (error) {
+    // Elevamos error para manejo unificado por endpoint.
     throw new Error(error.message);
   }
 
@@ -166,6 +170,7 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
   const lastName = profile?.last_name ?? '';
   const fallbackName = `${firstName} ${lastName}`.trim() || 'Participante';
   const displayName = profile?.display_name?.trim() || fallbackName;
+  // displayName siempre retorna valor usable para UI, incluso sin perfil completo.
 
   return {
     membershipId: row.id,
@@ -212,6 +217,7 @@ const normalizeNullableText = (value: unknown) => {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+  // Normalizar a null evita guardar strings vacios y simplifica filtros posteriores.
 };
 
 // Valida que el actor actual sea admin en el evento activo.
@@ -219,6 +225,7 @@ const requireAdminMembership = (req: Request) => {
   const activeMembership = getActiveMembership(req);
 
   if (!activeMembership) {
+    // Distinguimos 400 (faltó evento) de 403 (sin permisos) en caller.
     return { error: 'x-event-id es requerido' } as const;
   }
 
@@ -244,6 +251,7 @@ const validateCommitteeForEvent = async (eventId: string, committeeId: string) =
   }
 
   return Boolean(committee);
+  // Si no existe en ese evento, caller debe rechazar payload para evitar referencias invalidas.
 };
 
 // Sube avatar a Supabase Storage, actualiza profile_image_path y limpia imagen anterior.
@@ -258,6 +266,7 @@ const uploadAvatarForMembership = async (params: {
   const mimeType = params.mimeType?.trim().toLowerCase();
 
   if (!mimeType || !ALLOWED_MIME_TYPES.has(mimeType)) {
+    // Validación de whitelist para evitar subir binarios no soportados.
     return {
       status: 400,
       body: { error: 'Formato de imagen no permitido' },
@@ -274,6 +283,7 @@ const uploadAvatarForMembership = async (params: {
   const decoded = Buffer.from(params.base64Data, 'base64');
 
   if (!decoded.length || decoded.length > MAX_AVATAR_BYTES) {
+    // Límite de 5MB protege costo de storage y tiempos de subida.
     return {
       status: 400,
       body: { error: 'La imagen debe tener un tamano maximo de 5MB' },
@@ -305,6 +315,7 @@ const uploadAvatarForMembership = async (params: {
       .replace(/[^a-z0-9]/g, '')
       .slice(0, 32) || 'avatar';
   const objectPath = `${params.eventId}/${params.membershipId}/${Date.now()}-${safeNameToken}.${extension}`;
+  // Path versionado por timestamp para evitar colisiones de nombre.
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(PROFILE_IMAGES_BUCKET)
@@ -314,6 +325,7 @@ const uploadAvatarForMembership = async (params: {
     });
 
   if (uploadError) {
+    // Falla de storage: no avanzamos update de profile.
     throw new Error(uploadError.message);
   }
 
@@ -321,6 +333,7 @@ const uploadAvatarForMembership = async (params: {
     .from(PROFILE_IMAGES_BUCKET)
     .getPublicUrl(objectPath);
   const publicUrl = publicUrlData.publicUrl;
+  // Guardamos URL publica para consumo directo del frontend sin signed-url.
 
   const { error: updateError } = await supabaseAdmin
     .from('profiles')
@@ -332,6 +345,7 @@ const uploadAvatarForMembership = async (params: {
     .eq('id', profile.id);
 
   if (updateError) {
+    // Si no pudo persistir URL, se reporta error para no devolver estado ambiguo.
     throw new Error(updateError.message);
   }
 
@@ -341,6 +355,7 @@ const uploadAvatarForMembership = async (params: {
   );
 
   if (previousObjectPath && previousObjectPath !== objectPath) {
+    // Limpieza best-effort de avatar anterior para evitar basura en bucket.
     await supabaseAdmin.storage.from(PROFILE_IMAGES_BUCKET).remove([previousObjectPath]);
   }
 
@@ -413,6 +428,7 @@ export const updateMyProfile = async (req: Request, res: Response) => {
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
+        // Solo sobrescribimos campos enviados; lo demás conserva valor previo.
         display_name: display_name ?? profile.display_name,
         bio: bio ?? profile.bio,
         profile_image_path: profile_image_path ?? profile.profile_image_path,
@@ -465,8 +481,10 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
     }
 
     const payload = (req.body ?? {}) as Record<string, unknown>;
+    // Payload parcial: cada campo se actualiza solo si viene explicito en body.
 
     if (hasOwn(payload, 'role')) {
+      // Regla de negocio: rol queda fuera de este endpoint.
       return res.status(400).json({ error: 'El rol no se puede editar desde este endpoint' });
     }
 
@@ -493,6 +511,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       : profile.last_name;
 
     if (!firstNameCandidate) {
+      // first_name/last_name deben seguir siendo obligatorios tras edición.
       return res.status(400).json({ error: 'first_name no puede estar vacio' });
     }
 
@@ -509,6 +528,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
           : null;
 
       if (committeeIdToSave) {
+        // Previene guardar un comité que no pertenece al evento activo.
         const committeeExists = await validateCommitteeForEvent(
           adminContext.membership.eventId,
           committeeIdToSave
@@ -544,6 +564,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       updated_at: new Date().toISOString(),
       updated_by_user_id: adminContext.membership.userId,
     };
+    // Profiles guarda actor membership; membership usa actor user para trazabilidad admin.
 
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -560,6 +581,7 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       .eq('id', targetMembershipId)
       .eq('event_id', adminContext.membership.eventId)
       .is('deleted_at', null);
+    // El filtro por event_id evita editar memberships homónimas de otro evento.
 
     if (membershipError) {
       throw new Error(membershipError.message);

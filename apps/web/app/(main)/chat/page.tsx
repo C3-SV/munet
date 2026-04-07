@@ -109,6 +109,7 @@ const Chats = () => {
                 const existingConversation = conversationList.find(
                     (conversation) => conversation.otherParticipant.id === targetMembershipIdFromQuery,
                 );
+                // Si ya existe chat entre ambos, evitamos crear duplicado y abrimos el existente.
                 const conversation =
                     existingConversation ??
                     (await createConversation(targetMembershipIdFromQuery, {

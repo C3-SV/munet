@@ -186,6 +186,7 @@ export const Sidebar = () => {
     const committeeWalls = walls.filter((wall) => wall.kind === "committee");
     const canSwitchEventFromSidebar = activeMembership ? isAdminRole(activeMembership.role) : false;
     const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
+    // Botón cambiar evento en sidebar: visible solo para roles admin.
 
     const navigation: NavItem[] = [
         // Entradas base del menu construidas desde muros reales.

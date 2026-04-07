@@ -74,6 +74,7 @@ const normalizePollOptions = (rawOptions: string[] | undefined) => {
 
   options.forEach((option) => {
     const key = option.toLowerCase();
+    // Dedupe case-insensitive para evitar opciones semánticamente duplicadas.
     if (!seen.has(key)) {
       seen.add(key);
       unique.push(option);
@@ -128,6 +129,7 @@ const attachPollDataToPosts = async (params: {
     .map((post) => post.id);
 
   if (pollPostIds.length === 0) {
+    // Early return evita queries extras cuando el muro solo tiene posts TEXT.
     return params.posts;
   }
 
@@ -209,6 +211,7 @@ const attachPollDataToPosts = async (params: {
     const selectedVote = pollVotes.find(
       (vote) => vote.voter_membership_id === params.membership.id
     );
+    // Solo existe un voto activo por usuario/poll desde reglas de negocio.
 
     const votesByOption = new Map<string, number>();
     pollVotes.forEach((vote) => {
@@ -265,6 +268,7 @@ const buildPostResponseById = async (params: {
   }
 
   if (!post) {
+    // Caller decide respuesta 404; aquí solo normalizamos null.
     return null;
   }
 
@@ -297,6 +301,7 @@ const resolvePostContext = async (params: {
   }
 
   if (!post || post.event_id !== params.eventId) {
+    // Evita operar posts fuera del evento activo enviado por header.
     return {
       allowed: false as const,
       status: 404,
@@ -318,6 +323,7 @@ const resolvePostContext = async (params: {
   const wallView = mapWallForMembership(matchedWall, params.membership);
 
   if (!wallView.canAccess) {
+    // Front puede mostrar muro atenuado, pero backend bloquea operación real.
     return {
       allowed: false as const,
       status: 403,
@@ -445,6 +451,7 @@ export const createPostService = async (payload: {
     }
 
     if (pollOptions.length > 10) {
+      // Límite para mantener UI legible y payloads acotados.
       return {
         status: 400,
         body: { error: 'Una encuesta puede tener maximo 10 opciones' },
@@ -472,6 +479,7 @@ export const createPostService = async (payload: {
   }
 
   if (!wallView.canPublish) {
+    // Distingue entre acceso de lectura al muro y permiso de publicación.
     return {
       status: 403,
       body: { error: 'No tienes permisos para publicar en este muro' },
@@ -526,6 +534,7 @@ export const createPostService = async (payload: {
       .single();
 
     if (pollError || !pollData) {
+      // Rollback manual del post para no dejar publicación huérfana sin encuesta.
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
       return {
         status: 400,
@@ -544,6 +553,7 @@ export const createPostService = async (payload: {
       .insert(optionsPayload);
 
     if (optionsError) {
+      // Si fallan opciones, revertimos poll y post para mantener consistencia.
       await supabaseAdmin.from('polls').delete().eq('id', pollData.id);
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
       return {
@@ -593,6 +603,7 @@ export const voteOnPollService = async (params: {
   const optionId = params.optionId?.trim();
 
   if (!optionId) {
+    // option_id es el identificador mínimo para registrar/reemplazar voto.
     return {
       status: 400,
       body: { error: 'option_id es requerido' },
@@ -632,6 +643,7 @@ export const voteOnPollService = async (params: {
   }
 
   if (poll.status !== 'OPEN') {
+    // Encuestas cerradas bloquean nuevos votos y cambios de voto.
     return {
       status: 400,
       body: { error: 'La encuesta esta cerrada' },
@@ -669,6 +681,7 @@ export const voteOnPollService = async (params: {
 
   const latestVoteId = existingVotes?.[0]?.id ?? null;
   const staleVoteIds = (existingVotes ?? []).slice(1).map((vote) => vote.id);
+  // Si por datos legacy hay duplicados, conservamos el más reciente y limpiamos resto.
 
   if (latestVoteId) {
     const { error: updateVoteError } = await supabaseAdmin
@@ -773,6 +786,7 @@ export const closePollService = async (params: {
   }
 
   if (poll.author_membership_id !== params.membership.id) {
+    // Requisito RF: solo autor puede cerrar su encuesta.
     await logPollAudit({
       eventId: params.eventId,
       membership: params.membership,
@@ -908,6 +922,7 @@ export const deletePostService = async (params: {
   const isAuthor = post.author_membership_id === params.membership.id;
 
   if (!isAdmin && !isAuthor) {
+    // Soft delete permitido solo a autor o roles administrativos.
     return {
       status: 403,
       body: { error: 'No tienes permisos para eliminar esta publicacion' },

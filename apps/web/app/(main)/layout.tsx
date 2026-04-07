@@ -50,11 +50,13 @@ export default function MainLayout({
             const firstMembership = memberships[0];
 
             if (!hasAdminMembership && firstMembership) {
+                // Si es delegado y no hay contexto activo, lo resolvemos automáticamente.
                 setActiveMembership(firstMembership.id);
                 router.replace("/feed");
                 return;
             }
 
+            // Solo admins/multi-contexto quedan en selector de evento.
             router.replace("/select-event");
         }
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);

@@ -90,11 +90,13 @@ const Login = () => {
 
             if (!(state.activeEventId && state.activeMembershipId)) {
                 if (!hasAdminMembership && firstMembership) {
+                    // Delegado: queda fijado su contexto y entra directo al feed.
                     state.setActiveMembership(firstMembership.id);
                     router.replace("/feed");
                     return;
                 }
 
+                // Admin: debe elegir evento explícitamente.
                 router.replace("/select-event");
                 return;
             }

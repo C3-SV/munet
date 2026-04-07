@@ -131,6 +131,7 @@ const mapComment = (row: CommentRow, membership: AuthMembership) => {
     timestamp: new Date(row.created_at).getTime(),
     isDeleted,
     deletedByActorType: row.deleted_by_actor_type,
+    // canDelete depende de quien consulta, por eso se calcula en tiempo de respuesta.
     canDelete: isAdminRole(membership.role) || row.author_membership_id === membership.id,
     user: {
       id: commentAuthorMembership?.id ?? 'unknown',
@@ -174,6 +175,7 @@ const ensurePostAccess = async (params: {
   }
 
   if (!post || post.event_id !== params.eventId) {
+    // Asegura aislamiento por evento en rutas basadas en postId.
     return {
       allowed: false,
       status: 404,
@@ -181,6 +183,7 @@ const ensurePostAccess = async (params: {
     };
   }
 
+  // Reutiliza la misma fuente de muros del feed para no duplicar reglas de acceso.
   const walls = await loadWallsByEvent(params.eventId);
   const matchedWall = walls.find((wall) => wall.id === post.wall_id);
 
@@ -195,6 +198,7 @@ const ensurePostAccess = async (params: {
   const wallView = mapWallForMembership(matchedWall, params.membership);
 
   if (!wallView.canAccess) {
+    // Bloquea lectura/escritura de comentarios si no tiene acceso al muro.
     return {
       allowed: false,
       status: 403,
@@ -237,6 +241,7 @@ export const listCommentsByPost = async (params: {
   }
 
   const comments = ((data ?? []) as CommentRow[])
+    // El listado oculta "DELETED"; el estado eliminado se expone via respuesta de delete.
     .filter((comment) => comment.status === 'VISIBLE')
     .map((comment) => mapComment(comment, params.membership));
 
@@ -266,6 +271,7 @@ export const createPostComment = async (params: {
   }
 
   if (access.postStatus === 'DELETED') {
+    // No se permite comentar en publicaciones ya eliminadas.
     return {
       status: 400,
       body: { error: 'No puedes comentar en una publicacion eliminada' },
@@ -273,6 +279,7 @@ export const createPostComment = async (params: {
   }
 
   if (access.wall.kind === 'announcements' && !access.wall.canPublish) {
+    // En avisos comentar sigue la misma regla de publicación (solo permitidos).
     return {
       status: 403,
       body: { error: 'No tienes permisos para comentar en avisos' },
@@ -291,6 +298,7 @@ export const createPostComment = async (params: {
   const parentCommentId = params.parentCommentId?.trim() || null;
 
   if (parentCommentId) {
+    // Parent se valida por evento+post para impedir cruces entre hilos.
     const { data: parent, error: parentError } = await supabaseAdmin
       .from('post_comments')
       .select('id, post_id, parent_comment_id')
@@ -304,6 +312,7 @@ export const createPostComment = async (params: {
     }
 
     if (!parent || parent.post_id !== params.postId) {
+      // Impide referenciar comentario padre de otro post.
       return {
         status: 404,
         body: { error: 'Comentario padre no encontrado para este post' },
@@ -311,6 +320,7 @@ export const createPostComment = async (params: {
     }
 
     if (parent.parent_comment_id) {
+      // Regla de profundidad máxima 1 (sin anidamiento recursivo).
       return {
         status: 400,
         body: { error: 'Solo se permite un nivel de respuesta' },
@@ -332,6 +342,7 @@ export const createPostComment = async (params: {
     })
     .select(COMMENT_SELECT)
     .single();
+  // Insert con select evita un segundo query para devolver author/profile ya resueltos.
 
   if (error || !inserted) {
     return {
@@ -397,6 +408,7 @@ export const deletePostComment = async (params: {
   const isAuthor = comment.author_membership_id === params.membership.id;
 
   if (!isAdmin && !isAuthor) {
+    // Solo autor/admin pueden marcar comentario como eliminado.
     return {
       status: 403,
       body: { error: 'No tienes permisos para eliminar este comentario' },
@@ -416,6 +428,7 @@ export const deletePostComment = async (params: {
     .eq('id', params.commentId)
     .select(COMMENT_SELECT)
     .single();
+  // Devolvemos comentario actualizado para sincronizar UI sin recargar todo el post.
 
   if (updateError || !updatedComment) {
     return {

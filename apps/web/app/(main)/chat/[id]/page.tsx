@@ -107,6 +107,7 @@ const ChatRoomPage = () => {
                     conversationList.find((item) => item.id === conversationId) ?? null;
 
                 if (!matchedConversation) {
+                    // Si la URL trae membershipId por error, intentamos resolver/crear conversación.
                     const createdConversation = await createConversation(conversationId, {
                         token,
                         eventId,
@@ -119,6 +120,7 @@ const ChatRoomPage = () => {
                             ) ?? null;
                         const resolvedConversationId = matchedByTarget?.id ?? createdConversation.id;
 
+                        // Normalizamos URL final para que siempre quede `/chat/<conversationId>`.
                         router.replace(`/chat/${resolvedConversationId}`);
                     }
 

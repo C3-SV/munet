@@ -61,6 +61,7 @@ const findConversationForMembership = async (params: {
   }
 
   if (!conversation) {
+    // 404 si conversación no existe en este evento.
     return {
       allowed: false as const,
       status: 404,
@@ -73,6 +74,7 @@ const findConversationForMembership = async (params: {
     conversation.participant_b_membership_id === params.membershipId;
 
   if (!isParticipant) {
+    // Evita que miembros externos lean/escriban conversaciones ajenas.
     return {
       allowed: false as const,
       status: 403,
@@ -193,6 +195,7 @@ export const searchDmParticipants = async (params: {
       const searchable = normalize(
         `${participant.name} ${participant.committee} ${participant.role} ${participant.delegationName ?? ''} ${participant.institutionName ?? ''}`
       );
+      // Índice simple en memoria para búsqueda flexible sin query compleja.
 
       return searchable.includes(normalizedQuery);
     })
@@ -222,6 +225,7 @@ export const createOrReuseDmConversation = async (params: {
   }
 
   if (targetMembershipId === params.membership.id) {
+    // Bloqueo explícito de auto-conversaciones.
     return {
       status: 400,
       body: { error: 'No puedes iniciar una conversacion contigo mismo' },
@@ -270,6 +274,7 @@ export const createOrReuseDmConversation = async (params: {
   );
 
   if (existingConversation) {
+    // Reuso evita duplicar conversaciones entre el mismo par de participantes.
     return {
       status: 200,
       body: {
@@ -365,6 +370,7 @@ export const createDmMessage = async (params: {
   const content = params.content?.trim();
 
   if (!content) {
+    // Mensaje vacío no aporta valor y ensucia auditoría/historial.
     return {
       status: 400,
       body: { error: 'El mensaje no puede estar vacio' },
@@ -409,6 +415,7 @@ export const createDmMessage = async (params: {
     .from('dm_conversations')
     .update({ last_message_at: inserted.created_at })
     .eq('id', params.conversationId);
+  // last_message_at facilita ordenar inbox por actividad reciente.
 
   await logAudit({
     eventId: params.eventId,
@@ -469,6 +476,7 @@ export const deleteDmMessage = async (params: {
   }
 
   if (message.author_membership_id !== params.membership.id) {
+    // Eliminación restringida al autor para evitar moderación inesperada en DM.
     await logDmMessageDeletionAudit({
       eventId: params.eventId,
       membership: params.membership,
@@ -494,6 +502,7 @@ export const deleteDmMessage = async (params: {
   let appliedStatus: string | null = null;
 
   for (const status of DELETED_DM_MESSAGE_STATUSES) {
+    // Intenta estados compatibles con diferentes enum legacy/configurados.
     const { error: updateError } = await supabaseAdmin
       .from('dm_messages')
       .update({

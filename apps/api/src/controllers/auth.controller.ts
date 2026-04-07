@@ -30,6 +30,7 @@ export const activateAccount = async (
             !initial_password ||
             !new_password
         ) {
+            // Evita llamadas incompletas que pueden crear estados parciales.
             return res.status(400).json({
                 error: "participant_code, event_id, initial_password y new_password son requeridos",
             });
@@ -43,6 +44,7 @@ export const activateAccount = async (
             .eq("event_id", event_id)
             .is("deleted_at", null)
             .maybeSingle();
+        // maybeSingle evita excepcion y nos deja diferenciar "no existe" vs error real.
 
         if (findError) {
             console.error(findError);
@@ -52,6 +54,7 @@ export const activateAccount = async (
         }
 
         if (!membership) {
+            // Registramos intento fallido para trazabilidad de soporte/auditoria.
             await logAuthAttempt({
                 event_id,
                 participant_code,
@@ -65,6 +68,7 @@ export const activateAccount = async (
 
         // 2. validar estado
         if (membership.account_status !== "PENDING_ACTIVATION") {
+            // Solo cuentas pendientes pueden consumir password inicial de un solo uso.
             await logAuthAttempt({
                 event_id,
                 participant_code,
@@ -81,6 +85,7 @@ export const activateAccount = async (
 
         // 3. validar contraseña inicial
         if (!membership.initial_password_hash) {
+            // Protege contra cuentas mal provisionadas sin credencial temporal.
             await logAuthAttempt({
                 event_id,
                 participant_code,
@@ -101,6 +106,7 @@ export const activateAccount = async (
         );
 
         if (!isInitialPasswordValid) {
+            // No revelamos detalle sensible; respondemos credenciales invalidas.
             await logAuthAttempt({
                 event_id,
                 participant_code,
@@ -128,6 +134,7 @@ export const activateAccount = async (
         // Usamos su correo real si existe, si no, usamos el fallback
         const resolvedEmail =
             userRecord.email || `${participant_code}@munet.local`;
+        // Fallback de email mantiene flujo de activacion aun sin correo real cargado.
 
         // 4. crear usuario en Supabase Auth
         const { data: authData, error: authError } =
@@ -136,8 +143,10 @@ export const activateAccount = async (
                 password: new_password,
                 email_confirm: true,
             });
+        // email_confirm true evita dependencia de flujo de verificacion por correo en onboarding.
 
         if (authError) {
+            // Si falla Auth, no avanzamos updates locales para evitar inconsistencias.
             await logAuthAttempt({
                 event_id,
                 participant_code,
@@ -214,6 +223,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         const { participant_code, password } = req.body;
 
         if (!participant_code?.trim() || !password?.trim()) {
+            // Validacion temprana evita consultas innecesarias a DB/Auth.
             return res
                 .status(400)
                 .json({ error: "participant_code y password son requeridos" });
@@ -227,8 +237,10 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
                 .eq("participant_code", participant_code)
                 .eq("account_status", "ACTIVE")
                 .is("deleted_at", null);
+        // Login ignora memberships borradas/logicamente desactivadas.
 
         if (membershipsError || !memberships?.length) {
+            // participant_code inexistente o no activo: mismo mensaje de negocio.
             await logAuthAttempt({
                 participant_code,
                 attempt_type: "LOGIN",
@@ -243,6 +255,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         ];
 
         if (uniqueUserIds.length > 1) {
+            // Regla de integridad: un codigo debe mapear a un solo usuario base.
             return res.status(409).json({
                 error: "El participant_code esta asociado a multiples usuarios. Contacta a soporte para corregirlo.",
             });
@@ -271,8 +284,10 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
                 email: user.email,
                 password,
             });
+        // La autenticacion final vive en Supabase Auth, no en hash local por membership.
 
         if (authError || !authData.session || !authData.user) {
+            // Centralizamos fallo de autenticacion en 401 uniforme.
             await logAuthAttempt({
                 event_id: memberships[0]?.event_id,
                 participant_code,
@@ -295,9 +310,11 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
             .eq("user_id", user.id)
             .eq("account_status", "ACTIVE")
             .is("deleted_at", null);
+        // Actualizamos todas las memberships activas del usuario para telemetria de acceso.
 
         // 5. obtener contexto de eventos
         const membershipContext = await getMembershipsByUserId(user.id);
+        // memberships via service ya vienen filtradas y enriquecidas para selector de evento.
 
         // 6. log intento
         await logAuthAttempt({
@@ -323,6 +340,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
 export const getAuthContext = async (req: Request, res: Response) => {
     try {
         if (!req.auth) {
+            // Requiere middleware auth previo para inyectar token+memberships en req.
             return res.status(401).json({ error: "No autorizado" });
         }
 
