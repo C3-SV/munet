@@ -1,6 +1,7 @@
 import type { AuthMembership } from '../types/auth-context';
 import { supabaseAdmin } from '../lib/supabase';
 import { POST_SELECT, type PostRow } from '../types/posts.types';
+import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug, mapPost } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
@@ -100,20 +101,15 @@ const logPollAudit = async (params: {
   outcome: 'SUCCESS' | 'FAILURE';
   reason: string;
 }) => {
-  try {
-    await supabaseAdmin.from('audit_logs').insert({
-      event_id: params.eventId,
-      actor_membership_id: params.membership.id,
-      actor_role: params.membership.role,
-      action_type: params.actionType,
-      entity_type: 'POLL',
-      entity_id: params.pollId,
-      outcome: params.outcome,
-      reason: params.reason,
-    });
-  } catch (error) {
-    console.error('Error registrando auditoria de encuesta:', error);
-  }
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: params.actionType,
+    entityType: 'POLL',
+    entityId: params.pollId,
+    outcome: params.outcome,
+    reason: params.reason,
+  });
 };
 
 const attachPollDataToPosts = async (params: {
@@ -489,6 +485,18 @@ export const createPostService = async (payload: {
     };
   }
 
+  if (postType === 'TEXT') {
+    await logAudit({
+      eventId,
+      membership,
+      actionType: 'CREATE_POST',
+      entityType: 'POST',
+      entityId: insertedPost.id,
+      outcome: 'SUCCESS',
+      reason: `Post de texto creado en muro ${matchedWall.id}`,
+    });
+  }
+
   if (postType === 'POLL') {
     const { data: pollData, error: pollError } = await supabaseAdmin
       .from('polls')
@@ -653,6 +661,16 @@ export const voteOnPollService = async (params: {
       body: { error: upsertError.message ?? 'No se pudo registrar el voto' },
     };
   }
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'POLL_VOTE',
+    entityType: 'POLL_VOTE',
+    entityId: poll.id,
+    outcome: 'SUCCESS',
+    reason: `Voto registrado en encuesta ${poll.id} opcion ${optionId}`,
+  });
 
   const post = await buildPostResponseById({
     postId: params.postId,
@@ -863,6 +881,16 @@ export const deletePostService = async (params: {
       body: { error: updateError?.message ?? 'No se pudo eliminar el post' },
     };
   }
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'DELETE_POST',
+    entityType: 'POST',
+    entityId: post.id,
+    outcome: 'SUCCESS',
+    reason: `Post eliminado por ${deletedByActorType} en muro ${post.wall_id}`,
+  });
 
   const [postWithPoll] = await attachPollDataToPosts({
     posts: [normalizePost(updatedPost as PostRow, params.membership)],

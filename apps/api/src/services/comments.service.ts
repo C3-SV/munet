@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
+import { logAudit } from '../utils/audit.logger';
 import { firstItem, getCommitteeLabel, getProfileName } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
@@ -326,6 +327,16 @@ export const createPostComment = async (params: {
     };
   }
 
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'CREATE_COMMENT',
+    entityType: 'COMMENT',
+    entityId: inserted.id,
+    outcome: 'SUCCESS',
+    reason: `Comentario creado en post ${params.postId}`,
+  });
+
   return {
     status: 201,
     body: {
@@ -395,6 +406,16 @@ export const deletePostComment = async (params: {
       body: { error: updateError?.message ?? 'No se pudo eliminar el comentario' },
     };
   }
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'DELETE_COMMENT',
+    entityType: 'COMMENT',
+    entityId: params.commentId,
+    outcome: 'SUCCESS',
+    reason: `Comentario eliminado por ${deletedByActorType} en post ${params.postId}`,
+  });
 
   return {
     status: 200,

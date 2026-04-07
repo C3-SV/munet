@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
+import { logAudit } from '../utils/audit.logger';
 import { isAdminRole } from '../utils/rbac.utils';
 
 type MembershipProfileRow = {
@@ -408,6 +409,16 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
+    await logAudit({
+      eventId: activeMembership.eventId,
+      membership: activeMembership,
+      actionType: 'UPDATE_PROFILE',
+      entityType: 'PROFILE',
+      entityId: activeMembership.id,
+      outcome: 'SUCCESS',
+      reason: 'Perfil propio actualizado',
+    });
+
     return res.json({ profile: formatProfileResponse(updated) });
   } catch (error) {
     console.error(error);
@@ -537,6 +548,16 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
+    await logAudit({
+      eventId: adminContext.membership.eventId,
+      membership: adminContext.membership,
+      actionType: 'ADMIN_UPDATE_PROFILE',
+      entityType: 'PROFILE',
+      entityId: targetMembershipId,
+      outcome: 'SUCCESS',
+      reason: `Admin actualizo perfil de participante ${targetMembershipId}`,
+    });
+
     return res.json({ profile: formatProfileResponse(updated) });
   } catch (error) {
     console.error(error);
@@ -565,6 +586,18 @@ export const uploadMyAvatar = async (req: Request, res: Response) => {
       mimeType: mime_type,
       base64Data: base64_data,
     });
+
+    if (result.status === 200) {
+      await logAudit({
+        eventId: activeMembership.eventId,
+        membership: activeMembership,
+        actionType: 'UPLOAD_AVATAR',
+        entityType: 'AVATAR',
+        entityId: activeMembership.id,
+        outcome: 'SUCCESS',
+        reason: 'Avatar propio actualizado',
+      });
+    }
 
     return res.status(result.status).json(result.body);
   } catch (error) {
@@ -601,6 +634,18 @@ export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => 
       mimeType: mime_type,
       base64Data: base64_data,
     });
+
+    if (result.status === 200) {
+      await logAudit({
+        eventId: adminContext.membership.eventId,
+        membership: adminContext.membership,
+        actionType: 'ADMIN_UPLOAD_AVATAR',
+        entityType: 'AVATAR',
+        entityId: targetMembershipId,
+        outcome: 'SUCCESS',
+        reason: `Admin actualizo avatar de participante ${targetMembershipId}`,
+      });
+    }
 
     return res.status(result.status).json(result.body);
   } catch (error) {

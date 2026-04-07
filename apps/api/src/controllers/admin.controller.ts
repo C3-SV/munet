@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
+import { logAudit } from '../utils/audit.logger';
 
 type CreateAccountBody = {
   event_id: string;
@@ -121,6 +122,16 @@ export const createAccount = async (
       return res.status(400).json({ error: profileError.message });
     }
 
+    await logAudit({
+      eventId: event_id,
+      actorRole: undefined,
+      actionType: 'CREATE_ACCOUNT',
+      entityType: 'ACCOUNT',
+      entityId: membership.id,
+      outcome: 'SUCCESS',
+      reason: `Cuenta creada con codigo ${participant_code} y rol ${role}`,
+    });
+
     return res.json({
       message: 'Cuenta creada correctamente',
       user,
@@ -183,6 +194,16 @@ export const createEvent = async (
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    await logAudit({
+      eventId: event.id,
+      actorRole: undefined,
+      actionType: 'CREATE_EVENT',
+      entityType: 'EVENT',
+      entityId: event.id,
+      outcome: 'SUCCESS',
+      reason: `Evento creado: ${name} (${slug})`,
+    });
 
     return res.json({
       message: 'Evento creado correctamente',
@@ -283,6 +304,16 @@ export const createMembership = async (
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    await logAudit({
+      eventId: event_id,
+      actorRole: undefined,
+      actionType: 'CREATE_MEMBERSHIP',
+      entityType: 'MEMBERSHIP',
+      entityId: membership.id,
+      outcome: 'SUCCESS',
+      reason: `Membership creada con codigo ${participant_code} y rol ${role}`,
+    });
 
     return res.json({
       message: 'Membership creada correctamente',
@@ -385,6 +416,16 @@ export const createCommittee = async (
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    await logAudit({
+      eventId: event_id,
+      actorRole: undefined,
+      actionType: 'CREATE_COMMITTEE',
+      entityType: 'COMMITTEE',
+      entityId: committee.id,
+      outcome: 'SUCCESS',
+      reason: `Comite creado: ${name} (${code})`,
+    });
 
     return res.json({
       message: 'Comité creado correctamente',

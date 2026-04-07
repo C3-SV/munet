@@ -6,6 +6,7 @@ import type {
   DmMembershipRecord,
   DmMessageRow,
 } from '../types/dm.types';
+import { logAudit } from '../utils/audit.logger';
 import {
   DM_CONVERSATION_SELECT,
   DM_MEMBERSHIP_SELECT,
@@ -30,20 +31,15 @@ const logDmMessageDeletionAudit = async (params: {
   outcome: 'SUCCESS' | 'FAILURE';
   reason: string;
 }) => {
-  try {
-    await supabaseAdmin.from('audit_logs').insert({
-      event_id: params.eventId,
-      actor_membership_id: params.membership.id,
-      actor_role: params.membership.role,
-      action_type: 'DELETE_DM_MESSAGE',
-      entity_type: 'DM_MESSAGE',
-      entity_id: params.messageId,
-      outcome: params.outcome,
-      reason: params.reason,
-    });
-  } catch (error) {
-    console.error('Error logging DM message deletion audit:', error);
-  }
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'DELETE_DM_MESSAGE',
+    entityType: 'DM_MESSAGE',
+    entityId: params.messageId,
+    outcome: params.outcome,
+    reason: params.reason,
+  });
 };
 
 const findConversationForMembership = async (params: {
@@ -292,6 +288,16 @@ export const createOrReuseDmConversation = async (params: {
     };
   }
 
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'CREATE_CONVERSATION',
+    entityType: 'DM_CONVERSATION',
+    entityId: inserted.id,
+    outcome: 'SUCCESS',
+    reason: `Conversacion creada con participante ${targetMembershipId}`,
+  });
+
   return {
     status: 201,
     body: {
@@ -389,6 +395,16 @@ export const createDmMessage = async (params: {
     .from('dm_conversations')
     .update({ last_message_at: inserted.created_at })
     .eq('id', params.conversationId);
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'SEND_DM_MESSAGE',
+    entityType: 'DM_MESSAGE',
+    entityId: inserted.id,
+    outcome: 'SUCCESS',
+    reason: `Mensaje enviado en conversacion ${params.conversationId}`,
+  });
 
   return {
     status: 201,
