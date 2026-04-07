@@ -52,9 +52,10 @@ const PublicProfilePage = () => {
         [activeMembershipId, memberships],
     );
 
-    const canEditProfile = Boolean(
-        activeMembership && isAdminRole(activeMembership.role) && activeMembershipId !== membershipId,
-    );
+    const actorIsAdmin = Boolean(activeMembership && isAdminRole(activeMembership.role));
+    const isSelfProfile = Boolean(activeMembershipId && activeMembershipId === membershipId);
+    const targetIsAdmin = Boolean(profile && isAdminRole(profile.role));
+    const canEditProfile = actorIsAdmin && (isSelfProfile || !targetIsAdmin);
 
     useEffect(() => {
         // Carga perfil publico del participante seleccionado.

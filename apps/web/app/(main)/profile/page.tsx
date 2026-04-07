@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
-import { useAuthStore } from "../../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import type { MyProfile } from "../../../types/common";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -14,6 +14,8 @@ const ProfilePage = () => {
     const router = useRouter();
     const token = useAuthStore((state) => state.token);
     const eventId = useAuthStore((state) => state.activeEventId);
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const memberships = useAuthStore((state) => state.memberships);
 
     const [profileData, setProfileData] = useState<MyProfile | null>(null);
     const [displayName, setDisplayName] = useState("");
@@ -24,6 +26,16 @@ const ProfilePage = () => {
     const [error, setError] = useState<string | null>(null);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const canOpenAdminEditor = useMemo(() => {
+        if (!activeMembershipId) {
+            return false;
+        }
+
+        const activeMembership = memberships.find((membership) => membership.id === activeMembershipId);
+
+        return Boolean(activeMembership && isAdminRole(activeMembership.role));
+    }, [activeMembershipId, memberships]);
 
     useEffect(() => {
         // Carga perfil propio del evento activo.
@@ -335,17 +347,32 @@ const ProfilePage = () => {
                         >
                             <LogoutButton />
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <button
-                                    onClick={() => router.push("/select-event")}
-                                    className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
-                                    style={{
-                                        backgroundColor: "var(--bg-surface-secondary)",
-                                        color: "var(--text-secondary)",
-                                        border: "1px solid var(--border-color)",
-                                    }}
-                                >
-                                    Cambiar evento
-                                </button>
+                                {canOpenAdminEditor && activeMembershipId && (
+                                    <button
+                                        onClick={() => router.push(`/profile/${activeMembershipId}`)}
+                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
+                                        style={{
+                                            backgroundColor: "var(--sidebar-active-bg)",
+                                            color: "var(--text-accent)",
+                                            border: "1px solid var(--border-color)",
+                                        }}
+                                    >
+                                        Editar mi perfil
+                                    </button>
+                                )}
+                                {canOpenAdminEditor && (
+                                    <button
+                                        onClick={() => router.push("/select-event")}
+                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
+                                        style={{
+                                            backgroundColor: "var(--bg-surface-secondary)",
+                                            color: "var(--text-secondary)",
+                                            border: "1px solid var(--border-color)",
+                                        }}
+                                    >
+                                        Cambiar evento
+                                    </button>
+                                )}
                                 <button
                                     onClick={saveProfile}
                                     disabled={saving}

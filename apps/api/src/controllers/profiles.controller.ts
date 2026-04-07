@@ -237,6 +237,18 @@ const requireAdminMembership = (req: Request) => {
 };
 
 // Verifica que un comité pertenezca al evento activo.
+const canAdminEditTargetMembership = (params: {
+  actorMembershipId: string;
+  targetMembershipId: string;
+  targetRole: string;
+}) => {
+  if (params.actorMembershipId === params.targetMembershipId) {
+    return true;
+  }
+
+  return !isAdminRole(params.targetRole);
+};
+
 const validateCommitteeForEvent = async (eventId: string, committeeId: string) => {
   const { data: committee, error } = await supabaseAdmin
     .from('committees')
@@ -503,6 +515,18 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'No hay registro de perfil para editar' });
     }
 
+    if (
+      !canAdminEditTargetMembership({
+        actorMembershipId: adminContext.membership.id,
+        targetMembershipId,
+        targetRole: existing.role,
+      })
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'No puedes editar el perfil de otro administrador' });
+    }
+
     const firstNameCandidate = hasOwn(payload, 'first_name')
       ? normalizeNullableText(payload.first_name)
       : profile.first_name;
@@ -677,6 +701,27 @@ export const uploadPublicAvatarAsAdmin = async (req: Request, res: Response) => 
       mime_type?: string;
       base64_data?: string;
     };
+
+    const existing = await loadMembershipProfile(
+      targetMembershipId,
+      adminContext.membership.eventId
+    );
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    if (
+      !canAdminEditTargetMembership({
+        actorMembershipId: adminContext.membership.id,
+        targetMembershipId,
+        targetRole: existing.role,
+      })
+    ) {
+      return res
+        .status(403)
+        .json({ error: 'No puedes editar el perfil de otro administrador' });
+    }
 
     const result = await uploadAvatarForMembership({
       eventId: adminContext.membership.eventId,
