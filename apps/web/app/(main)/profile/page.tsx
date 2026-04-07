@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
@@ -22,6 +22,8 @@ const ProfilePage = () => {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [avatarError, setAvatarError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -86,20 +88,20 @@ const ProfilePage = () => {
         }
 
         if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-            setError("Solo se permiten imagenes JPG, PNG o WEBP.");
+            setAvatarError("Solo se permiten imagenes JPG, PNG o WEBP.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
         }
 
         if (file.size > MAX_AVATAR_BYTES) {
-            setError("La imagen debe pesar maximo 5MB.");
+            setAvatarError("La imagen debe pesar maximo 5MB.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
         }
 
-        setError(null);
+        setAvatarError(null);
         setAvatarFile(file);
     };
 
@@ -110,13 +112,17 @@ const ProfilePage = () => {
 
         try {
             setUploadingAvatar(true);
-            setError(null);
+            setAvatarError(null);
 
             const updated = await uploadMyAvatar(avatarFile, { token, eventId });
             setProfileData(updated);
             setAvatarFile(null);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
         } catch (uploadError) {
-            setError(uploadError instanceof Error ? uploadError.message : "No se pudo subir la foto.");
+            setAvatarError(uploadError instanceof Error ? uploadError.message : "No se pudo subir la foto.");
         } finally {
             setUploadingAvatar(false);
         }
@@ -161,7 +167,7 @@ const ProfilePage = () => {
                             <p className="text-[11px] font-extrabold font-heading uppercase tracking-widest mt-1" style={{ color: "var(--text-secondary)" }}>
                                 {profileData.delegationName ?? "Delegacion"}
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
-                                    •
+                                    |
                                 </span>
                                 {profileData.committee?.name ?? "Sin comite"}
                             </p>
@@ -174,48 +180,74 @@ const ProfilePage = () => {
                                 <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
                                     Foto de perfil
                                 </label>
-                                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                                    <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp"
-                                        onChange={handleAvatarSelection}
-                                        className="w-full sm:max-w-sm p-2.5 rounded-xl font-body text-sm outline-none"
-                                        style={{
-                                            backgroundColor: "var(--bg-input)",
-                                            border: "1px solid var(--input-border)",
-                                            color: "var(--text-primary)",
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleAvatarUpload()}
-                                        disabled={!avatarFile || uploadingAvatar}
-                                        className="w-full sm:w-auto px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
-                                        style={{
-                                            backgroundColor:
-                                                !avatarFile || uploadingAvatar
-                                                    ? "var(--bg-surface-secondary)"
-                                                    : "var(--bubble-me-bg)",
-                                            border:
-                                                !avatarFile || uploadingAvatar
-                                                    ? "1px solid var(--border-color)"
-                                                    : "1px solid transparent",
-                                            color:
-                                                !avatarFile || uploadingAvatar
-                                                    ? "var(--text-muted)"
-                                                    : "white",
-                                            cursor:
-                                                !avatarFile || uploadingAvatar ? "not-allowed" : "pointer",
-                                        }}
-                                    >
-                                        {uploadingAvatar ? "Subiendo..." : "Subir foto"}
-                                    </button>
+                                <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="px-3 py-2.5 rounded-xl font-heading font-bold text-sm transition-all"
+                                            style={{
+                                                backgroundColor: "var(--bg-surface-secondary)",
+                                                border: "1px solid var(--border-color)",
+                                                color: "var(--text-primary)",
+                                            }}
+                                        >
+                                            Seleccionar archivo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleAvatarUpload()}
+                                            disabled={!avatarFile || uploadingAvatar}
+                                            className="px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
+                                            style={{
+                                                backgroundColor:
+                                                    !avatarFile || uploadingAvatar
+                                                        ? "var(--bg-surface-secondary)"
+                                                        : "var(--bubble-me-bg)",
+                                                border:
+                                                    !avatarFile || uploadingAvatar
+                                                        ? "1px solid var(--border-color)"
+                                                        : "1px solid transparent",
+                                                color:
+                                                    !avatarFile || uploadingAvatar
+                                                        ? "var(--text-muted)"
+                                                        : "white",
+                                                cursor:
+                                                    !avatarFile || uploadingAvatar ? "not-allowed" : "pointer",
+                                            }}
+                                        >
+                                            {uploadingAvatar ? "Subiendo..." : "Subir foto"}
+                                        </button>
+                                    </div>
+                                    {avatarError && (
+                                        <p className="text-xs font-body sm:text-right" style={{ color: "#b91c1c" }}>
+                                            {avatarError}
+                                        </p>
+                                    )}
                                 </div>
-                                {avatarFile && (
-                                    <p className="text-xs font-body" style={{ color: "var(--text-secondary)" }}>
-                                        Archivo seleccionado: {avatarFile.name}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    onChange={handleAvatarSelection}
+                                    className="hidden"
+                                />
+                                <div
+                                    className="w-full rounded-xl px-3 py-2.5"
+                                    style={{
+                                        backgroundColor: "var(--bg-surface-secondary)",
+                                        border: "1px solid var(--input-border)",
+                                    }}
+                                >
+                                    <p className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
+                                        {avatarFile ? avatarFile.name : "Ningun archivo seleccionado"}
                                     </p>
-                                )}
+                                    <p className="text-xs font-body mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                        {avatarFile
+                                            ? `${(avatarFile.size / (1024 * 1024)).toFixed(2)} MB`
+                                            : "Formatos: JPG, PNG o WEBP · Maximo 5MB"}
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="space-y-2">

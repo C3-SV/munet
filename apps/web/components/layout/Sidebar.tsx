@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { getEventWalls } from "../../lib/api/events";
+import { getMyProfile } from "../../lib/api/profiles";
 import { useTheme } from "../../lib/theme-context";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import type { EventWall } from "../../types/common";
@@ -101,6 +102,7 @@ export const Sidebar = () => {
     const [isComitesOpen, setIsComitesOpen] = useState(pathname?.includes("comite") || false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [walls, setWalls] = useState<EventWall[]>([]);
+    const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
 
     const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
 
@@ -135,6 +137,35 @@ export const Sidebar = () => {
         };
 
         void loadWalls();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeEventId, token]);
+
+    useEffect(() => {
+        if (!token || !activeEventId) {
+            setProfileAvatar(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadMyProfile = async () => {
+            try {
+                const profile = await getMyProfile({ token, eventId: activeEventId });
+
+                if (!cancelled) {
+                    setProfileAvatar(profile.profile.avatar || null);
+                }
+            } catch {
+                if (!cancelled) {
+                    setProfileAvatar(null);
+                }
+            }
+        };
+
+        void loadMyProfile();
 
         return () => {
             cancelled = true;
@@ -414,7 +445,12 @@ export const Sidebar = () => {
                     >
                         <div className="relative shrink-0">
                             <img
-                                src="https://ui-avatars.com/api/?name=Usuario&background=E5E7EB&color=111827"
+                                src={
+                                    profileAvatar ??
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                        activeMembership?.participantCode ?? "Usuario",
+                                    )}&background=E5E7EB&color=111827`
+                                }
                                 alt="User Profile"
                                 className="size-10 rounded-full object-cover"
                                 style={{ border: "2px solid var(--border-color)" }}
