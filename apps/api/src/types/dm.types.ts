@@ -18,11 +18,13 @@ export type DmCommitteeRecord =
       id: string;
       name: string;
       code: string;
+      deleted_at?: string | null;
     }
   | {
       id: string;
       name: string;
       code: string;
+      deleted_at?: string | null;
     }[]
   | null;
 

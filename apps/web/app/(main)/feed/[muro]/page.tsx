@@ -285,6 +285,10 @@ const Feed = () => {
         );
     };
 
+    const handlePostDeleted = (postId: string) => {
+        setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
+    };
+
     const sortedAndFilteredPosts = [...filteredPosts].sort((a, b) => {
         if (sortOrder === "recent") {
             return b.timestamp - a.timestamp;
@@ -410,6 +414,7 @@ const Feed = () => {
                                         eventId={eventId}
                                         canComment={canCommentInWall}
                                         onPostUpdated={handlePostUpdated}
+                                        onPostDeleted={handlePostDeleted}
                                     />
                                 ))
                             ) : (

@@ -11,6 +11,7 @@ interface PostCardProps {
     eventId: string;
     canComment?: boolean;
     onPostUpdated?: (post: Post) => void;
+    onPostDeleted?: (postId: string) => void;
 }
 
 export const PostCard = ({
@@ -19,6 +20,7 @@ export const PostCard = ({
     eventId,
     canComment = true,
     onPostUpdated,
+    onPostDeleted,
 }: PostCardProps) => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isClosingPoll, setIsClosingPoll] = useState(false);
@@ -43,8 +45,8 @@ export const PostCard = ({
         try {
             setIsDeleting(true);
             setError(null);
-            const updatedPost = await deleteFeedPost(post.id, { token, eventId });
-            onPostUpdated?.(updatedPost);
+            await deleteFeedPost(post.id, { token, eventId });
+            onPostDeleted?.(post.id);
         } catch (deleteError) {
             setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar la publicacion");
         } finally {

@@ -21,10 +21,11 @@ export const getCommitteeLabel = (
     | {
         name: string | null;
         code: string | null;
+        deleted_at?: string | null;
       }
     | null
 ) => {
-  if (!committee) {
+  if (!committee || committee.deleted_at) {
     return null;
   }
 

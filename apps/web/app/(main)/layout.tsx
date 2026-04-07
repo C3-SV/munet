@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
-import { useAuthStore } from "../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 
 export default function MainLayout({
     children,
@@ -19,6 +19,8 @@ export default function MainLayout({
     const token = useAuthStore((state) => state.token);
     const activeEventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const memberships = useAuthStore((state) => state.memberships);
+    const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
 
     const isChatRoom = useMemo(
         () => pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/),
@@ -40,9 +42,20 @@ export default function MainLayout({
         }
 
         if (!activeEventId || !activeMembershipId) {
+            const hasAdminMembership = memberships.some((membership) =>
+                isAdminRole(membership.role),
+            );
+            const firstMembership = memberships[0];
+
+            if (!hasAdminMembership && firstMembership) {
+                setActiveMembership(firstMembership.id);
+                router.replace("/feed");
+                return;
+            }
+
             router.replace("/select-event");
         }
-    }, [activeEventId, activeMembershipId, hydrated, router, token]);
+    }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     if (!hydrated || !token || !activeEventId || !activeMembershipId) {
         return (

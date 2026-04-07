@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "../../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 
 const Login = () => {
     const router = useRouter();
@@ -17,6 +17,8 @@ const Login = () => {
     const token = useAuthStore((state) => state.token);
     const activeEventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const memberships = useAuthStore((state) => state.memberships);
+    const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
     
     // Funciones de activación importadas del store
     const validateActivation = useAuthStore((state) => state.validateActivation);
@@ -53,13 +55,22 @@ const Login = () => {
         if (!hydrated) return;
         if (!token) return;
 
+        const hasAdminMembership = memberships.some((membership) => isAdminRole(membership.role));
+        const firstMembership = memberships[0];
+
         if (activeEventId && activeMembershipId) {
             router.replace("/feed");
             return;
         }
 
+        if (!hasAdminMembership && firstMembership) {
+            setActiveMembership(firstMembership.id);
+            router.replace("/feed");
+            return;
+        }
+
         router.replace("/select-event");
-    }, [activeEventId, activeMembershipId, hydrated, router, token]);
+    }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleLogin = async () => {
         try {
@@ -70,8 +81,18 @@ const Login = () => {
             });
 
             const state = useAuthStore.getState();
+            const hasAdminMembership = state.memberships.some((membership) =>
+                isAdminRole(membership.role),
+            );
+            const firstMembership = state.memberships[0];
 
             if (!(state.activeEventId && state.activeMembershipId)) {
+                if (!hasAdminMembership && firstMembership) {
+                    state.setActiveMembership(firstMembership.id);
+                    router.replace("/feed");
+                    return;
+                }
+
                 router.replace("/select-event");
                 return;
             }

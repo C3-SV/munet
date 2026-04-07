@@ -42,11 +42,11 @@ const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
     return true;
   }
 
-  return memberships.length > 1;
+  return false;
 };
 
 const resolveAutoMembership = (memberships: MembershipSummary[]) => {
-  if (memberships.length !== 1) {
+  if (memberships.length === 0) {
     return null;
   }
 
@@ -54,7 +54,7 @@ const resolveAutoMembership = (memberships: MembershipSummary[]) => {
     return null;
   }
 
-  return memberships[0];
+  return memberships[0] ?? null;
 };
 
 type AuthState = {
@@ -231,7 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
-    return true;
+    return userNeedsEventSelection(state.memberships);
   },
 
   setActiveMembership: (membershipId) => {

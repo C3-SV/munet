@@ -283,7 +283,8 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
                 updated_by_user_id: user.id,
             })
             .eq("user_id", user.id)
-            .eq("account_status", "ACTIVE");
+            .eq("account_status", "ACTIVE")
+            .is("deleted_at", null);
 
         // 5. obtener contexto de eventos
         const membershipContext = await getMembershipsByUserId(user.id);

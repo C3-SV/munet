@@ -22,6 +22,7 @@ export const createAccount = async (
   res: Response
 ) => {
   try {
+    const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
       participant_code,
@@ -56,6 +57,7 @@ export const createAccount = async (
       .select('id')
       .eq('participant_code', participant_code)
       .eq('event_id', event_id)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (existing) {
@@ -68,6 +70,7 @@ export const createAccount = async (
         .from('committees')
         .select('id, event_id')
         .eq('id', committee_id)
+        .is('deleted_at', null)
         .maybeSingle();
 
       if (!committee) {
@@ -84,7 +87,10 @@ export const createAccount = async (
     // 3. crear user vacío
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .insert({})
+      .insert({
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
+      })
       .select()
       .single();
 
@@ -108,7 +114,9 @@ export const createAccount = async (
         institution_name,
         account_status: 'PENDING_ACTIVATION',
         status_changed_at: new Date().toISOString(),
-        initial_password_hash: initialPasswordHash
+        initial_password_hash: initialPasswordHash,
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
       })
       .select()
       .single();
@@ -128,7 +136,8 @@ export const createAccount = async (
         last_name,
         display_name: display_name ?? null,
         bio: bio ?? null,
-        profile_image_path: null
+        profile_image_path: null,
+        updated_by_membership_id: membership.id,
       })
       .select()
       .single();
@@ -139,6 +148,7 @@ export const createAccount = async (
 
     await logAudit({
       eventId: event_id,
+      actorUserId: actorUserId ?? undefined,
       actorRole: undefined,
       actionType: 'CREATE_ACCOUNT',
       entityType: 'ACCOUNT',
@@ -185,6 +195,7 @@ export const createEvent = async (
       .from('events')
       .select('id')
       .eq('slug', slug)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (existing) {
@@ -272,6 +283,7 @@ export const createMembership = async (
       .from('events')
       .select('id')
       .eq('id', event_id)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (!event) {
@@ -295,6 +307,7 @@ export const createMembership = async (
       .select('id')
       .eq('event_id', event_id)
       .eq('participant_code', participant_code)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (existingCode) {
@@ -381,6 +394,7 @@ export const createCommittee = async (
       .from('events')
       .select('id, status')
       .eq('id', event_id)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (!event) {
@@ -400,6 +414,7 @@ export const createCommittee = async (
       .select('id')
       .eq('event_id', event_id)
       .eq('name', name)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (existingName) {
@@ -414,6 +429,7 @@ export const createCommittee = async (
       .select('id')
       .eq('event_id', event_id)
       .eq('code', code)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (existingCode) {
@@ -490,7 +506,8 @@ export const getEventsByParticipantCode = async (
           slug,
           status,
           start_date,
-          end_date
+          end_date,
+          deleted_at
         )
       `)
       .eq('participant_code', participant_code)
@@ -501,13 +518,15 @@ export const getEventsByParticipantCode = async (
       return res.status(400).json({ error: error.message });
     }
 
-    const events = (data ?? []).map((item: any) => ({
-      membership_id: item.id,
-      participant_code: item.participant_code,
-      account_status: item.account_status,
-      role: item.role,
-      event: Array.isArray(item.events) ? item.events[0] : item.events
-    }));
+    const events = (data ?? [])
+      .map((item: any) => ({
+        membership_id: item.id,
+        participant_code: item.participant_code,
+        account_status: item.account_status,
+        role: item.role,
+        event: Array.isArray(item.events) ? item.events[0] : item.events
+      }))
+      .filter((item: any) => item.event && !item.event.deleted_at);
 
     return res.json({ events });
   } catch (error) {

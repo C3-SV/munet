@@ -25,7 +25,8 @@ export const DM_MEMBERSHIP_SELECT = `
   committees (
     id,
     name,
-    code
+    code,
+    deleted_at
   )
 `;
 
@@ -49,6 +50,7 @@ export const DM_CONVERSATION_SELECT = `
 export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
   const profile = firstItem(membership?.profiles);
   const committee = firstItem(membership?.committees);
+  const visibleCommittee = committee?.deleted_at ? null : committee;
   const name = getProfileName(profile);
 
   return {
@@ -56,7 +58,7 @@ export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
     name,
     avatar: profile?.profile_image_path ?? avatarForName(name),
     role: membership?.role ?? 'DELEGADO',
-    committee: committee?.name ?? committee?.code ?? 'Sin comite',
+    committee: visibleCommittee?.name ?? visibleCommittee?.code ?? 'Sin comite',
     lastActive: 'Activo',
     delegationName: membership?.delegation_name ?? null,
     institutionName: membership?.institution_name ?? null,

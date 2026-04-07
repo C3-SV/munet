@@ -102,6 +102,7 @@ const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
     .select('id, conversation_id, author_membership_id, content, created_at')
     .in('conversation_id', conversationIds)
     .eq('status', 'VISIBLE')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -169,6 +170,7 @@ export const searchDmParticipants = async (params: {
     .select(DM_MEMBERSHIP_SELECT)
     .eq('event_id', params.eventId)
     .eq('account_status', 'ACTIVE')
+    .is('deleted_at', null)
     .neq('id', params.membership.id)
     .limit(80);
 
@@ -225,6 +227,7 @@ export const createOrReuseDmConversation = async (params: {
     .select('id, event_id, account_status')
     .eq('id', targetMembershipId)
     .eq('event_id', params.eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (targetError) {
@@ -330,6 +333,7 @@ export const listDmMessages = async (params: {
     .eq('conversation_id', params.conversationId)
     .eq('event_id', params.eventId)
     .eq('status', 'VISIBLE')
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -441,6 +445,7 @@ export const deleteDmMessage = async (params: {
     .eq('id', params.messageId)
     .eq('conversation_id', params.conversationId)
     .eq('event_id', params.eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (messageError) {

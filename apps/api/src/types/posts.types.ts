@@ -4,14 +4,17 @@ export type WallRecord = {
   name: string;
   wall_type: string;
   committee_id: string | null;
+  deleted_at?: string | null;
   committees:
     | {
         name: string | null;
         code: string | null;
+        deleted_at?: string | null;
       }
     | {
         name: string | null;
         code: string | null;
+        deleted_at?: string | null;
       }[]
     | null;
 };
@@ -113,7 +116,8 @@ export const POST_SELECT = `
     committee_id,
     committees (
       name,
-      code
+      code,
+      deleted_at
     ),
     profiles (
       first_name,
@@ -126,7 +130,8 @@ export const POST_SELECT = `
     committee_id,
     committees (
       name,
-      code
+      code,
+      deleted_at
     )
   )
 `;

@@ -192,11 +192,7 @@ export const PostComments = ({
             });
 
             setComments((current) =>
-                current.map((item) =>
-                    item.id === comment.id
-                        ? deletedComment
-                        : item,
-                ),
+                current.filter((item) => item.id !== deletedComment.id),
             );
 
             if (replyTo?.id === comment.id) {

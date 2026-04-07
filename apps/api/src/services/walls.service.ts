@@ -36,20 +36,30 @@ export const loadWallsByEvent = async (eventId: string) => {
         name,
         wall_type,
         committee_id,
+        deleted_at,
         committees (
           name,
-          code
+          code,
+          deleted_at
         )
       `
     )
     .eq('status', 'ACTIVE')
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (walls ?? []) as WallRecord[];
+  return ((walls ?? []) as WallRecord[]).filter((wall) => {
+    if (wall.committee_id === null) {
+      return true;
+    }
+
+    const committee = firstItem(wall.committees);
+    return !committee?.deleted_at;
+  });
 };
 
 export const mapWallForMembership = (

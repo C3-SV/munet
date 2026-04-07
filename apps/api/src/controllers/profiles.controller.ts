@@ -35,11 +35,13 @@ type MembershipProfileRow = {
         id: string;
         name: string;
         code: string;
+        deleted_at?: string | null;
       }
     | {
         id: string;
         name: string;
         code: string;
+        deleted_at?: string | null;
       }[]
     | null;
   users:
@@ -128,7 +130,8 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
         committees (
           id,
           name,
-          code
+          code,
+          deleted_at
         ),
         users (
           email
@@ -137,6 +140,7 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
     )
     .eq('id', membershipId)
     .eq('event_id', eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) {
@@ -149,6 +153,7 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
 const formatProfileResponse = (row: MembershipProfileRow) => {
   const profile = firstItem(row.profiles);
   const committee = firstItem(row.committees);
+  const visibleCommittee = committee?.deleted_at ? null : committee;
   const user = firstItem(row.users);
 
   const firstName = profile?.first_name ?? '';
@@ -164,11 +169,11 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
     participantCode: row.participant_code,
     delegationName: row.delegation_name,
     institutionName: row.institution_name,
-    committee: committee
+    committee: visibleCommittee
       ? {
-          id: committee.id,
-          name: committee.name,
-          code: committee.code,
+          id: visibleCommittee.id,
+          name: visibleCommittee.name,
+          code: visibleCommittee.code,
         }
       : null,
     profile: {
@@ -221,6 +226,7 @@ const validateCommitteeForEvent = async (eventId: string, committeeId: string) =
     .select('id')
     .eq('id', committeeId)
     .eq('event_id', eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) {
@@ -538,7 +544,8 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       .from('event_memberships')
       .update(membershipUpdate)
       .eq('id', targetMembershipId)
-      .eq('event_id', adminContext.membership.eventId);
+      .eq('event_id', adminContext.membership.eventId)
+      .is('deleted_at', null);
 
     if (membershipError) {
       throw new Error(membershipError.message);

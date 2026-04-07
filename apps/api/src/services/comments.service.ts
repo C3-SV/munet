@@ -162,6 +162,7 @@ const ensurePostAccess = async (params: {
     .from('posts')
     .select('id, event_id, wall_id, status')
     .eq('id', params.postId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) {
@@ -223,6 +224,7 @@ export const listCommentsByPost = async (params: {
     .select(COMMENT_SELECT)
     .eq('event_id', params.eventId)
     .eq('post_id', params.postId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -230,7 +232,7 @@ export const listCommentsByPost = async (params: {
   }
 
   const comments = ((data ?? []) as CommentRow[])
-    .filter((comment) => comment.status === 'VISIBLE' || comment.status === 'DELETED')
+    .filter((comment) => comment.status === 'VISIBLE')
     .map((comment) => mapComment(comment, params.membership));
 
   return {
@@ -288,6 +290,7 @@ export const createPostComment = async (params: {
       .select('id, post_id, parent_comment_id')
       .eq('id', parentCommentId)
       .eq('event_id', params.eventId)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (parentError) {
@@ -369,6 +372,7 @@ export const deletePostComment = async (params: {
     .select('id, post_id, author_membership_id')
     .eq('id', params.commentId)
     .eq('event_id', params.eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (commentError) {

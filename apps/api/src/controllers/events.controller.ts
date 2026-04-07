@@ -19,6 +19,7 @@ export const listEventWalls = async (req: Request, res: Response) => {
       .from('events')
       .select('id, name, slug')
       .eq('id', eventId)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (!event) {
@@ -56,6 +57,7 @@ export const listEventCommittees = async (req: Request, res: Response) => {
       .from('committees')
       .select('id, event_id, name, code, description, status, sort_order')
       .eq('event_id', eventId)
+      .is('deleted_at', null)
       .order('sort_order', { ascending: true })
       .order('name', { ascending: true });
 

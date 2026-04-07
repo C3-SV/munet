@@ -30,10 +30,21 @@ const SelectEventPage = () => {
             return;
         }
 
+        const hasAdminMembership = memberships.some((membership) =>
+            isAdminRole(membership.role),
+        );
+        const firstMembership = memberships[0];
+
         if (activeEventId && activeMembershipId) {
             router.replace("/feed");
+            return;
         }
-    }, [activeEventId, activeMembershipId, hydrated, router, token]);
+
+        if (!hasAdminMembership && firstMembership) {
+            setActiveMembership(firstMembership.id);
+            router.replace("/feed");
+        }
+    }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleChooseEvent = (membershipId: string) => {
         setActiveMembership(membershipId);

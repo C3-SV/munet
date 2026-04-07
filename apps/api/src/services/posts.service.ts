@@ -251,6 +251,7 @@ const buildPostResponseById = async (params: {
     .select(POST_SELECT)
     .eq('id', params.postId)
     .eq('event_id', params.eventId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (error) {
@@ -281,6 +282,7 @@ const resolvePostContext = async (params: {
     .from('posts')
     .select('id, event_id, wall_id, status, author_membership_id, post_type')
     .eq('id', params.postId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (postError) {
@@ -377,15 +379,14 @@ export const getPostsByWall = async (params: {
     .select(POST_SELECT)
     .eq('event_id', params.eventId)
     .eq('wall_id', matchedWall.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (postsError) {
     throw new Error(postsError.message);
   }
 
-  const sourcePosts = ((posts ?? []) as PostRow[]).filter(
-    (post) => post.status === 'VISIBLE' || post.status === 'DELETED'
-  );
+  const sourcePosts = ((posts ?? []) as PostRow[]).filter((post) => post.status === 'VISIBLE');
 
   const normalizedPosts = sourcePosts.map((post) => normalizePost(post, params.membership));
 
@@ -857,6 +858,7 @@ export const deletePostService = async (params: {
     .from('posts')
     .select('id, event_id, wall_id, author_membership_id, status')
     .eq('id', params.postId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (postError) {
