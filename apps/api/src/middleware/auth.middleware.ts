@@ -127,3 +127,24 @@ export const requireRole = (...roles: string[]) => {
     return next();
   };
 };
+
+// Middleware de autorización global: exige al menos una membership activa con rol admin.
+// A diferencia de requireRole, no depende de req.auth.currentMembership ni de event_id,
+// por eso sirve para rutas admin sin evento en contexto (ej. crear evento nuevo).
+export const requireAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const memberships = req.auth?.memberships ?? [];
+
+  const hasAdminMembership = memberships.some(
+    (m) => isAdminRole(m.role) && m.accountStatus === 'ACTIVE'
+  );
+
+  if (!hasAdminMembership) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  return next();
+};
