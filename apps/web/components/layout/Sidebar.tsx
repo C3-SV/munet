@@ -314,13 +314,22 @@ export const Sidebar = () => {
                         {activeEventName}
                     </p>
                     {canSwitchEventFromSidebar && (
-                        <Link
-                            href="/select-event"
-                            className="mt-3 text-[11px] font-extrabold uppercase tracking-widest font-heading"
-                            style={{ color: "var(--text-accent)" }}
-                        >
-                            Cambiar evento
-                        </Link>
+                        <div className="mt-3 flex flex-col gap-2">
+                            <Link
+                                href="/select-event"
+                                className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:underline"
+                                style={{ color: "var(--text-accent)" }}
+                            >
+                                Cambiar evento
+                            </Link>
+                            <Link
+                                href="/admin"
+                                className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:underline"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                Panel de Administración →
+                            </Link>
+                        </div>
                     )}
                 </div>
 
