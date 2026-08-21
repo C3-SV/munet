@@ -614,8 +614,15 @@ Práctica aplicada:
 
 ## 7.6 Admin operativo
 
+- `GET /admin/events`
+- `GET /admin/events/:eventId`
 - `POST /admin/events`
-- `POST /admin/committees`
+- `PATCH /admin/events/:eventId`
+- `GET /admin/committees?event_id=<uuid>`
+- `GET /admin/committees/:committeeId`
+- `POST /admin/committees` (crea también el muro del comité automáticamente)
+- `PATCH /admin/committees/:committeeId`
+- `DELETE /admin/committees/:committeeId` (soft delete, incluye su muro)
 - `POST /admin/memberships`
 - `POST /admin/create-account`
 
