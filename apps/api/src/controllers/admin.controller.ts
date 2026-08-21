@@ -620,6 +620,34 @@ export const createCommittee = async (
       return res.status(400).json({ error: error.message });
     }
 
+    // 5. crear muro asociado automaticamente; si falla, revertir el comite
+    // para no dejarlo huerfano sin muro donde publicar.
+    const { data: wall, error: wallError } = await supabaseAdmin
+      .from('walls')
+      .insert({
+        event_id,
+        name,
+        wall_type: 'COMMITTEE',
+        committee_id: committee.id,
+        status: 'ACTIVE',
+      })
+      .select()
+      .single();
+
+    if (wallError) {
+      await supabaseAdmin
+        .from('committees')
+        .update({
+          deleted_at: new Date().toISOString(),
+          updated_by_user_id: actorUserId,
+        })
+        .eq('id', committee.id);
+
+      return res.status(400).json({
+        error: `No se pudo crear el muro del comite: ${wallError.message}`
+      });
+    }
+
     await logAudit({
       eventId: event_id,
       actorUserId: actorUserId ?? undefined,
@@ -628,12 +656,13 @@ export const createCommittee = async (
       entityType: 'COMMITTEE',
       entityId: committee.id,
       outcome: 'SUCCESS',
-      reason: `Comite creado: ${name} (${code})`,
+      reason: `Comite creado: ${name} (${code}), muro ${wall.id} creado automaticamente`,
     });
 
     return res.json({
       message: 'Comité creado correctamente',
-      committee
+      committee,
+      wall
     });
   } catch (error) {
     console.error(error);
