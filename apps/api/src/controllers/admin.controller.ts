@@ -726,3 +726,59 @@ export const getEventsByParticipantCode = async (
     return res.status(500).json({ error: 'Error interno' });
   }
 };
+
+// Lista comites de un evento para vista de administrador (sin requerir
+// membership del actor en ese evento, a diferencia del endpoint de participantes).
+export const listCommittees = async (req: Request, res: Response) => {
+  try {
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id : null;
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'event_id es requerido' });
+    }
+
+    const { data: committees, error } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id, name, code, description, sort_order, status')
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ committees: committees ?? [] });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Devuelve el detalle de un comite por id para vista de administrador.
+export const getCommittee = async (req: Request, res: Response) => {
+  try {
+    const { committeeId } = req.params;
+
+    const { data: committee, error } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id, name, code, description, sort_order, status')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!committee) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    return res.json({ committee });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
