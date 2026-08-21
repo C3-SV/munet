@@ -3,6 +3,10 @@ import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 import bcrypt from 'bcrypt';
 
+// Helper para detectar si una propiedad viene explicitamente en el payload.
+const hasOwn = (payload: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(payload, key);
+
 type CreateAccountBody = {
   event_id: string;
   participant_code: string;
@@ -293,6 +297,108 @@ export const getEvent = async (req: Request, res: Response) => {
     }
 
     return res.json({ event });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+type UpdateEventBody = {
+  name?: string;
+  slug?: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  status?: 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+};
+
+const EVENT_STATUSES = ['ACTIVE', 'CLOSED', 'ARCHIVED'] as const;
+
+// Actualiza campos parciales de un evento existente. Cualquier transicion
+// de status es valida (sin maquina de estados).
+export const updateEvent = async (
+  req: Request<{ eventId: string }, {}, UpdateEventBody>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { eventId } = req.params;
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    const { data: existing } = await supabaseAdmin
+      .from('events')
+      .select('id')
+      .eq('id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    if (hasOwn(payload, 'slug')) {
+      const { data: slugConflict } = await supabaseAdmin
+        .from('events')
+        .select('id')
+        .eq('slug', payload.slug as string)
+        .neq('id', eventId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (slugConflict) {
+        return res.status(400).json({ error: 'El slug ya existe' });
+      }
+    }
+
+    if (
+      hasOwn(payload, 'status') &&
+      !EVENT_STATUSES.includes(payload.status as (typeof EVENT_STATUSES)[number])
+    ) {
+      return res.status(400).json({
+        error: `status debe ser uno de: ${EVENT_STATUSES.join(', ')}`
+      });
+    }
+
+    const update: Record<string, unknown> = {
+      updated_by_user_id: actorUserId,
+    };
+
+    (['name', 'slug', 'description', 'start_date', 'end_date', 'status'] as const).forEach(
+      (field) => {
+        if (hasOwn(payload, field)) {
+          update[field] = payload[field];
+        }
+      }
+    );
+
+    const { data: event, error } = await supabaseAdmin
+      .from('events')
+      .update(update)
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const changedFields = Object.keys(update).filter((key) => key !== 'updated_by_user_id');
+
+    await logAudit({
+      eventId,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'UPDATE_EVENT',
+      entityType: 'EVENT',
+      entityId: eventId,
+      outcome: 'SUCCESS',
+      reason: `Evento actualizado: ${changedFields.join(', ') || 'sin cambios'}`,
+    });
+
+    return res.json({
+      message: 'Evento actualizado correctamente',
+      event
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
