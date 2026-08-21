@@ -782,3 +782,116 @@ export const getCommittee = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Error interno' });
   }
 };
+
+type UpdateCommitteeBody = {
+  name?: string;
+  code?: string;
+  description?: string;
+  sort_order?: number;
+};
+
+// Actualiza campos parciales de un comite y sincroniza el nombre de su muro.
+export const updateCommittee = async (
+  req: Request<{ committeeId: string }, {}, UpdateCommitteeBody>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { committeeId } = req.params;
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    const { data: existing } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    if (hasOwn(payload, 'name')) {
+      const { data: nameConflict } = await supabaseAdmin
+        .from('committees')
+        .select('id')
+        .eq('event_id', existing.event_id)
+        .eq('name', payload.name as string)
+        .neq('id', committeeId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (nameConflict) {
+        return res.status(400).json({
+          error: 'Ya existe un comité con ese nombre en este evento'
+        });
+      }
+    }
+
+    if (hasOwn(payload, 'code')) {
+      const { data: codeConflict } = await supabaseAdmin
+        .from('committees')
+        .select('id')
+        .eq('event_id', existing.event_id)
+        .eq('code', payload.code as string)
+        .neq('id', committeeId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (codeConflict) {
+        return res.status(400).json({
+          error: 'Ya existe un comité con ese código en este evento'
+        });
+      }
+    }
+
+    const update: Record<string, unknown> = {
+      updated_by_user_id: actorUserId,
+    };
+
+    (['name', 'code', 'description', 'sort_order'] as const).forEach((field) => {
+      if (hasOwn(payload, field)) {
+        update[field] = payload[field];
+      }
+    });
+
+    const { data: committee, error } = await supabaseAdmin
+      .from('committees')
+      .update(update)
+      .eq('id', committeeId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (hasOwn(payload, 'name')) {
+      await supabaseAdmin
+        .from('walls')
+        .update({ name: payload.name as string })
+        .eq('committee_id', committeeId);
+    }
+
+    const changedFields = Object.keys(update).filter((key) => key !== 'updated_by_user_id');
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'UPDATE_COMMITTEE',
+      entityType: 'COMMITTEE',
+      entityId: committeeId,
+      outcome: 'SUCCESS',
+      reason: `Comite actualizado: ${changedFields.join(', ') || 'sin cambios'}`,
+    });
+
+    return res.json({
+      message: 'Comité actualizado correctamente',
+      committee
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
