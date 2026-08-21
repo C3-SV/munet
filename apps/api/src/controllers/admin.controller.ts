@@ -248,6 +248,57 @@ export const createEvent = async (
   }
 };
 
+// Lista todos los eventos no eliminados para vista de administrador.
+export const listEvents = async (_req: Request, res: Response) => {
+  try {
+    const { data: events, error } = await supabaseAdmin
+      .from('events')
+      .select(
+        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at'
+      )
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ events: events ?? [] });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Devuelve el detalle de un evento por id para vista de administrador.
+export const getEvent = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+
+    const { data: event, error } = await supabaseAdmin
+      .from('events')
+      .select(
+        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at'
+      )
+      .eq('id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!event) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    return res.json({ event });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
 type CreateMembershipBody = {
   event_id: string;
   user_id: string;
