@@ -895,3 +895,64 @@ export const updateCommittee = async (
     return res.status(500).json({ error: 'Error interno' });
   }
 };
+
+// Elimina logicamente un comite y su muro asociado.
+export const deleteCommittee = async (
+  req: Request<{ committeeId: string }>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { committeeId } = req.params;
+
+    const { data: existing } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    const deletedAt = new Date().toISOString();
+
+    const { error } = await supabaseAdmin
+      .from('committees')
+      .update({ deleted_at: deletedAt, updated_by_user_id: actorUserId })
+      .eq('id', committeeId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const { error: wallError } = await supabaseAdmin
+      .from('walls')
+      .update({ deleted_at: deletedAt })
+      .eq('committee_id', committeeId);
+
+    if (wallError) {
+      // El comite ya quedo eliminado; el muro huerfano se loguea para revision manual.
+      console.error(
+        `No se pudo eliminar el muro del comite ${committeeId}: ${wallError.message}`
+      );
+    }
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'DELETE_COMMITTEE',
+      entityType: 'COMMITTEE',
+      entityId: committeeId,
+      outcome: 'SUCCESS',
+      reason: 'Comite eliminado (soft delete) junto con su muro asociado',
+    });
+
+    return res.json({ message: 'Comité eliminado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
