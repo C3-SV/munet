@@ -13,6 +13,40 @@ type AdminNavItem = {
     current: boolean;
 };
 
+const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <Link
+            href={item.href}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all duration-150"
+            style={{
+                backgroundColor: item.current
+                    ? "var(--sidebar-active-bg)"
+                    : isHovered
+                        ? "var(--bg-hover)"
+                        : "transparent",
+                color: item.current
+                    ? "var(--sidebar-active-text)"
+                    : "var(--text-primary)",
+            }}
+        >
+            <img
+                src={item.icon}
+                className="size-5 transition-opacity"
+                style={{
+                    opacity: item.current || isHovered ? 1 : 0.5,
+                    filter: isDark ? "invert(1)" : "none",
+                }}
+                alt=""
+            />
+            <span className="flex-1">{item.name}</span>
+        </Link>
+    );
+};
+
 export const AdminSidebar = () => {
     const pathname = usePathname();
     const { theme, toggleTheme } = useTheme();
@@ -119,39 +153,9 @@ export const AdminSidebar = () => {
             <nav className="flex flex-1 flex-col mt-8 overflow-y-auto">
                 <ul className="flex flex-1 flex-col gap-y-6">
                     <li className="space-y-1">
-                        {navigation.map((item) => {
-                            const [isHovered, setIsHovered] = useState(false);
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    onMouseEnter={() => setIsHovered(true)}
-                                    onMouseLeave={() => setIsHovered(false)}
-                                    className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all duration-150"
-                                    style={{
-                                        backgroundColor: item.current 
-                                            ? "var(--sidebar-active-bg)" 
-                                            : isHovered 
-                                                ? "var(--bg-hover)" 
-                                                : "transparent",
-                                        color: item.current 
-                                            ? "var(--sidebar-active-text)" 
-                                            : "var(--text-primary)",
-                                    }}
-                                >
-                                    <img
-                                        src={item.icon}
-                                        className="size-5 transition-opacity"
-                                        style={{
-                                            opacity: item.current || isHovered ? 1 : 0.5,
-                                            filter: isDark ? "invert(1)" : "none",
-                                        }}
-                                        alt=""
-                                    />
-                                    <span className="flex-1">{item.name}</span>
-                                </Link>
-                            );
-                        })}
+                            {navigation.map((item) => (
+                                <AdminNavLink key={item.name} item={item} isDark={isDark} />
+                            ))}
                     </li>
                 </ul>
             </nav>

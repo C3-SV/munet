@@ -2,15 +2,71 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useAuthStore } from "../../stores/auth.store";
+import { useAuthStore } from "../../../stores/auth.store";
+
+type AdminCard = {
+    title: string;
+    description: string;
+    href: string;
+    icon: string;
+};
+
+const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <Link
+            href={card.href}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className="block p-6 sm:p-8 rounded-2xl transition-all duration-200 hover:scale-[1.01] active:scale-95"
+            style={{
+                backgroundColor: "var(--bg-surface)",
+                border: isHovered
+                    ? "1px solid var(--text-accent)"
+                    : "1px solid var(--border-color)",
+                boxShadow: isHovered
+                    ? "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+                    : "var(--shadow-sm)",
+            }}
+        >
+            <div className="flex items-center gap-4 mb-4">
+                <div
+                    className="p-3 rounded-xl transition-colors duration-200"
+                    style={{
+                        backgroundColor: isHovered
+                            ? "color-mix(in srgb, var(--text-accent) 15%, transparent)"
+                            : "color-mix(in srgb, var(--border-color) 40%, transparent)",
+                    }}
+                >
+                    <img
+                        src={card.icon}
+                        className="size-6"
+                        style={{ filter: "var(--theme-icon-filter)" }}
+                        alt=""
+                    />
+                </div>
+                <h2
+                    className="text-xl font-bold font-heading transition-colors duration-200"
+                    style={{ color: isHovered ? "var(--text-accent)" : "var(--text-primary)" }}
+                >
+                    {card.title}
+                </h2>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {card.description}
+            </p>
+        </Link>
+    );
+};
 
 export default function AdminDashboard() {
     const memberships = useAuthStore((state) => state.memberships);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
-    const activeMembership = memberships.find((m) => m.id === activeMembershipId);
+    const activeMembership = memberships.find((membership) => membership.id === activeMembershipId);
     const eventName = activeMembership?.eventName ?? "Evento";
 
-    const cards = [
+    const cards: AdminCard[] = [
         {
             title: "Eventos y Comités",
             description: "Configura eventos, crea comités y gestiona sus muros correspondientes.",
@@ -52,56 +108,9 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                {cards.map((card) => {
-                    const [isHovered, setIsHovered] = useState(false);
-                    return (
-                        <Link
-                            key={card.title}
-                            href={card.href}
-                            onMouseEnter={() => setIsHovered(true)}
-                            onMouseLeave={() => setIsHovered(false)}
-                            className="block p-6 sm:p-8 rounded-2xl transition-all duration-200 hover:scale-[1.01] active:scale-95"
-                            style={{
-                                backgroundColor: "var(--bg-surface)",
-                                border: isHovered 
-                                    ? "1px solid var(--text-accent)" 
-                                    : "1px solid var(--border-color)",
-                                boxShadow: isHovered 
-                                    ? "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" 
-                                    : "var(--shadow-sm)",
-                            }}
-                        >
-                            <div className="flex items-center gap-4 mb-4">
-                                <div
-                                    className="p-3 rounded-xl transition-colors duration-200"
-                                    style={{
-                                        backgroundColor: isHovered 
-                                            ? "color-mix(in srgb, var(--text-accent) 15%, transparent)" 
-                                            : "color-mix(in srgb, var(--border-color) 40%, transparent)",
-                                    }}
-                                >
-                                    <img
-                                        src={card.icon}
-                                        className="size-6"
-                                        style={{ 
-                                            filter: "var(--theme-icon-filter)",
-                                        }}
-                                        alt=""
-                                    />
-                                </div>
-                                <h2 
-                                    className="text-xl font-bold font-heading transition-colors duration-200" 
-                                    style={{ color: isHovered ? "var(--text-accent)" : "var(--text-primary)" }}
-                                >
-                                    {card.title}
-                                </h2>
-                            </div>
-                            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                                {card.description}
-                            </p>
-                        </Link>
-                    );
-                })}
+                {cards.map((card) => (
+                    <AdminDashboardCard key={card.title} card={card} />
+                ))}
             </div>
         </div>
     );

@@ -11,6 +11,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
+    const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
     const hydrated = useAuthStore((state) => state.hydrated);
     const token = useAuthStore((state) => state.token);
     const memberships = useAuthStore((state) => state.memberships);
@@ -18,6 +19,10 @@ export default function AdminLayout({
 
     const activeMembership = memberships.find((m) => m.id === activeMembershipId);
     const isAdmin = activeMembership ? isAdminRole(activeMembership.role) : false;
+
+    useEffect(() => {
+        hydrateAuth();
+    }, [hydrateAuth]);
 
     useEffect(() => {
         if (!hydrated) return;
