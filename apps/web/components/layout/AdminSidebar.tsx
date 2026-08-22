@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../../lib/theme-context";
 import { useAuthStore } from "../../stores/auth.store";
 
@@ -83,10 +83,10 @@ export const AdminSidebar = () => {
                 </div>
                 <div
                     className="mt-5 h-0.5 w-full rounded-full"
-                    style={{ backgroundColor: "var(--text-accent)", opacity: 0.6 }}
+                    style={{ backgroundColor: "var(--text-accent)", opacity: 0.8 }}
                 />
                 <p
-                    className="mt-3 text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                    className="mt-4 text-[10px] font-extrabold uppercase tracking-widest font-heading"
                     style={{ color: "var(--text-secondary)" }}
                 >
                     Panel de Control
@@ -98,17 +98,17 @@ export const AdminSidebar = () => {
                 >
                     {activeEventName}
                 </p>
-                <div className="mt-3 flex flex-col gap-2">
+                <div className="mt-3 flex flex-col gap-1.5">
                     <Link
                         href="/select-event"
-                        className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:underline"
+                        className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Cambiar evento
                     </Link>
                     <Link
                         href="/feed"
-                        className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:underline"
+                        className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
                         style={{ color: "var(--text-secondary)" }}
                     >
                         ← Volver al Feed
@@ -119,28 +119,39 @@ export const AdminSidebar = () => {
             <nav className="flex flex-1 flex-col mt-8 overflow-y-auto">
                 <ul className="flex flex-1 flex-col gap-y-6">
                     <li className="space-y-1">
-                        {navigation.map((item) => (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
-                                style={{
-                                    backgroundColor: item.current ? "var(--sidebar-active-bg)" : "transparent",
-                                    color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
-                                }}
-                            >
-                                <img
-                                    src={item.icon}
-                                    className="size-5 transition-opacity"
+                        {navigation.map((item) => {
+                            const [isHovered, setIsHovered] = useState(false);
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onMouseEnter={() => setIsHovered(true)}
+                                    onMouseLeave={() => setIsHovered(false)}
+                                    className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all duration-150"
                                     style={{
-                                        opacity: item.current ? 1 : 0.5,
-                                        filter: isDark ? "invert(1)" : "none",
+                                        backgroundColor: item.current 
+                                            ? "var(--sidebar-active-bg)" 
+                                            : isHovered 
+                                                ? "var(--bg-hover)" 
+                                                : "transparent",
+                                        color: item.current 
+                                            ? "var(--sidebar-active-text)" 
+                                            : "var(--text-primary)",
                                     }}
-                                    alt=""
-                                />
-                                <span className="flex-1">{item.name}</span>
-                            </Link>
-                        ))}
+                                >
+                                    <img
+                                        src={item.icon}
+                                        className="size-5 transition-opacity"
+                                        style={{
+                                            opacity: item.current || isHovered ? 1 : 0.5,
+                                            filter: isDark ? "invert(1)" : "none",
+                                        }}
+                                        alt=""
+                                    />
+                                    <span className="flex-1">{item.name}</span>
+                                </Link>
+                            );
+                        })}
                     </li>
                 </ul>
             </nav>
@@ -154,7 +165,7 @@ export const AdminSidebar = () => {
             >
                 <button
                     onClick={toggleTheme}
-                    className="flex w-full items-center gap-x-3 rounded-xl p-3 mb-2 text-sm font-medium font-heading transition-all"
+                    className="flex w-full items-center gap-x-3 rounded-xl p-3 mb-2 text-sm font-medium font-heading transition-all hover:bg-[var(--bg-hover)]"
                     style={{ color: "var(--text-secondary)" }}
                 >
                     <span
