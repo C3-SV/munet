@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 import bcrypt from 'bcrypt';
+import { validateCatalogBody } from '../utils/admin.validation';
 
 // Helper para detectar si una propiedad viene explicitamente en el payload.
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
@@ -189,6 +190,8 @@ export const createEvent = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'event', false);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const { name, slug, description, start_date, end_date } = req.body;
 
@@ -198,13 +201,16 @@ export const createEvent = async (
     }
 
     // 2. validar slug único
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingLookupError } = await supabaseAdmin
       .from('events')
       .select('id')
       .eq('slug', slug)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingLookupError) {
+      return res.status(500).json({ error: 'No se pudo validar el slug' });
+    }
     if (existing) {
       return res.status(400).json({ error: 'El slug ya existe' });
     }
@@ -253,21 +259,28 @@ export const createEvent = async (
 };
 
 // Lista todos los eventos no eliminados para vista de administrador.
-export const listEvents = async (_req: Request, res: Response) => {
+export const listEvents = async (req: Request, res: Response) => {
   try {
-    const { data: events, error } = await supabaseAdmin
+    const page = req.query.page === undefined ? 1 : Number(req.query.page);
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(page * limit)) {
+      return res.status(400).json({ error: 'page debe ser positivo y limit debe estar entre 1 y 100' });
+    }
+    const { data: events, error, count } = await supabaseAdmin
       .from('events')
       .select(
-        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at'
+        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at', { count: 'exact' }
       )
       .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range((page - 1) * limit, page * limit - 1);
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    return res.json({ events: events ?? [] });
+    return res.json({ events: events ?? [], pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) } });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
@@ -321,23 +334,29 @@ export const updateEvent = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'event', true);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const { eventId } = req.params;
     const payload = (req.body ?? {}) as Record<string, unknown>;
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: lookupError } = await supabaseAdmin
       .from('events')
-      .select('id')
+      .select('id, start_date, end_date')
       .eq('id', eventId)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
     if (!existing) {
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
 
+    const dateError = validateCatalogBody({ start_date: hasOwn(payload, 'start_date') ? payload.start_date : existing.start_date, end_date: hasOwn(payload, 'end_date') ? payload.end_date : existing.end_date }, 'event', true);
+    if (dateError) return res.status(400).json({ error: dateError });
+
     if (hasOwn(payload, 'slug')) {
-      const { data: slugConflict } = await supabaseAdmin
+      const { data: slugConflict, error: slugConflictLookupError } = await supabaseAdmin
         .from('events')
         .select('id')
         .eq('slug', payload.slug as string)
@@ -345,7 +364,8 @@ export const updateEvent = async (
         .is('deleted_at', null)
         .maybeSingle();
 
-      if (slugConflict) {
+      if (slugConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (slugConflict) {
         return res.status(400).json({ error: 'El slug ya existe' });
       }
     }
@@ -536,6 +556,8 @@ export const createCommittee = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'committee', false);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
@@ -552,13 +574,14 @@ export const createCommittee = async (
     }
 
     // 1. validar que el evento exista
-    const { data: event } = await supabaseAdmin
+    const { data: event, error: eventLookupError } = await supabaseAdmin
       .from('events')
       .select('id, status')
       .eq('id', event_id)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (eventLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (!event) {
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
@@ -571,7 +594,7 @@ export const createCommittee = async (
     }
 
     // 2. validar unicidad del nombre dentro del evento
-    const { data: existingName } = await supabaseAdmin
+    const { data: existingName, error: existingNameLookupError } = await supabaseAdmin
       .from('committees')
       .select('id')
       .eq('event_id', event_id)
@@ -579,6 +602,7 @@ export const createCommittee = async (
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingNameLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (existingName) {
       return res.status(400).json({
         error: 'Ya existe un comité con ese nombre en este evento'
@@ -586,7 +610,7 @@ export const createCommittee = async (
     }
 
     // 3. validar unicidad del code dentro del evento
-    const { data: existingCode } = await supabaseAdmin
+    const { data: existingCode, error: existingCodeLookupError } = await supabaseAdmin
       .from('committees')
       .select('id')
       .eq('event_id', event_id)
@@ -594,6 +618,7 @@ export const createCommittee = async (
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingCodeLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (existingCode) {
       return res.status(400).json({
         error: 'Ya existe un comité con ese código en este evento'
@@ -634,8 +659,8 @@ export const createCommittee = async (
       .select()
       .single();
 
-    if (wallError) {
-      await supabaseAdmin
+    if (wallError || !wall) {
+      const { error: rollbackError } = await supabaseAdmin
         .from('committees')
         .update({
           deleted_at: new Date().toISOString(),
@@ -643,8 +668,12 @@ export const createCommittee = async (
         })
         .eq('id', committee.id);
 
+      if (rollbackError) {
+        console.error('Error revirtiendo comit? sin muro:', rollbackError);
+        return res.status(500).json({ error: 'No se pudo crear el muro ni revertir el comit?. Se requiere revisi?n del administrador.' });
+      }
       return res.status(400).json({
-        error: `No se pudo crear el muro del comite: ${wallError.message}`
+        error: `No se pudo crear el muro del comite: ${wallError?.message ?? 'sin datos'}`
       });
     }
 
@@ -796,23 +825,26 @@ export const updateCommittee = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'committee', true);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const { committeeId } = req.params;
     const payload = (req.body ?? {}) as Record<string, unknown>;
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: lookupError } = await supabaseAdmin
       .from('committees')
       .select('id, event_id')
       .eq('id', committeeId)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
     if (!existing) {
       return res.status(404).json({ error: 'Comité no encontrado' });
     }
 
     if (hasOwn(payload, 'name')) {
-      const { data: nameConflict } = await supabaseAdmin
+      const { data: nameConflict, error: nameConflictLookupError } = await supabaseAdmin
         .from('committees')
         .select('id')
         .eq('event_id', existing.event_id)
@@ -821,7 +853,8 @@ export const updateCommittee = async (
         .is('deleted_at', null)
         .maybeSingle();
 
-      if (nameConflict) {
+      if (nameConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (nameConflict) {
         return res.status(400).json({
           error: 'Ya existe un comité con ese nombre en este evento'
         });
@@ -829,7 +862,7 @@ export const updateCommittee = async (
     }
 
     if (hasOwn(payload, 'code')) {
-      const { data: codeConflict } = await supabaseAdmin
+      const { data: codeConflict, error: codeConflictLookupError } = await supabaseAdmin
         .from('committees')
         .select('id')
         .eq('event_id', existing.event_id)
@@ -838,7 +871,8 @@ export const updateCommittee = async (
         .is('deleted_at', null)
         .maybeSingle();
 
-      if (codeConflict) {
+      if (codeConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (codeConflict) {
         return res.status(400).json({
           error: 'Ya existe un comité con ese código en este evento'
         });
@@ -867,10 +901,14 @@ export const updateCommittee = async (
     }
 
     if (hasOwn(payload, 'name')) {
-      await supabaseAdmin
+      const { error: wallError } = await supabaseAdmin
         .from('walls')
         .update({ name: payload.name as string })
-        .eq('committee_id', committeeId);
+        .eq('committee_id', committeeId)
+        .is('deleted_at', null);
+      if (wallError) {
+        return res.status(500).json({ error: 'El comit? se actualiz?, pero no se pudo sincronizar el muro. Reintenta guardar.' });
+      }
     }
 
     const changedFields = Object.keys(update).filter((key) => key !== 'updated_by_user_id');
