@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 import bcrypt from 'bcrypt';
+import { validateCatalogBody } from '../utils/admin.validation';
+
+// Helper para detectar si una propiedad viene explicitamente en el payload.
+const hasOwn = (payload: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(payload, key);
 
 type CreateAccountBody = {
   event_id: string;
@@ -185,6 +190,8 @@ export const createEvent = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'event', false);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const { name, slug, description, start_date, end_date } = req.body;
 
@@ -194,13 +201,16 @@ export const createEvent = async (
     }
 
     // 2. validar slug único
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingLookupError } = await supabaseAdmin
       .from('events')
       .select('id')
       .eq('slug', slug)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingLookupError) {
+      return res.status(500).json({ error: 'No se pudo validar el slug' });
+    }
     if (existing) {
       return res.status(400).json({ error: 'El slug ya existe' });
     }
@@ -242,6 +252,173 @@ export const createEvent = async (
       event
     });
 
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Lista todos los eventos no eliminados para vista de administrador.
+export const listEvents = async (req: Request, res: Response) => {
+  try {
+    const page = req.query.page === undefined ? 1 : Number(req.query.page);
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(page * limit)) {
+      return res.status(400).json({ error: 'page debe ser positivo y limit debe estar entre 1 y 100' });
+    }
+    const { data: events, error, count } = await supabaseAdmin
+      .from('events')
+      .select(
+        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at', { count: 'exact' }
+      )
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range((page - 1) * limit, page * limit - 1);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ events: events ?? [], pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) } });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Devuelve el detalle de un evento por id para vista de administrador.
+export const getEvent = async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+
+    const { data: event, error } = await supabaseAdmin
+      .from('events')
+      .select(
+        'id, name, slug, description, start_date, end_date, status, is_read_only, created_at'
+      )
+      .eq('id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!event) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    return res.json({ event });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+type UpdateEventBody = {
+  name?: string;
+  slug?: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  status?: 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
+};
+
+const EVENT_STATUSES = ['ACTIVE', 'CLOSED', 'ARCHIVED'] as const;
+
+// Actualiza campos parciales de un evento existente. Cualquier transicion
+// de status es valida (sin maquina de estados).
+export const updateEvent = async (
+  req: Request<{ eventId: string }, {}, UpdateEventBody>,
+  res: Response
+) => {
+  try {
+    const validationError = validateCatalogBody(req.body, 'event', true);
+    if (validationError) return res.status(400).json({ error: validationError });
+    const actorUserId = req.auth?.userId ?? null;
+    const { eventId } = req.params;
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('events')
+      .select('id, start_date, end_date')
+      .eq('id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    const dateError = validateCatalogBody({ start_date: hasOwn(payload, 'start_date') ? payload.start_date : existing.start_date, end_date: hasOwn(payload, 'end_date') ? payload.end_date : existing.end_date }, 'event', true);
+    if (dateError) return res.status(400).json({ error: dateError });
+
+    if (hasOwn(payload, 'slug')) {
+      const { data: slugConflict, error: slugConflictLookupError } = await supabaseAdmin
+        .from('events')
+        .select('id')
+        .eq('slug', payload.slug as string)
+        .neq('id', eventId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (slugConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (slugConflict) {
+        return res.status(400).json({ error: 'El slug ya existe' });
+      }
+    }
+
+    if (
+      hasOwn(payload, 'status') &&
+      !EVENT_STATUSES.includes(payload.status as (typeof EVENT_STATUSES)[number])
+    ) {
+      return res.status(400).json({
+        error: `status debe ser uno de: ${EVENT_STATUSES.join(', ')}`
+      });
+    }
+
+    const update: Record<string, unknown> = {
+      updated_by_user_id: actorUserId,
+    };
+
+    (['name', 'slug', 'description', 'start_date', 'end_date', 'status'] as const).forEach(
+      (field) => {
+        if (hasOwn(payload, field)) {
+          update[field] = payload[field];
+        }
+      }
+    );
+
+    const { data: event, error } = await supabaseAdmin
+      .from('events')
+      .update(update)
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const changedFields = Object.keys(update).filter((key) => key !== 'updated_by_user_id');
+
+    await logAudit({
+      eventId,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'UPDATE_EVENT',
+      entityType: 'EVENT',
+      entityId: eventId,
+      outcome: 'SUCCESS',
+      reason: `Evento actualizado: ${changedFields.join(', ') || 'sin cambios'}`,
+    });
+
+    return res.json({
+      message: 'Evento actualizado correctamente',
+      event
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
@@ -379,6 +556,8 @@ export const createCommittee = async (
   res: Response
 ) => {
   try {
+    const validationError = validateCatalogBody(req.body, 'committee', false);
+    if (validationError) return res.status(400).json({ error: validationError });
     const actorUserId = req.auth?.userId ?? null;
     const {
       event_id,
@@ -395,13 +574,14 @@ export const createCommittee = async (
     }
 
     // 1. validar que el evento exista
-    const { data: event } = await supabaseAdmin
+    const { data: event, error: eventLookupError } = await supabaseAdmin
       .from('events')
       .select('id, status')
       .eq('id', event_id)
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (eventLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (!event) {
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
@@ -414,7 +594,7 @@ export const createCommittee = async (
     }
 
     // 2. validar unicidad del nombre dentro del evento
-    const { data: existingName } = await supabaseAdmin
+    const { data: existingName, error: existingNameLookupError } = await supabaseAdmin
       .from('committees')
       .select('id')
       .eq('event_id', event_id)
@@ -422,6 +602,7 @@ export const createCommittee = async (
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingNameLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (existingName) {
       return res.status(400).json({
         error: 'Ya existe un comité con ese nombre en este evento'
@@ -429,7 +610,7 @@ export const createCommittee = async (
     }
 
     // 3. validar unicidad del code dentro del evento
-    const { data: existingCode } = await supabaseAdmin
+    const { data: existingCode, error: existingCodeLookupError } = await supabaseAdmin
       .from('committees')
       .select('id')
       .eq('event_id', event_id)
@@ -437,6 +618,7 @@ export const createCommittee = async (
       .is('deleted_at', null)
       .maybeSingle();
 
+    if (existingCodeLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
     if (existingCode) {
       return res.status(400).json({
         error: 'Ya existe un comité con ese código en este evento'
@@ -463,6 +645,38 @@ export const createCommittee = async (
       return res.status(400).json({ error: error.message });
     }
 
+    // 5. crear muro asociado automaticamente; si falla, revertir el comite
+    // para no dejarlo huerfano sin muro donde publicar.
+    const { data: wall, error: wallError } = await supabaseAdmin
+      .from('walls')
+      .insert({
+        event_id,
+        name,
+        wall_type: 'COMMITTEE',
+        committee_id: committee.id,
+        status: 'ACTIVE',
+      })
+      .select()
+      .single();
+
+    if (wallError || !wall) {
+      const { error: rollbackError } = await supabaseAdmin
+        .from('committees')
+        .update({
+          deleted_at: new Date().toISOString(),
+          updated_by_user_id: actorUserId,
+        })
+        .eq('id', committee.id);
+
+      if (rollbackError) {
+        console.error('Error revirtiendo comit? sin muro:', rollbackError);
+        return res.status(500).json({ error: 'No se pudo crear el muro ni revertir el comit?. Se requiere revisi?n del administrador.' });
+      }
+      return res.status(400).json({
+        error: `No se pudo crear el muro del comite: ${wallError?.message ?? 'sin datos'}`
+      });
+    }
+
     await logAudit({
       eventId: event_id,
       actorUserId: actorUserId ?? undefined,
@@ -471,12 +685,13 @@ export const createCommittee = async (
       entityType: 'COMMITTEE',
       entityId: committee.id,
       outcome: 'SUCCESS',
-      reason: `Comite creado: ${name} (${code})`,
+      reason: `Comite creado: ${name} (${code}), muro ${wall.id} creado automaticamente`,
     });
 
     return res.json({
       message: 'Comité creado correctamente',
-      committee
+      committee,
+      wall
     });
   } catch (error) {
     console.error(error);
@@ -535,6 +750,245 @@ export const getEventsByParticipantCode = async (
       .filter((item: any) => item.event && !item.event.deleted_at);
 
     return res.json({ events });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Lista comites de un evento para vista de administrador (sin requerir
+// membership del actor en ese evento, a diferencia del endpoint de participantes).
+export const listCommittees = async (req: Request, res: Response) => {
+  try {
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id : null;
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'event_id es requerido' });
+    }
+
+    const { data: committees, error } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id, name, code, description, sort_order, status')
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ committees: committees ?? [] });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Devuelve el detalle de un comite por id para vista de administrador.
+export const getCommittee = async (req: Request, res: Response) => {
+  try {
+    const { committeeId } = req.params;
+
+    const { data: committee, error } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id, name, code, description, sort_order, status')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!committee) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    return res.json({ committee });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+type UpdateCommitteeBody = {
+  name?: string;
+  code?: string;
+  description?: string;
+  sort_order?: number;
+};
+
+// Actualiza campos parciales de un comite y sincroniza el nombre de su muro.
+export const updateCommittee = async (
+  req: Request<{ committeeId: string }, {}, UpdateCommitteeBody>,
+  res: Response
+) => {
+  try {
+    const validationError = validateCatalogBody(req.body, 'committee', true);
+    if (validationError) return res.status(400).json({ error: validationError });
+    const actorUserId = req.auth?.userId ?? null;
+    const { committeeId } = req.params;
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    if (hasOwn(payload, 'name')) {
+      const { data: nameConflict, error: nameConflictLookupError } = await supabaseAdmin
+        .from('committees')
+        .select('id')
+        .eq('event_id', existing.event_id)
+        .eq('name', payload.name as string)
+        .neq('id', committeeId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (nameConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (nameConflict) {
+        return res.status(400).json({
+          error: 'Ya existe un comité con ese nombre en este evento'
+        });
+      }
+    }
+
+    if (hasOwn(payload, 'code')) {
+      const { data: codeConflict, error: codeConflictLookupError } = await supabaseAdmin
+        .from('committees')
+        .select('id')
+        .eq('event_id', existing.event_id)
+        .eq('code', payload.code as string)
+        .neq('id', committeeId)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (codeConflictLookupError) return res.status(500).json({ error: 'No se pudo validar el registro' });
+    if (codeConflict) {
+        return res.status(400).json({
+          error: 'Ya existe un comité con ese código en este evento'
+        });
+      }
+    }
+
+    const update: Record<string, unknown> = {
+      updated_by_user_id: actorUserId,
+    };
+
+    (['name', 'code', 'description', 'sort_order'] as const).forEach((field) => {
+      if (hasOwn(payload, field)) {
+        update[field] = payload[field];
+      }
+    });
+
+    const { data: committee, error } = await supabaseAdmin
+      .from('committees')
+      .update(update)
+      .eq('id', committeeId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (hasOwn(payload, 'name')) {
+      const { error: wallError } = await supabaseAdmin
+        .from('walls')
+        .update({ name: payload.name as string })
+        .eq('committee_id', committeeId)
+        .is('deleted_at', null);
+      if (wallError) {
+        return res.status(500).json({ error: 'El comit? se actualiz?, pero no se pudo sincronizar el muro. Reintenta guardar.' });
+      }
+    }
+
+    const changedFields = Object.keys(update).filter((key) => key !== 'updated_by_user_id');
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'UPDATE_COMMITTEE',
+      entityType: 'COMMITTEE',
+      entityId: committeeId,
+      outcome: 'SUCCESS',
+      reason: `Comite actualizado: ${changedFields.join(', ') || 'sin cambios'}`,
+    });
+
+    return res.json({
+      message: 'Comité actualizado correctamente',
+      committee
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Elimina logicamente un comite y su muro asociado.
+export const deleteCommittee = async (
+  req: Request<{ committeeId: string }>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { committeeId } = req.params;
+
+    const { data: existing } = await supabaseAdmin
+      .from('committees')
+      .select('id, event_id')
+      .eq('id', committeeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Comité no encontrado' });
+    }
+
+    const deletedAt = new Date().toISOString();
+
+    const { error } = await supabaseAdmin
+      .from('committees')
+      .update({ deleted_at: deletedAt, updated_by_user_id: actorUserId })
+      .eq('id', committeeId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const { error: wallError } = await supabaseAdmin
+      .from('walls')
+      .update({ deleted_at: deletedAt })
+      .eq('committee_id', committeeId);
+
+    if (wallError) {
+      // El comite ya quedo eliminado; el muro huerfano se loguea para revision manual.
+      console.error(
+        `No se pudo eliminar el muro del comite ${committeeId}: ${wallError.message}`
+      );
+    }
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'DELETE_COMMITTEE',
+      entityType: 'COMMITTEE',
+      entityId: committeeId,
+      outcome: 'SUCCESS',
+      reason: 'Comite eliminado (soft delete) junto con su muro asociado',
+    });
+
+    return res.json({ message: 'Comité eliminado correctamente' });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
