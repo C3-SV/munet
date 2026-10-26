@@ -65,12 +65,19 @@ Todas usan `requireAuth` y `requireAdmin`. Este último acepta un rol administra
 
 | Método y ruta | Cuerpo principal | Interfaz actual |
 |---|---|---|
+| `GET /admin/events` | `page` y `limit` opcionales | Sí; listado paginado |
+| `GET /admin/events/:eventId` | — | Sí; configuración |
 | `POST /admin/events` | `name`, `slug`, `description?`, `start_date?`, `end_date?` | Sí |
+| `PATCH /admin/events/:eventId` | campos parciales y `status` | Sí; configuración |
+| `GET /admin/committees?event_id=` | `event_id` requerido | Sí; listado admin |
+| `GET /admin/committees/:committeeId` | — | Sí; edición |
 | `POST /admin/committees` | `event_id`, `name`, `code`, `description?`, `sort_order?` | Sí |
+| `PATCH /admin/committees/:committeeId` | `name`, `code`, `description`, `sort_order` | Sí; edición |
+| `DELETE /admin/committees/:committeeId` | — | No |
 | `POST /admin/memberships` | datos de evento, usuario/participante, rol y comité según controlador | No |
 | `POST /admin/create-account` | identidad, código, evento, rol y contraseña inicial según controlador | No |
 
-No existen endpoints admin GET/PATCH/DELETE. La interfaz declara explícitamente pendientes `GET /admin/events`, `GET /admin/events/:id` y `PATCH /admin/events/:id`.
+La interfaz administrativa consume la lectura y edición de eventos y comités. El borrado de comités y las altas de membresías o cuentas siguen sin pantalla.
 
 ## Respuestas, límites e incertidumbres
 

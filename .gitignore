@@ -38,3 +38,6 @@ yarn-error.log*
 *.pem
 .codex
 .aider*
+
+# Command Code (local state and taste)
+.commandcode/

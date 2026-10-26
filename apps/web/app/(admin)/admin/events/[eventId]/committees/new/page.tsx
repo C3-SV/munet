@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
 import {
     createCommittee,
+    getEvent,
     type CreateCommitteeBody,
 } from "../../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../../lib/api/client";
@@ -17,6 +18,8 @@ import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAle
 // Convierte el nombre a un código de comité en mayúsculas (ej. "Consejo de Seguridad" → "CS").
 const toCode = (value: string) =>
     value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .trim()
         .split(/\s+/)
         .map((word) => word[0] ?? "")
@@ -50,17 +53,39 @@ export default function NewCommitteePage() {
     const memberships = useAuthStore((state) => state.memberships);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
-    const eventName =
+    const membershipEventName =
         memberships.find((m) => m.eventId === eventId)?.eventName ??
-        memberships.find((m) => m.id === activeMembershipId)?.eventName ??
-        "Evento";
+        memberships.find((m) => m.id === activeMembershipId)?.eventName;
 
+    const [eventName, setEventName] = useState(membershipEventName ?? "Evento");
     const [form, setForm] = useState<FormState>(INITIAL_FORM);
     const [errors, setErrors] = useState<FormErrors>({});
     const [codeEdited, setCodeEdited] = useState(false);
     const [loading, setLoading] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+
+        getEvent(token, eventId)
+            .then((data) => {
+                if (!cancelled) {
+                    setEventName(data.event.name);
+                }
+            })
+            .catch(() => {
+                // Si falla, se mantiene el nombre de la membresía o "Evento".
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
 
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((prev) => {
@@ -88,8 +113,8 @@ export default function NewCommitteePage() {
         }
 
         const order = Number(form.sort_order);
-        if (isNaN(order) || order < 0) {
-            errs.sort_order = "Debe ser un número mayor o igual a 0.";
+        if (!form.sort_order.trim() || !Number.isSafeInteger(order) || order < 0) {
+            errs.sort_order = "Debe ser un número entero mayor o igual a 0.";
         }
 
         return errs;

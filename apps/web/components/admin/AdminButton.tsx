@@ -37,8 +37,8 @@ export const AdminButton = ({
 
     const variantStyle: React.CSSProperties = isPrimary
         ? {
-              backgroundColor: "var(--text-accent)",
-              color: "#ffffff",
+              backgroundColor: "var(--bubble-me-bg)",
+              color: "var(--bubble-me-text)",
               boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
           }
         : isDanger

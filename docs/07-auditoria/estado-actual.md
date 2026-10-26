@@ -7,7 +7,7 @@
 
 ## Resumen ejecutivo
 
-MUNET es un MVP parcial con flujos participantes utilizables a nivel de código: acceso, contexto multi-evento, muros, publicaciones/encuestas, comentarios, perfiles y mensajes directos. La nueva rama añade la base visual del panel administrativo y conecta la creación de eventos y comités. La administración de participantes, asignaciones, moderación y edición/listado de eventos continúa incompleta.
+MUNET es un MVP parcial con flujos participantes utilizables a nivel de código: acceso, contexto multi-evento, muros, publicaciones/encuestas, comentarios, perfiles y mensajes directos. El panel administrativo permite listar, crear y configurar eventos, y listar, crear y editar comités. La administración de participantes, asignaciones y moderación continúa incompleta.
 
 La arquitectura separa web y API, pero su seguridad depende especialmente del backend porque opera Supabase con service role. No es posible verificar integridad, RLS ni compatibilidad del despliegue: el esquema no está versionado.
 
@@ -30,24 +30,23 @@ La arquitectura separa web y API, pero su seguridad depende especialmente del ba
 - Perfiles y avatares.
 - DM uno a uno.
 - API de altas de evento, comité, membresía y cuenta.
-- UI administrativa base; altas visuales de evento/comité.
+- UI administrativa con listado/configuración de eventos y listado/alta/edición de comités.
 
 Todos tienen limitaciones descritas en [funcionalidades](../01-producto/funcionalidades.md).
 
 ## Hallazgos críticos
 
-1. `apps/web/lib/api/auth.ts` registra payloads que pueden contener contraseña.
-2. `requireAdmin` no limita las mutaciones al evento donde el usuario es admin.
-3. No hay esquema/migraciones/RLS versionados y el backend usa service role.
-4. Auditoría y registros de acceso fallan silenciosamente.
-5. Operaciones compuestas no son transaccionales.
-6. El estado del evento no impone solo lectura; los eventos se crean `ACTIVE`.
-7. La API no participa en build/lint/typecheck de Turbo.
-8. El root permite Node 18, pero Next.js 16.1.5 requiere Node 20.9 o superior.
+1. `requireAdmin` no limita las mutaciones al evento donde el usuario es admin.
+2. No hay esquema/migraciones/RLS versionados y el backend usa service role.
+3. Auditoría y registros de acceso fallan silenciosamente.
+4. Operaciones compuestas no son transaccionales.
+5. El estado del evento no impone solo lectura; los eventos se crean `ACTIVE`.
+6. La API no participa en build/lint/typecheck de Turbo.
+7. El root permite Node 18, pero Next.js 16.1.5 requiere Node 20.9 o superior.
 
 ## Base administrativa incorporada
 
-La rama fusionada aporta rutas, layout y componentes admin, el cliente `lib/api/admin.ts`, dos formularios conectados y protección `requireAdmin`. No aporta contratos GET/PATCH de eventos ni páginas para participantes, asignaciones o moderación. Los documentos `docs/superpowers/` describen la decisión de autorización, pero sus casillas sin marcar no son evidencia fiable de ejecución; el código sí lo es.
+La rama fusionada aporta rutas, layout y componentes admin, el cliente `lib/api/admin.ts` y protección `requireAdmin`. La UI consume listado/configuración de eventos y listado/alta/edición de comités; participantes, asignaciones y moderación existen como marcadores. Los documentos `docs/superpowers/` describen la decisión de autorización, pero sus casillas sin marcar no son evidencia fiable de ejecución; el código sí lo es.
 
 ## Madurez de verificación
 

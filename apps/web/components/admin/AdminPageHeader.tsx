@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 // Encabezado de sección reutilizable para páginas del panel admin.
 // Acepta título, descripción opcional, breadcrumb y slot para acción (botón).
 
@@ -23,7 +25,7 @@ export const AdminPageHeader = ({
         >
             <div className="flex-1 min-w-0">
                 {breadcrumb && breadcrumb.length > 0 && (
-                    <nav className="flex items-center gap-1.5 mb-2 flex-wrap">
+                    <nav aria-label="Miga de pan" className="flex items-center gap-1.5 mb-2 flex-wrap">
                         {breadcrumb.map((crumb, i) => (
                             <span key={i} className="flex items-center gap-1.5">
                                 {i > 0 && (
@@ -35,13 +37,13 @@ export const AdminPageHeader = ({
                                     </span>
                                 )}
                                 {crumb.href ? (
-                                    <a
+                                    <Link
                                         href={crumb.href}
                                         className="text-xs font-semibold hover:underline transition-opacity hover:opacity-80"
                                         style={{ color: "var(--text-accent)" }}
                                     >
                                         {crumb.label}
-                                    </a>
+                                    </Link>
                                 ) : (
                                     <span
                                         className="text-xs font-semibold"

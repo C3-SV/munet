@@ -4,7 +4,8 @@ import {
   loginRequest,
   validateActivationRequest,
   activateAccountRequest,
-  type ActivateAccountPayload 
+  type ActivateAccountPayload,
+  type ActivationEvent,
 } from "../lib/api/auth";
 import type {
   AuthSession,
@@ -79,7 +80,7 @@ type AuthState = {
   needsEventSelection: () => boolean;
   setActiveMembership: (membershipId: string) => void;
   refreshContext: () => Promise<void>;
-  validateActivation: (participantCode: string) => Promise<any[]>;
+  validateActivation: (participantCode: string) => Promise<ActivationEvent[]>;
   activateAccount: (payload: ActivateAccountPayload) => Promise<void>;
 };
 
@@ -195,7 +196,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const token = localStorage.getItem(TOKEN_KEY);
     const userRaw = localStorage.getItem(USER_KEY);
     const membershipsRaw = localStorage.getItem(MEMBERSHIPS_KEY);
-    const activeEventId = localStorage.getItem(ACTIVE_EVENT_KEY);
     const activeMembershipId = localStorage.getItem(ACTIVE_MEMBERSHIP_KEY);
 
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;

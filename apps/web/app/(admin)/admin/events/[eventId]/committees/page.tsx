@@ -1,96 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useAuthStore } from "../../../../../../stores/auth.store";
-import { getEventCommittees, type EventCommittee } from "../../../../../../lib/api/events";
-import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
+import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
+import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
+import {
+    getEvent,
+    listCommittees,
+    type AdminCommittee,
+} from "../../../../../../lib/api/admin";
+import { ApiError } from "../../../../../../lib/api/client";
+import { useAuthStore } from "../../../../../../stores/auth.store";
 
-// Fila de comité en la tabla.
-const CommitteeRow = ({ committee }: { committee: EventCommittee }) => {
-    const [hovered, setHovered] = useState(false);
-
-    return (
-        <tr
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                backgroundColor: hovered
-                    ? "var(--bg-hover)"
-                    : "transparent",
-                cursor: "default",
-                transition: "background-color 0.15s ease",
-            }}
-        >
-            {/* Nombre */}
-            <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                    <div
-                        className="flex items-center justify-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading shrink-0"
-                        style={{
-                            backgroundColor: "color-mix(in srgb, var(--text-accent) 12%, transparent)",
-                            color: "var(--text-accent)",
-                            minWidth: 40,
-                        }}
-                    >
-                        {committee.code}
-                    </div>
-                    <span
-                        className="text-sm font-semibold font-heading"
-                        style={{ color: "var(--text-primary)" }}
-                    >
-                        {committee.name}
-                    </span>
-                </div>
-            </td>
-
-            {/* Descripción */}
-            <td className="px-6 py-4 hidden md:table-cell">
-                <span
-                    className="text-sm line-clamp-1"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    {committee.description ?? "—"}
-                </span>
-            </td>
-
-            {/* Orden */}
-            <td className="px-6 py-4 hidden sm:table-cell text-center">
-                <span
-                    className="text-sm tabular-nums"
-                    style={{ color: "var(--text-muted)" }}
-                >
-                    {committee.sort_order}
-                </span>
-            </td>
-
-            {/* Estado */}
-            <td className="px-6 py-4">
-                <span
-                    className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+const CommitteeRow = ({
+    committee,
+    eventId,
+}: {
+    committee: AdminCommittee;
+    eventId: string;
+}) => (
+    <tr
+        className="transition-colors hover:bg-[var(--bg-hover)]"
+        style={{ borderBottom: "1px solid var(--border-light)" }}
+    >
+        <td className="px-6 py-4">
+            <div className="flex items-center gap-3">
+                <div
+                    className="flex items-center justify-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading shrink-0"
                     style={{
-                        backgroundColor:
-                            committee.status === "ACTIVE"
-                                ? "color-mix(in srgb, #22c55e 12%, transparent)"
-                                : "color-mix(in srgb, #94a3b8 12%, transparent)",
-                        color:
-                            committee.status === "ACTIVE"
-                                ? "#16a34a"
-                                : "var(--text-secondary)",
+                        backgroundColor: "color-mix(in srgb, var(--text-accent) 12%, transparent)",
+                        color: "var(--text-accent)",
+                        minWidth: 40,
                     }}
                 >
-                    {committee.status === "ACTIVE" ? "Activo" : committee.status}
+                    {committee.code}
+                </div>
+                <span
+                    className="text-sm font-semibold font-heading"
+                    style={{ color: "var(--text-primary)" }}
+                >
+                    {committee.name}
                 </span>
-            </td>
-        </tr>
-    );
-};
+            </div>
+        </td>
 
-// Página de listado de comités de un evento.
-// Usa GET /events/:eventId/committees (ya disponible en BE).
+        <td className="px-6 py-4 hidden md:table-cell">
+            <span
+                className="text-sm line-clamp-1"
+                style={{ color: "var(--text-secondary)" }}
+            >
+                {committee.description ?? "—"}
+            </span>
+        </td>
+
+        <td className="px-6 py-4 hidden sm:table-cell text-center">
+            <span
+                className="text-sm tabular-nums"
+                style={{ color: "var(--text-muted)" }}
+            >
+                {committee.sort_order}
+            </span>
+        </td>
+
+        <td className="px-6 py-4">
+            <AdminStatusBadge status={committee.status} />
+        </td>
+
+        <td className="px-6 py-4">
+            <div className="flex justify-end">
+                <Link
+                    href={`/admin/events/${eventId}/committees/${committee.id}/edit`}
+                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
+                    style={{ color: "var(--text-accent)" }}
+                >
+                    Editar
+                </Link>
+            </div>
+        </td>
+    </tr>
+);
+
 export default function CommitteesPage() {
     const params = useParams<{ eventId: string }>();
     const eventId = params?.eventId ?? "";
@@ -98,31 +90,73 @@ export default function CommitteesPage() {
     const token = useAuthStore((state) => state.token);
     const memberships = useAuthStore((state) => state.memberships);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
-    const activeMembership = memberships.find((m) => m.id === activeMembershipId);
+    const membershipEventName =
+        memberships.find((membership) => membership.eventId === eventId)?.eventName ??
+        memberships.find((membership) => membership.id === activeMembershipId)?.eventName;
 
-    const [committees, setCommittees] = useState<EventCommittee[]>([]);
+    const [eventName, setEventName] = useState(membershipEventName ?? "Evento");
+    const [committees, setCommittees] = useState<AdminCommittee[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    // Resolvemos el nombre del evento desde las memberships del store.
-    const eventName =
-        memberships.find((m) => m.eventId === eventId)?.eventName ??
-        activeMembership?.eventName ??
-        "Evento";
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
-        if (!token || !eventId) return;
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+
+        getEvent(token, eventId)
+            .then((data) => {
+                if (!cancelled) {
+                    setEventName(data.event.name);
+                }
+            })
+            .catch(() => {
+                // Si falla, se mantiene el nombre de la membresía o "Evento".
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
+
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
 
         setLoading(true);
         setError(null);
 
-        getEventCommittees({ token, eventId })
-            .then((data) => setCommittees(data))
-            .catch(() =>
-                setError("No se pudieron cargar los comités. Intenta de nuevo."),
-            )
-            .finally(() => setLoading(false));
-    }, [token, eventId]);
+        listCommittees(token, eventId)
+            .then((data) => {
+                if (!cancelled) {
+                    setCommittees(data);
+                }
+            })
+            .catch((loadError) => {
+                if (!cancelled) {
+                    setError(
+                        loadError instanceof ApiError
+                            ? loadError.message
+                            : "No se pudieron cargar los comités. Intenta de nuevo.",
+                    );
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, reloadKey, token]);
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -154,7 +188,6 @@ export default function CommitteesPage() {
                     boxShadow: "var(--shadow-sm)",
                 }}
             >
-                {/* Estado de carga */}
                 {loading && (
                     <div className="flex items-center justify-center py-20">
                         <span
@@ -169,7 +202,6 @@ export default function CommitteesPage() {
                     </div>
                 )}
 
-                {/* Error */}
                 {!loading && error && (
                     <AdminEmptyState
                         icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
@@ -178,19 +210,7 @@ export default function CommitteesPage() {
                         action={
                             <AdminButton
                                 variant="secondary"
-                                onClick={() => {
-                                    if (!token) return;
-                                    setLoading(true);
-                                    setError(null);
-                                    getEventCommittees({ token, eventId })
-                                        .then(setCommittees)
-                                        .catch(() =>
-                                            setError(
-                                                "No se pudieron cargar los comités.",
-                                            ),
-                                        )
-                                        .finally(() => setLoading(false));
-                                }}
+                                onClick={() => setReloadKey((value) => value + 1)}
                                 icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
                             >
                                 Reintentar
@@ -199,16 +219,13 @@ export default function CommitteesPage() {
                     />
                 )}
 
-                {/* Vacío */}
                 {!loading && !error && committees.length === 0 && (
                     <AdminEmptyState
                         icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
                         title="No hay comités registrados"
                         description="Crea el primer comité para este evento."
                         action={
-                            <Link
-                                href={`/admin/events/${eventId}/committees/new`}
-                            >
+                            <Link href={`/admin/events/${eventId}/committees/new`}>
                                 <AdminButton
                                     icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
                                 >
@@ -219,52 +236,43 @@ export default function CommitteesPage() {
                     />
                 )}
 
-                {/* Tabla */}
                 {!loading && !error && committees.length > 0 && (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr
-                                    style={{
-                                        borderBottom: "1px solid var(--border-color)",
-                                    }}
-                                >
-                                    {["Comité", "Descripción", "Orden", "Estado"].map(
-                                        (col, i) => (
+                                <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                                    {["Comité", "Descripción", "Orden", "Estado", ""].map(
+                                        (column, index) => (
                                             <th
-                                                key={col}
+                                                key={column || index}
                                                 className={[
                                                     "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
-                                                    i === 1 ? "hidden md:table-cell" : "",
-                                                    i === 2 ? "hidden sm:table-cell text-center" : "",
+                                                    index === 1 ? "hidden md:table-cell" : "",
+                                                    index === 2 ? "hidden sm:table-cell text-center" : "",
+                                                    index === 4 ? "text-right" : "",
                                                 ].join(" ")}
                                                 style={{
                                                     color: "var(--text-muted)",
-                                                    backgroundColor:
-                                                        "var(--bg-surface-secondary)",
+                                                    backgroundColor: "var(--bg-surface-secondary)",
                                                 }}
                                             >
-                                                {col}
+                                                {column || "Acciones"}
                                             </th>
                                         ),
                                     )}
                                 </tr>
                             </thead>
-                            <tbody
-                                style={{
-                                    borderBottom: "1px solid var(--border-color)",
-                                }}
-                            >
+                            <tbody>
                                 {committees.map((committee) => (
                                     <CommitteeRow
                                         key={committee.id}
                                         committee={committee}
+                                        eventId={eventId}
                                     />
                                 ))}
                             </tbody>
                         </table>
 
-                        {/* Pie de tabla */}
                         <div
                             className="px-6 py-3 flex items-center justify-between"
                             style={{
@@ -272,10 +280,7 @@ export default function CommitteesPage() {
                                 backgroundColor: "var(--bg-surface-secondary)",
                             }}
                         >
-                            <p
-                                className="text-xs"
-                                style={{ color: "var(--text-muted)" }}
-                            >
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                                 {committees.length}{" "}
                                 {committees.length === 1 ? "comité" : "comités"}
                             </p>

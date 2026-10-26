@@ -19,7 +19,8 @@ const toSlug = (value: string) =>
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s-]/g, "")
         .trim()
-        .replace(/\s+/g, "-");
+        .replace(/[\s-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
 
 type FormState = {
     name: string;
@@ -123,11 +124,14 @@ export default function NewEventPage() {
                 ...(form.end_date && { end_date: form.end_date }),
             };
 
-            await createEvent(token, body);
+            const response = await createEvent(token, body);
             setSuccess(true);
 
-            // Redirigir al listado de eventos después de un breve feedback.
-            setTimeout(() => router.push("/admin/events"), 1500);
+            // Abrir la configuración del evento recién creado.
+            setTimeout(
+                () => router.push(`/admin/events/${response.event.id}`),
+                1200,
+            );
         } catch (err) {
             const message =
                 err instanceof ApiError
@@ -154,7 +158,7 @@ export default function NewEventPage() {
             {success && (
                 <AdminAlertBanner
                     type="success"
-                    message="¡Evento creado correctamente! Redirigiendo..."
+                    message="¡Evento creado correctamente! Abriendo configuración..."
                 />
             )}
             {apiError && (

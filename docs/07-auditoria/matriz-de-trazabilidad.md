@@ -4,8 +4,8 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 
 | ID | Origen histórico / comportamiento esperado | Evidencia concreta | Comportamiento actual comprobable | Clasificación | Impacto / pregunta |
 |---|---|---|---|---|---|
-| REQ-01 | RF-40; ciclo y solo lectura | `admin.controller.ts`; páginas admin | Crea `ACTIVE`; lista/edición son marcadores; no cierra | Parcial / divergente | Falta borrador, transición y cierre |
-| REQ-02 | RF-42; comités y muros | admin/events controllers | Crea/lista comité; no se demuestra invariante de un muro por comité | Parcial | Verificar automatismo/constraints |
+| REQ-01 | RF-40; ciclo y solo lectura | `admin.controller.ts`; páginas admin | Crea `ACTIVE`; listado/configuración y cambio de estado por PATCH; solo lectura no aplicada | Parcial / divergente | Falta borrador y guardas de solo lectura |
+| REQ-02 | RF-42; comités y muros | admin/events controllers | Crea/lista/edita comité; no se demuestra invariante de un muro por comité | Parcial | Verificar automatismo/constraints |
 | REQ-03 | RF-41; aislamiento total | controladores/servicios; `requireAdmin` | Muchos flujos validan evento; admin es global; RLS ausente | Parcial / divergente | Riesgo de cruce entre eventos |
 | REQ-04 | RF-43/44; rol por evento y contexto | auth context/store; RBAC | Selección multi-evento; cambios de rol ausentes; admin global | Parcial / divergente | Definir Admin técnico/global |
 | REQ-05 | RF-01/02.3/23; habilitación con código/temporal | `POST /admin/memberships`, `/create-account` | Altas API sin UI; inmutabilidad, unicidad y auditoría no garantizadas | Parcial | Falta gestión/transacción/schema |

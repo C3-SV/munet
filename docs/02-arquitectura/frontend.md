@@ -17,12 +17,13 @@
 | `/chat` | Conversaciones y participantes | Implementada parcialmente |
 | `/chat/[id]` | Mensajes de una conversación | Implementada parcialmente |
 | `/admin` | Entrada del panel | Base implementada |
-| `/admin/events` | Listado de eventos | Marcador sin datos |
+| `/admin/events` | Listado paginado | Implementada |
 | `/admin/events/new` | Crear evento | Conectada |
-| `/admin/events/[eventId]` | Detalle/edición | Marcador |
-| `/admin/events/[eventId]/committees` | Listar comités | Conectada |
+| `/admin/events/[eventId]` | Detalle y configuración | Implementada |
+| `/admin/events/[eventId]/committees` | Listar comités | Implementada |
 | `/admin/events/[eventId]/committees/new` | Crear comité | Conectada |
-| `/admin/participants`, `/admin/assignments`, `/admin/moderation` | Enlaces del menú | Rutas inexistentes |
+| `/admin/events/[eventId]/committees/[committeeId]/edit` | Editar comité | Implementada |
+| `/admin/participants`, `/admin/assignments`, `/admin/moderation` | Marcadores de secciones futuras | Implementadas como marcador |
 
 ## Capas
 
@@ -34,7 +35,9 @@
 
 ## Sesión y selección de evento
 
-El store conserva token, usuario, membresías y IDs activos. Cerrar sesión limpia estado local; no revoca la sesión en Supabase. Los layouts redirigen según hidratación, token y membresía. Estas comprobaciones mejoran la navegación, pero no sustituyen autorización del servidor.
+El store conserva token, usuario, membresías y IDs activos. Cerrar sesión limpia estado local; no revoca la sesión en Supabase. Los layouts redirigen según hidratación, token y membresía. Al elegir un evento, una membresía administrativa entra a `/admin` y una de participante a `/feed`. Estas comprobaciones mejoran la navegación, pero no sustituyen autorización del servidor.
+
+El panel admin reutiliza la estética del sitio participante: sidebar fija en escritorio y drawer con barra superior en móvil, con cierre de sesión y cambio de tema accesibles.
 
 ## Realtime
 
@@ -42,8 +45,6 @@ Feed, comentarios y chat se suscriben a cambios para volver a consultar la API. 
 
 ## Hallazgos
 
-- `lib/api/auth.ts` imprime el payload de autenticación y la respuesta; el payload puede incluir contraseña. Es un riesgo crítico pendiente.
 - Filtros, búsqueda y orden del feed se ejecutan en cliente sobre el conjunto ya cargado.
-- La UI administrativa usa ancho lateral fijo y no tiene validación responsive registrada.
 - Los iconos administrativos dependen de jsDelivr/Tabler en tiempo de ejecución.
 - La carga de avatar admite JPEG, PNG o WebP en base64 hasta el límite aplicado por el backend.
