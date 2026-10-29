@@ -24,20 +24,20 @@ Todos estos endpoints requieren sesión activa mediante `requireAuth` y pertenen
 * **Estructura de cada delegado en `delegates`:**
   ```json
   {
-    "membership_id": "uuid",
-    "first_name": "Nombre",
-    "last_name": "Apellido",
+    "membershipId": "uuid",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
     "alias": "Nombre visible o alias preferido",
-    "delegation_name": "Francia",
-    "delegation_code": "#042",
-    "role": "DELEGADO",
-    "institution_name": "Institución o Colegio",
+    "delegationName": "Francia",
+    "delegationCode": "#042",
+    "role": "PARTICIPANT",
+    "institutionName": "Institución o Colegio",
     "committee": {
       "id": "uuid",
       "name": "Consejo de Seguridad",
       "code": "CS"
     },
-    "avatar_url": "https://..."
+    "avatarUrl": "https://..."
   }
   ```
 
@@ -81,7 +81,7 @@ Todos estos endpoints requieren sesión activa mediante `requireAuth` y pertenen
 
 * **Propósito:** Identificador numérico o alfanumérico visible asignado a la delegación dentro del evento (por ejemplo `#014`, `#A-12`).
 * **Visualización:**
-  * Incluido en la respuesta de cada delegado en el **Directorio** (`delegation_code`).
+  * Incluido en la respuesta de cada delegado en el **Directorio** (`delegationCode`).
   * Incluido en el detalle del **Perfil propio** (`GET /profiles/me`) y **Perfil público** (`GET /profiles/:membershipId`).
 * **Regla de mutación:**
   * Es un campo informativo asignado por la organización; no es editable por el participante mediante `PATCH /profiles/me`. Intentos de alterarlo desde el frontend público se ignoran o rechazan con `400`.
