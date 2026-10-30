@@ -22,7 +22,11 @@ export type AuditActionType =
   | 'UPDATE_COMMITTEE'
   | 'DELETE_COMMITTEE'
   | 'CREATE_MEMBERSHIP'
-  | 'CREATE_ACCOUNT';
+  | 'CREATE_ACCOUNT'
+  | 'UPDATE_PARTICIPANT'
+  | 'SUSPEND_ACCOUNT'
+  | 'REACTIVATE_ACCOUNT'
+  | 'RESET_PASSWORD';
 
 export type AuditEntityType =
   | 'POST'

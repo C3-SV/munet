@@ -1,12 +1,11 @@
 # Discrepancias y riesgos
 
-## D-01 — Autorización administrativa no acotada al evento
+## D-01 — Autorización administrativa no acotada al evento (resuelto)
 
 - **Historia:** todo dato y permiso se aísla por evento.
-- **Código:** `requireAdmin` acepta cualquier membresía administrativa activa; los POST reciben `event_id` sin vincularlo a esa membresía.
-- **Clasificación:** divergente.
-- **Impacto:** un administrador de A podría crear recursos en B si conoce el identificador.
-- **Pregunta:** ¿existe un superadministrador global o debe separarse creación global de administración por evento?
+- **Código (antes del 2026-10-29):** `requireAdmin` aceptaba cualquier membresía administrativa activa; los POST recibían `event_id` sin vincularlo a esa membresía.
+- **Resolución:** [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md) acota la autorización al evento objetivo en todas las rutas admin salvo `POST /admin/events`. Código actual en `apps/api/src/middleware/auth.middleware.ts` y `apps/api/src/routes/admin.routes.ts`.
+- **Clasificación:** era divergente; resuelta.
 
 ## D-02 — Ciclo del evento
 

@@ -1,12 +1,18 @@
 # Contrato backend para Sprint 1 del frontend
 
-Todos estos endpoints requieren sesión y rol administrador, mediante
-`requireAuth` y `requireAdmin`. El rol administrador actual permite administrar
-catálogos de eventos sin exigir una membership en cada evento consultado.
+Todos estos endpoints requieren sesión (`requireAuth`). La autorización ya NO
+es global: resuelve el ADR-004/P-01 acotando cada ruta a la membership admin
+activa **del evento sobre el que se opera** (`requireEventAdmin`), salvo
+`POST /admin/events` (crear un evento nuevo), que no tiene evento objetivo y
+sigue exigiendo solo alguna membership admin activa en cualquier evento
+(`requireAdmin`). Al crear un evento, el backend crea automáticamente una
+membership admin ACTIVA para quien lo creó, para que no quede sin poder
+administrarlo. `GET /admin/events` solo lista los eventos donde el usuario
+tiene esa membership.
 
 | Método y ruta | Respuesta |
 | --- | --- |
-| `GET /admin/events?page=1&limit=20` | `{ events, pagination: { page, limit, total, total_pages } }` |
+| `GET /admin/events?page=1&limit=20` | `{ events, pagination: { page, limit, total, total_pages } }` (solo eventos administrables por el usuario) |
 | `GET /admin/events/:eventId` | `{ event }` |
 | `POST /admin/events` | `{ message, event }` |
 | `PATCH /admin/events/:eventId` | `{ message, event }` |
@@ -14,6 +20,13 @@ catálogos de eventos sin exigir una membership en cada evento consultado.
 | `GET /admin/committees/:committeeId` | `{ committee }` |
 | `POST /admin/committees` | `{ message, committee, wall }` |
 | `PATCH /admin/committees/:committeeId` | `{ message, committee }` |
+| `GET /admin/participants?event_id=<id>&committee_id=&role=&status=&page=&limit=` | `{ participants, pagination }` |
+| `GET /admin/participants/:membershipId` | `{ participant }` (membership + perfil) |
+| `PATCH /admin/participants/:membershipId` | `{ message }` |
+| `POST /admin/participants/:membershipId/suspend` (`{ reason }`) | `{ message, membership }` |
+| `POST /admin/participants/:membershipId/reactivate` (`{ reason }`) | `{ message, membership }` |
+| `POST /admin/participants/:membershipId/reset-password` | `{ message, temporary_password }` |
+| `POST /admin/create-account` | `{ message, user, membership, profile, initial_password }` (el servidor genera la contraseña; ya no se envía en el body) |
 
 La lista de eventos usa página 1 y límite 20 por defecto; límite máximo 100.
 El frontend debe recorrer las páginas para mostrar todos los eventos.
@@ -41,10 +54,34 @@ Renombrar un comité sincroniza el muro: si falla la sincronización, devuelve 5
 indicando que el comité ya se actualizó y que se debe reintentar guardar.
 Estas operaciones usan llamadas secuenciales a Supabase, sin transacción conjunta.
 
+Participante: edición admite `role`, `committee_id`, `delegation_name`,
+`institution_name`, `first_name`, `last_name`, `display_name` y `bio`.
+`event_id` y `participant_code` son inmutables (RN-03) y se ignoran si vienen
+en el body. El PATCH rechaza cuerpos sin ningún campo editable (400).
+
+Suspender/reactivar exigen `reason` no vacío en el body (RN-18); sin él,
+400. Suspender una cuenta ya suspendida, o reactivar una que no lo está,
+también es 400. El estado de cuenta soportado hoy es solo
+`PENDING_ACTIVATION` / `ACTIVE` / `SUSPENDED`: no se implementó el resto del
+ciclo de RN-05 (`BLOQUEADA_SEGURIDAD`, `EXPULSADA`), que queda fuera de
+alcance de este sprint.
+
+Restablecer contraseña devuelve `temporary_password` en texto plano una sola
+vez, igual que `create-account`. Si la cuenta está `PENDING_ACTIVATION`,
+regenera `initial_password_hash` (contraseña de un solo uso para activar).
+Si ya está `ACTIVE`, la autenticación real vive en Supabase Auth (ver
+`auth.controller`), así que actualiza la contraseña allá vía
+`supabaseAdmin.auth.admin.updateUserById`; esa rama no tiene prueba unitaria
+porque el harness actual solo mockea `.from(...)`, no `.auth.admin`. No se
+puede restablecer la contraseña de una cuenta `SUSPENDED` (400); hay que
+reactivarla primero.
+
 La auditoría registra las operaciones exitosas. Sus errores se registran en el
 servidor; no bloquean la operación principal. Si `audit_logs.action_type` usa un
-ENUM, la base debe admitir `UPDATE_EVENT` y `UPDATE_COMMITTEE`, como indica el
-diseño existente en `docs/superpowers/specs/2026-08-21-sprint1-events-committees-crud-design.md`.
+ENUM, la base debe admitir `UPDATE_EVENT`, `UPDATE_COMMITTEE`,
+`UPDATE_PARTICIPANT`, `SUSPEND_ACCOUNT`, `REACTIVATE_ACCOUNT` y
+`RESET_PASSWORD`, como indica el diseño existente en
+`docs/superpowers/specs/2026-08-21-sprint1-events-committees-crud-design.md`.
 
 Verificación local:
 

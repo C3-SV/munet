@@ -1,8 +1,11 @@
+import { randomBytes } from 'node:crypto';
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 import bcrypt from 'bcrypt';
 import { validateCatalogBody } from '../utils/admin.validation';
+import { generateInitialPassword } from '../utils/password.utils';
+import { isAdminRole } from '../utils/rbac.utils';
 
 // Helper para detectar si una propiedad viene explicitamente en el payload.
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
@@ -19,7 +22,6 @@ type CreateAccountBody = {
   last_name: string;
   display_name?: string;
   bio?: string;
-  initial_password: string;
 };
 
 // Crea una cuenta operativa completa:
@@ -40,8 +42,7 @@ export const createAccount = async (
       first_name,
       last_name,
       display_name,
-      bio,
-      initial_password
+      bio
     } = req.body;
 
     if (
@@ -49,12 +50,11 @@ export const createAccount = async (
       !participant_code ||
       !role ||
       !first_name ||
-      !last_name ||
-      !initial_password
+      !last_name
     ) {
       return res.status(400).json({
         error:
-          'event_id, participant_code, role, first_name, last_name e initial_password son requeridos'
+          'event_id, participant_code, role, first_name y last_name son requeridos'
       });
     }
 
@@ -106,7 +106,8 @@ export const createAccount = async (
     }
 
     // 4. hashear contraseña inicial
-    const initialPasswordHash = await bcrypt.hash(initial_password, 10);
+    const initialPassword = generateInitialPassword();
+    const initialPasswordHash = await bcrypt.hash(initialPassword, 10);
 
     // 5. crear membership
     const { data: membership, error: membershipError } = await supabaseAdmin
@@ -168,7 +169,8 @@ export const createAccount = async (
       message: 'Cuenta creada correctamente',
       user,
       membership,
-      profile
+      profile,
+      initial_password: initialPassword
     });
   } catch (error) {
     console.error(error);
@@ -236,6 +238,41 @@ export const createEvent = async (
       return res.status(400).json({ error: error.message });
     }
 
+    // 4. dar acceso administrativo al creador sobre el evento que acaba de
+    // crear: con la autorizacion acotada por evento (ADR-004/P-01), sin esto
+    // quedaria sin poder administrar su propio evento. Si falla, se revierte
+    // el evento para no dejarlo huerfano sin ningun admin.
+    const { error: membershipError } = await supabaseAdmin
+      .from('event_memberships')
+      .insert({
+        event_id: event.id,
+        user_id: actorUserId,
+        participant_code: `ADM-${randomBytes(4).toString('hex')}`,
+        role: 'ADMIN',
+        account_status: 'ACTIVE',
+        status_changed_at: new Date().toISOString(),
+        created_by_user_id: actorUserId,
+        updated_by_user_id: actorUserId,
+      });
+
+    if (membershipError) {
+      const { error: rollbackError } = await supabaseAdmin
+        .from('events')
+        .update({ deleted_at: new Date().toISOString(), updated_by_user_id: actorUserId })
+        .eq('id', event.id);
+
+      if (rollbackError) {
+        console.error('Error revirtiendo evento sin membership admin:', rollbackError);
+        return res.status(500).json({
+          error: 'No se pudo otorgar acceso administrativo ni revertir el evento. Se requiere revision del administrador.'
+        });
+      }
+
+      return res.status(400).json({
+        error: `No se pudo otorgar acceso administrativo sobre el evento: ${membershipError.message}`
+      });
+    }
+
     await logAudit({
       eventId: event.id,
       actorUserId: actorUserId ?? undefined,
@@ -258,7 +295,8 @@ export const createEvent = async (
   }
 };
 
-// Lista todos los eventos no eliminados para vista de administrador.
+// Lista los eventos no eliminados donde el usuario tiene membership admin
+// activa (ADR-004/P-01: ya no se listan eventos ajenos).
 export const listEvents = async (req: Request, res: Response) => {
   try {
     const page = req.query.page === undefined ? 1 : Number(req.query.page);
@@ -266,11 +304,21 @@ export const listEvents = async (req: Request, res: Response) => {
     if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(page * limit)) {
       return res.status(400).json({ error: 'page debe ser positivo y limit debe estar entre 1 y 100' });
     }
+
+    const adminEventIds = (req.auth?.memberships ?? [])
+      .filter((m) => isAdminRole(m.role) && m.accountStatus === 'ACTIVE')
+      .map((m) => m.eventId);
+
+    if (adminEventIds.length === 0) {
+      return res.json({ events: [], pagination: { page, limit, total: 0, total_pages: 0 } });
+    }
+
     const { data: events, error, count } = await supabaseAdmin
       .from('events')
       .select(
         'id, name, slug, description, start_date, end_date, status, is_read_only, created_at', { count: 'exact' }
       )
+      .in('id', adminEventIds)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })
@@ -989,6 +1037,450 @@ export const deleteCommittee = async (
     });
 
     return res.json({ message: 'Comité eliminado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// ─── Participantes ──────────────────────────────────────────────────────
+
+// Lista participantes de un evento (autorizacion ya resuelta por
+// requireEventAdmin: event_id siempre viene de un admin de ese evento).
+export const listParticipants = async (req: Request, res: Response) => {
+  try {
+    const eventId = typeof req.query.event_id === 'string' ? req.query.event_id : null;
+    if (!eventId) {
+      return res.status(400).json({ error: 'event_id es requerido' });
+    }
+
+    const page = req.query.page === undefined ? 1 : Number(req.query.page);
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(page * limit)) {
+      return res.status(400).json({ error: 'page debe ser positivo y limit debe estar entre 1 y 100' });
+    }
+
+    let query = supabaseAdmin
+      .from('event_memberships')
+      .select(
+        'id, event_id, user_id, participant_code, role, committee_id, delegation_name, institution_name, account_status, created_at',
+        { count: 'exact' }
+      )
+      .eq('event_id', eventId)
+      .is('deleted_at', null);
+
+    const committeeId = typeof req.query.committee_id === 'string' ? req.query.committee_id : null;
+    if (committeeId) query = query.eq('committee_id', committeeId);
+
+    const role = typeof req.query.role === 'string' ? req.query.role : null;
+    if (role) query = query.eq('role', role);
+
+    const status = typeof req.query.status === 'string' ? req.query.status : null;
+    if (status) query = query.eq('account_status', status);
+
+    const { data: memberships, error, count } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range((page - 1) * limit, page * limit - 1);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const membershipIds = (memberships ?? []).map((membership) => membership.id);
+    const { data: profiles, error: profilesError } = membershipIds.length
+      ? await supabaseAdmin
+          .from('profiles')
+          .select('event_membership_id, first_name, last_name, display_name')
+          .in('event_membership_id', membershipIds)
+      : { data: [] as { event_membership_id: string }[], error: null };
+
+    if (profilesError) {
+      return res.status(400).json({ error: profilesError.message });
+    }
+
+    const profileByMembership = new Map(
+      (profiles ?? []).map((profile: any) => [profile.event_membership_id, profile])
+    );
+
+    const participants = (memberships ?? []).map((membership) => ({
+      ...membership,
+      profile: profileByMembership.get(membership.id) ?? null,
+    }));
+
+    return res.json({
+      participants,
+      pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Devuelve el detalle de un participante (membership + perfil).
+export const getParticipant = async (req: Request<{ membershipId: string }>, res: Response) => {
+  try {
+    const { membershipId } = req.params;
+
+    const { data: membership, error } = await supabaseAdmin
+      .from('event_memberships')
+      .select(
+        'id, event_id, user_id, participant_code, role, committee_id, delegation_name, institution_name, account_status, created_at'
+      )
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (!membership) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('first_name, last_name, display_name, bio, profile_image_path')
+      .eq('event_membership_id', membershipId)
+      .maybeSingle();
+
+    if (profileError) {
+      return res.status(400).json({ error: profileError.message });
+    }
+
+    return res.json({ participant: { ...membership, profile: profile ?? null } });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+type UpdateParticipantBody = {
+  role?: string;
+  committee_id?: string | null;
+  delegation_name?: string | null;
+  institution_name?: string | null;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string | null;
+  bio?: string | null;
+};
+
+// Campos editables: NO incluye event_id ni participant_code (RN-03: el
+// codigo es inmutable y no reasignable).
+const PARTICIPANT_MEMBERSHIP_FIELDS = ['role', 'committee_id', 'delegation_name', 'institution_name'] as const;
+const PARTICIPANT_PROFILE_FIELDS = ['first_name', 'last_name', 'display_name', 'bio'] as const;
+
+// Actualiza datos de membership y/o perfil de un participante existente.
+export const updateParticipant = async (
+  req: Request<{ membershipId: string }, {}, UpdateParticipantBody>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { membershipId } = req.params;
+    const payload = (req.body ?? {}) as Record<string, unknown>;
+
+    const hasMembershipField = PARTICIPANT_MEMBERSHIP_FIELDS.some((field) => hasOwn(payload, field));
+    const hasProfileField = PARTICIPANT_PROFILE_FIELDS.some((field) => hasOwn(payload, field));
+
+    if (!hasMembershipField && !hasProfileField) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('event_memberships')
+      .select('id, event_id')
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+
+    if (hasOwn(payload, 'committee_id') && payload.committee_id) {
+      const { data: committee, error: committeeLookupError } = await supabaseAdmin
+        .from('committees')
+        .select('id, event_id')
+        .eq('id', payload.committee_id as string)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (committeeLookupError) return res.status(500).json({ error: 'No se pudo validar el comité' });
+      if (!committee) {
+        return res.status(404).json({ error: 'Comité no encontrado' });
+      }
+      if (committee.event_id !== existing.event_id) {
+        return res.status(400).json({ error: 'El comité no pertenece al evento de este participante' });
+      }
+    }
+
+    if (hasMembershipField) {
+      const update: Record<string, unknown> = { updated_by_user_id: actorUserId };
+      PARTICIPANT_MEMBERSHIP_FIELDS.forEach((field) => {
+        if (hasOwn(payload, field)) update[field] = payload[field];
+      });
+
+      const { error: membershipError } = await supabaseAdmin
+        .from('event_memberships')
+        .update(update)
+        .eq('id', membershipId);
+
+      if (membershipError) {
+        return res.status(400).json({ error: membershipError.message });
+      }
+    }
+
+    if (hasProfileField) {
+      const update: Record<string, unknown> = { updated_by_membership_id: membershipId };
+      PARTICIPANT_PROFILE_FIELDS.forEach((field) => {
+        if (hasOwn(payload, field)) update[field] = payload[field];
+      });
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update(update)
+        .eq('event_membership_id', membershipId);
+
+      if (profileError) {
+        return res.status(400).json({ error: profileError.message });
+      }
+    }
+
+    const changedFields = [...PARTICIPANT_MEMBERSHIP_FIELDS, ...PARTICIPANT_PROFILE_FIELDS].filter((field) =>
+      hasOwn(payload, field)
+    );
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'UPDATE_PARTICIPANT',
+      entityType: 'MEMBERSHIP',
+      entityId: membershipId,
+      outcome: 'SUCCESS',
+      reason: `Participante actualizado: ${changedFields.join(', ') || 'sin cambios'}`,
+    });
+
+    return res.json({ message: 'Participante actualizado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+type AccountStatusActionBody = { reason?: string };
+
+// Suspende una cuenta (RN-18: requiere motivo). La fecha queda en
+// status_changed_at y el motivo en audit_logs.
+export const suspendParticipant = async (
+  req: Request<{ membershipId: string }, {}, AccountStatusActionBody>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { membershipId } = req.params;
+    const reason = req.body?.reason?.trim();
+
+    if (!reason) {
+      return res.status(400).json({ error: 'reason es requerido para suspender una cuenta' });
+    }
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('event_memberships')
+      .select('id, event_id, account_status')
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+    if (existing.account_status === 'SUSPENDED') {
+      return res.status(400).json({ error: 'La cuenta ya está suspendida' });
+    }
+
+    const { data: membership, error } = await supabaseAdmin
+      .from('event_memberships')
+      .update({
+        account_status: 'SUSPENDED',
+        status_changed_at: new Date().toISOString(),
+        updated_by_user_id: actorUserId,
+      })
+      .eq('id', membershipId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'SUSPEND_ACCOUNT',
+      entityType: 'ACCOUNT',
+      entityId: membershipId,
+      outcome: 'SUCCESS',
+      reason,
+    });
+
+    return res.json({ message: 'Cuenta suspendida correctamente', membership });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Reactiva una cuenta previamente suspendida (requiere motivo, igual que
+// suspender, para mantener trazabilidad simetrica en audit_logs).
+export const reactivateParticipant = async (
+  req: Request<{ membershipId: string }, {}, AccountStatusActionBody>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { membershipId } = req.params;
+    const reason = req.body?.reason?.trim();
+
+    if (!reason) {
+      return res.status(400).json({ error: 'reason es requerido para reactivar una cuenta' });
+    }
+
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('event_memberships')
+      .select('id, event_id, account_status')
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+    if (existing.account_status !== 'SUSPENDED') {
+      return res.status(400).json({ error: 'Solo una cuenta suspendida puede reactivarse' });
+    }
+
+    const { data: membership, error } = await supabaseAdmin
+      .from('event_memberships')
+      .update({
+        account_status: 'ACTIVE',
+        status_changed_at: new Date().toISOString(),
+        updated_by_user_id: actorUserId,
+      })
+      .eq('id', membershipId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    await logAudit({
+      eventId: existing.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'REACTIVATE_ACCOUNT',
+      entityType: 'ACCOUNT',
+      entityId: membershipId,
+      outcome: 'SUCCESS',
+      reason,
+    });
+
+    return res.json({ message: 'Cuenta reactivada correctamente', membership });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Restablece la contraseña de un participante. Si aun no activo su cuenta,
+// regenera la contraseña inicial de un solo uso (initial_password_hash). Si
+// ya esta activa, la autenticacion real vive en Supabase Auth (ver
+// auth.controller#activateAccount/login), asi que se actualiza alla.
+export const resetParticipantPassword = async (
+  req: Request<{ membershipId: string }>,
+  res: Response
+) => {
+  try {
+    const actorUserId = req.auth?.userId ?? null;
+    const { membershipId } = req.params;
+
+    const { data: membership, error: lookupError } = await supabaseAdmin
+      .from('event_memberships')
+      .select('id, event_id, user_id, account_status, participant_code')
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!membership) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+
+    if (membership.account_status === 'SUSPENDED') {
+      return res.status(400).json({
+        error: 'No se puede restablecer la contraseña de una cuenta suspendida. Reactívala primero.'
+      });
+    }
+
+    const temporaryPassword = generateInitialPassword();
+
+    if (membership.account_status === 'PENDING_ACTIVATION') {
+      const initialPasswordHash = await bcrypt.hash(temporaryPassword, 10);
+      const { error } = await supabaseAdmin
+        .from('event_memberships')
+        .update({ initial_password_hash: initialPasswordHash, updated_by_user_id: actorUserId })
+        .eq('id', membershipId);
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    } else {
+      const { data: user, error: userLookupError } = await supabaseAdmin
+        .from('users')
+        .select('supabase_auth_user_id')
+        .eq('id', membership.user_id)
+        .maybeSingle();
+
+      if (userLookupError) return res.status(500).json({ error: 'No se pudo consultar el usuario' });
+      if (!user?.supabase_auth_user_id) {
+        return res.status(400).json({
+          error: 'La cuenta activa no tiene un usuario de autenticacion vinculado'
+        });
+      }
+
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.supabase_auth_user_id,
+        { password: temporaryPassword }
+      );
+
+      if (authError) {
+        return res.status(400).json({ error: authError.message });
+      }
+    }
+
+    await logAudit({
+      eventId: membership.event_id,
+      actorUserId: actorUserId ?? undefined,
+      actorRole: undefined,
+      actionType: 'RESET_PASSWORD',
+      entityType: 'ACCOUNT',
+      entityId: membershipId,
+      outcome: 'SUCCESS',
+      reason: `Contrasena restablecida para codigo ${membership.participant_code}`,
+    });
+
+    return res.json({
+      message: 'Contraseña restablecida correctamente',
+      temporary_password: temporaryPassword,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });

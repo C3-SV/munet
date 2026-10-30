@@ -4,9 +4,9 @@ Los ítems requieren decisión, evidencia externa o implementación futura. No s
 
 ## Prioridad crítica
 
-### P-01 — Modelo de autorización administrativa
+### P-01 — Modelo de autorización administrativa (resuelto 2026-10-29)
 
-Definir superadministrador global frente a administración por evento; separar capacidad de crear un evento de administrar uno existente. Alinear frontend y backend.
+Se decidió separar la capacidad de crear un evento (global) de administrar uno existente (acotado al evento); no se introdujo un rol de superadministrador explícito. Ver [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Sigue abierto si el negocio quiere en el futuro un rol de superadministrador global separado; eso sería una decisión y un ADR nuevos, no una reapertura de este punto.
 
 ### P-02 — Esquema y seguridad de datos
 
