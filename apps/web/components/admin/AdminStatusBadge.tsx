@@ -5,6 +5,8 @@ const STATUS_LABELS: Record<string, string> = {
     CLOSED: "Cerrado",
     ARCHIVED: "Archivado",
     INACTIVE: "Inactivo",
+    PENDING_ACTIVATION: "Pendiente de activación",
+    SUSPENDED: "Suspendido",
 };
 
 const STATUS_PALETTES: Record<string, { backgroundColor: string; color: string }> = {
@@ -23,6 +25,14 @@ const STATUS_PALETTES: Record<string, { backgroundColor: string; color: string }
     INACTIVE: {
         backgroundColor: "color-mix(in srgb, #94a3b8 14%, transparent)",
         color: "var(--text-secondary)",
+    },
+    PENDING_ACTIVATION: {
+        backgroundColor: "color-mix(in srgb, #f59e0b 14%, transparent)",
+        color: "#b45309",
+    },
+    SUSPENDED: {
+        backgroundColor: "color-mix(in srgb, #ef4444 12%, transparent)",
+        color: "#dc2626",
     },
 };
 

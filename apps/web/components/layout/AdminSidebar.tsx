@@ -55,6 +55,7 @@ export const AdminSidebar = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
     const memberships = useAuthStore((state) => state.memberships);
     const logout = useAuthStore((state) => state.logout);
 
@@ -75,6 +76,8 @@ export const AdminSidebar = () => {
         router.replace("/login");
     };
 
+    const isParticipantsRoute = pathname?.includes("/participants") ?? false;
+
     const navigation: AdminNavItem[] = [
         {
             name: "Inicio Panel",
@@ -86,13 +89,17 @@ export const AdminSidebar = () => {
             name: "Eventos y Comités",
             href: "/admin/events",
             icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg",
-            current: pathname?.startsWith("/admin/events") ?? false,
+            current:
+                (pathname?.startsWith("/admin/events") ?? false) &&
+                !isParticipantsRoute,
         },
         {
             name: "Participantes",
-            href: "/admin/participants",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/participants`
+                : "/admin/events",
             icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg",
-            current: pathname?.startsWith("/admin/participants") ?? false,
+            current: isParticipantsRoute,
         },
         {
             name: "Asignaciones",

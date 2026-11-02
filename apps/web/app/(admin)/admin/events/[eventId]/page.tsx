@@ -207,14 +207,24 @@ export default function EventDetailPage() {
     };
 
     const headerAction = event ? (
-        <Link href={`/admin/events/${eventId}/committees`}>
-            <AdminButton
-                variant="secondary"
-                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
-            >
-                Gestionar comités
-            </AdminButton>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/admin/events/${eventId}/participants`}>
+                <AdminButton
+                    variant="secondary"
+                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
+                >
+                    Participantes
+                </AdminButton>
+            </Link>
+            <Link href={`/admin/events/${eventId}/committees`}>
+                <AdminButton
+                    variant="secondary"
+                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
+                >
+                    Gestionar comités
+                </AdminButton>
+            </Link>
+        </div>
     ) : undefined;
 
     return (

@@ -41,12 +41,12 @@ El roadmap reciente se conserva como **propuesta**, no como compromiso completad
 |---|---|---|
 | Sprint 0 | Base visual admin y protección de endpoints | Implementado parcialmente |
 | Sprint 1 | UI/backend de eventos y comités; muro automático | Parcial; listado/configuración de eventos y listado/alta/edición de comités; automatismo de muro no demostrado |
-| Sprint 2 | Participantes, CSV y restablecimiento | No implementado |
+| Sprint 2 | Participantes, CSV y restablecimiento | Parcial; listado, alta, edición y ciclo de vida de participantes implementados; CSV pendiente |
 | Sprint 3 | Asignaciones, suspensión, moderadores y archivos | No implementado |
 | Sprint 4 | Moderación, fijado, supervisión y bloqueo de conversación | No implementado |
 | Cierre | Pruebas, auditoría con UUID, retirar logs, alinear DB y rate limits | No implementado o no demostrado |
 
-Participantes, asignaciones y moderación existen como marcadores; queda revisar accesibilidad y los flujos de esas secciones.
+Participantes ya cuenta con listado, alta, edición, suspensión/reactivación y restablecimiento anidados por evento. Asignaciones y moderación siguen como marcadores; la validación de accesibilidad y de extremo a extremo queda pendiente.
 
 ## Calidad técnica
 

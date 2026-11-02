@@ -23,7 +23,10 @@
 | `/admin/events/[eventId]/committees` | Listar comités | Implementada |
 | `/admin/events/[eventId]/committees/new` | Crear comité | Conectada |
 | `/admin/events/[eventId]/committees/[committeeId]/edit` | Editar comité | Implementada |
-| `/admin/participants`, `/admin/assignments`, `/admin/moderation` | Marcadores de secciones futuras | Implementadas como marcador |
+| `/admin/events/[eventId]/participants` | Listado paginado con filtros por comité, rol y estado | Implementada |
+| `/admin/events/[eventId]/participants/new` | Alta individual de participante | Implementada |
+| `/admin/events/[eventId]/participants/[membershipId]` | Detalle, edición y ciclo de vida de la cuenta | Implementada |
+| `/admin/assignments`, `/admin/moderation` | Marcadores de secciones futuras | Implementadas como marcador |
 
 ## Capas
 

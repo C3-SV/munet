@@ -85,6 +85,13 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
         <td className="px-6 py-4">
             <div className="flex items-center justify-end gap-4 whitespace-nowrap">
                 <Link
+                    href={`/admin/events/${event.id}/participants`}
+                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
+                    style={{ color: "var(--text-secondary)" }}
+                >
+                    Participantes
+                </Link>
+                <Link
                     href={`/admin/events/${event.id}/committees`}
                     className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
                     style={{ color: "var(--text-secondary)" }}
