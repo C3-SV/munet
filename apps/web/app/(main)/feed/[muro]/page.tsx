@@ -370,7 +370,7 @@ const Feed = () => {
                             No tienes acceso a este muro
                         </h2>
                         <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                            Puedes ver el muro en el menu lateral, pero solo podras entrar cuando tengas permiso.
+                            Este muro pertenece a otro comité. Puedes entrar al muro general, a avisos y al de tu comité desde el menú lateral.
                         </p>
                     </div>
                 ) : (

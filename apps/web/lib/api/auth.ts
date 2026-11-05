@@ -17,8 +17,6 @@ export interface ActivateAccountPayload {
 export async function loginRequest(
     payload: LoginPayload,
 ): Promise<LoginResponse> {
-    console.log("AUTH REQUEST PAYLOAD:", payload);
-
     const res = await fetch(buildApiUrl(API_URL, "/auth/login"), {
         method: "POST",
         headers: {
@@ -28,9 +26,6 @@ export async function loginRequest(
     });
 
     const data = await res.json();
-
-    console.log("AUTH RESPONSE STATUS:", res.status);
-    console.log("AUTH RESPONSE BODY:", data);
 
     if (!res.ok) {
         throw new Error(data.error || "Error al iniciar sesión");
