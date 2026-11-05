@@ -1,4 +1,5 @@
 -- Snapshot del esquema `public` de Supabase (proyecto MUNET), extraído el 2026-10-26
+-- y actualizado el 2026-11-05 con la migración 001 (columnas y tabla marcadas)
 -- desde information_schema.columns. Es REFERENCIA, no una migración ejecutable:
 --   * Las CREATE TABLE no llevan PK/FK/UNIQUE/CHECK inline: están resumidos al final.
 --   * No incluye índices, políticas RLS ni triggers/funciones.
@@ -21,6 +22,18 @@
 -- user_system_status_enum: ACTIVE, DISABLED
 -- wall_status_enum: ACTIVE, ARCHIVED
 -- wall_type_enum: GENERAL, COMMITTEE, ANNOUNCEMENTS
+
+create table attachments ( -- migración 001
+  id uuid not null default gen_random_uuid(),
+  event_id uuid not null,
+  post_id uuid not null, -- FK a posts, ON DELETE CASCADE
+  uploaded_by_membership_id uuid not null,
+  storage_path text not null,
+  file_name varchar not null,
+  mime_type varchar not null,
+  size_bytes bigint not null,
+  created_at timestamptz not null default now()
+);
 
 create table audit_logs (
   id uuid not null default gen_random_uuid(),
@@ -101,6 +114,7 @@ create table event_memberships (
   account_status membership_account_status_enum not null default 'PENDING_ACTIVATION',
   status_changed_at timestamptz not null default now(),
   participant_code varchar not null,
+  delegation_code varchar(20), -- migración 001
   initial_password_hash text,
   activated_at timestamptz,
   last_login_at timestamptz,
@@ -170,7 +184,8 @@ create table post_comments (
   deleted_by_actor_type varchar,
   deleted_at timestamptz,
   created_by_membership_id uuid,
-  updated_by_membership_id uuid
+  updated_by_membership_id uuid,
+  deleted_by_membership_uuid uuid -- migración 001: quién borró
 );
 
 create table post_committee_tags (
@@ -194,7 +209,11 @@ create table posts (
   deleted_by_membership_id varchar, -- OJO: varchar (guarda 'AUTHOR'/'ADMIN'), no uuid
   deleted_at timestamptz,
   created_by_membership_id uuid,
-  updated_by_membership_id uuid
+  updated_by_membership_id uuid,
+  is_pinned boolean not null default false, -- migración 001
+  pinned_at timestamptz,
+  pinned_by_membership_id uuid,
+  deleted_by_membership_uuid uuid -- migración 001: quién borró
 );
 
 create table profiles (
@@ -205,6 +224,7 @@ create table profiles (
   display_name varchar,
   bio text,
   profile_image_path text,
+  alias varchar(60), -- migración 001
   updated_at timestamptz not null default now(),
   updated_by_membership_id uuid
 );
@@ -260,4 +280,5 @@ create table walls (
 -- FK SIN cascade (bloquean el borrado): post_comments -> posts/event_memberships,
 --         polls -> posts/walls/event_memberships, poll_votes -> event_memberships
 -- FK ON DELETE SET NULL: audit_logs.*, auth_attempts.*, event_memberships.committee_id, walls.committee_id
--- NO hay UNIQUE en walls (nada impide dos muros GENERAL en un evento).
+-- walls: índices únicos parciales desde la migración 001 (un GENERAL y un ANNOUNCEMENTS por evento; un muro por comité).
+-- delegation_code: UNIQUE (event_id, delegation_code) donde no es nulo.

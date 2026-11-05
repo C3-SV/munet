@@ -422,6 +422,8 @@ export const deletePostComment = async (params: {
     .update({
       status: 'DELETED',
       deleted_by_actor_type: deletedByActorType,
+      // Quién borró (uuid); deleted_by_actor_type solo guarda el tipo de actor (AUTHOR/ADMIN).
+      deleted_by_membership_uuid: params.membership.id,
       deleted_at: new Date().toISOString(),
       updated_by_membership_id: params.membership.id,
     })

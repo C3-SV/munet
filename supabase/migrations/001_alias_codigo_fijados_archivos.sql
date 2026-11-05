@@ -1,8 +1,9 @@
 -- 001 · Alias, código # de delegación, publicaciones fijadas, archivos adjuntos,
 --       quién borró y unicidad de muros.
 --
--- BORRADOR (tarea S1-02). NO está aplicado en Supabase.
--- Antes de ejecutarlo:
+-- APLICADA en Supabase el 2026-11-05 (ejecutada desde el SQL Editor; verificada con information_schema).
+-- Se conserva como registro. Si hay que repetirla, es segura: usa IF NOT EXISTS.
+-- Antes de ejecutarla (ya hecho):
 --   1. Cerrar las decisiones de S1-03 (alias único o no; formato del código #).
 --   2. Ejecutar la consulta de muros duplicados (más abajo): debe devolver 0 filas.
 --   3. Revisión en Pull Request y aviso a Rober (la base es compartida).

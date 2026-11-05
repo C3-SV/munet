@@ -14,13 +14,13 @@ Fuente de las tareas: plan de sprints (`MUNET_Plan_de_Sprints.pdf`). Cada fase t
 | S1-19 | Confirmar que el front no accede a datos de Supabase | Frontend | Should | — | **Hecho** (checklist abajo) |
 | S1-04 | Mergear `sitio-admin` a `main` | Coordinación | Must | — | Pendiente |
 | S1-08 | Contratos de API de las funciones nuevas | Backend (escribe) · Frontend (aprueba) | Must | S1-03 | **Borrador corregido**, falta aprobación |
-| S1-02 | Archivo SQL 001 (alias, código #, fijados, archivos, quién borró, índice de muros) | Backend | Must | S1-03 | Pendiente |
+| S1-02 | Archivo SQL 001 (alias, código #, fijados, archivos, quién borró, índice de muros) | Backend | Must | S1-03 | **Aplicado el 5 nov** |
 | S1-17 | Un único estado para mensajes eliminados | Backend | Must | — | Pendiente |
 | S1-06 | Arreglar el registro de auditoría | Backend | Must | — | Pendiente |
 | S1-07 | Que la API entre al control de calidad | Backend | Should | — | Pendiente |
 | S1-15 | Pruebas de permisos de muros y comités | Backend | Must | S1-07 | Pendiente |
 | S1-16 | Ocultar comités ajenos y quitar el candado | Backend + Frontend | Must | S1-15 (solo para el cambio de backend) | Pendiente |
-| S1-18 | Registrar quién borró una publicación o comentario | Backend | Should | S1-02 | Pendiente |
+| S1-18 | Registrar quién borró una publicación o comentario | Backend | Should | S1-02 | **Hecho en código, falta probar** |
 | S1-09 | Retirar (archivar) el comité de crisis | Coordinación + Backend | Should | S1-03 | Pendiente |
 | — | *(Sugerida, no está en el plan)* Redirigir al login cuando expira la sesión | Frontend | Should | — | Pendiente |
 

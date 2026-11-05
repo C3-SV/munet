@@ -2,7 +2,7 @@
 
 Todos estos endpoints requieren sesión activa mediante `requireAuth` y pertenencia válida al evento indicado (vía parámetro de ruta `:eventId` o encabezado `x-event-id`). Están destinados a la experiencia del participante y la consulta pública dentro del evento.
 
-> **Estado:** este documento es un **contrato** (qué recibe y qué devuelve cada endpoint). `GET` y `PATCH /profiles/me` y `GET /profiles/:membershipId` ya existen en `main`; el directorio no. `alias` y `delegationCode` dependen de las columnas nuevas de la migración SQL 001 (tarea S1-02): hasta que se apliquen, ambos devuelven `null`.
+> **Estado:** este documento es un **contrato** (qué recibe y qué devuelve cada endpoint). `GET` y `PATCH /profiles/me` y `GET /profiles/:membershipId` ya existen en `main`; el directorio no. `alias` y `delegationCode` usan las columnas nuevas de la migración SQL 001 (tarea S1-02), **ya aplicada en Supabase el 2026-11-05**. Mientras no haya dato, ambos devuelven `null`.
 >
 > **Regla de presentación (decisión de MUN):** el delegado se ve con su **nombre completo y también su alias**, nunca uno en lugar del otro. Ejemplo: «Ana Pérez · alias “Anita”», o solo «Ana Pérez» si no tiene alias.
 
