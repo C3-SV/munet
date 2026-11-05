@@ -36,12 +36,14 @@ type CommentRow = {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }
           | {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }[]
           | null;
@@ -65,12 +67,14 @@ type CommentRow = {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }
           | {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }[]
           | null;
@@ -100,6 +104,7 @@ const COMMENT_SELECT = `
       first_name,
       last_name,
       display_name,
+      alias,
       profile_image_path
     )
   )
@@ -136,6 +141,7 @@ const mapComment = (row: CommentRow, membership: AuthMembership) => {
     user: {
       id: commentAuthorMembership?.id ?? 'unknown',
       name: getProfileName(profile),
+      alias: profile?.alias?.trim() || null,
       committeeName: authorCommittee,
       avatar:
         profile?.profile_image_path ??

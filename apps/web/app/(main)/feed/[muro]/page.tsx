@@ -265,7 +265,8 @@ const Feed = () => {
         // Filtro combinado de busqueda libre + comites seleccionados.
         const matchesSearch =
             post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.name.toLowerCase().includes(searchQuery.toLowerCase());
+            post.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (post.user.alias ?? "").toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesCommittee =
             selectedCommittees.length === 0 ||

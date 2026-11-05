@@ -36,6 +36,7 @@ const PublicProfilePage = () => {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [displayName, setDisplayName] = useState("");
+    const [alias, setAlias] = useState("");
     const [bio, setBio] = useState("");
     const [delegationName, setDelegationName] = useState("");
     const [institutionName, setInstitutionName] = useState("");
@@ -74,6 +75,7 @@ const PublicProfilePage = () => {
                     setFirstName(data.profile.firstName ?? "");
                     setLastName(data.profile.lastName ?? "");
                     setDisplayName(data.profile.displayName ?? "");
+                    setAlias(data.profile.alias ?? "");
                     setBio(data.profile.bio ?? "");
                     setDelegationName(data.delegationName ?? "");
                     setInstitutionName(data.institutionName ?? "");
@@ -132,6 +134,7 @@ const PublicProfilePage = () => {
         setFirstName(profile.profile.firstName ?? "");
         setLastName(profile.profile.lastName ?? "");
         setDisplayName(profile.profile.displayName ?? "");
+        setAlias(profile.profile.alias ?? "");
         setBio(profile.profile.bio ?? "");
         setDelegationName(profile.delegationName ?? "");
         setInstitutionName(profile.institutionName ?? "");
@@ -250,6 +253,7 @@ const PublicProfilePage = () => {
                 firstName: normalizedFirstName,
                 lastName: normalizedLastName,
                 displayName: displayName.trim() ? displayName.trim() : null,
+                alias: alias.trim() ? alias.trim() : null,
                 bio: bio.trim() ? bio.trim() : null,
                 delegationName: delegationName.trim() ? delegationName.trim() : null,
                 institutionName: institutionName.trim() ? institutionName.trim() : null,
@@ -310,6 +314,14 @@ const PublicProfilePage = () => {
                                 >
                                     {profile.profile.displayName}
                                 </h1>
+                                {(profile.profile.alias ||
+                                    `${profile.profile.firstName} ${profile.profile.lastName}`.trim() !==
+                                        profile.profile.displayName) && (
+                                    <p className="text-sm font-body mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                                        {`${profile.profile.firstName} ${profile.profile.lastName}`.trim()}
+                                        {profile.profile.alias ? ` · alias “${profile.profile.alias}”` : ""}
+                                    </p>
+                                )}
                                 <p
                                     className="text-[11px] font-extrabold uppercase tracking-widest mt-1"
                                     style={{ color: "var(--text-secondary)" }}
@@ -319,6 +331,14 @@ const PublicProfilePage = () => {
                                         |
                                     </span>
                                     {profile.committee?.name ?? "Sin comité"}
+                                    {profile.delegationCode && (
+                                        <>
+                                            <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
+                                                |
+                                            </span>
+                                            {profile.delegationCode}
+                                        </>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -541,6 +561,21 @@ const PublicProfilePage = () => {
                                                 type="text"
                                                 value={displayName}
                                                 onChange={(event) => setDisplayName(event.target.value)}
+                                                className="w-full p-3 rounded-xl font-body text-sm outline-none"
+                                                style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                                Alias
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={alias}
+                                                maxLength={60}
+                                                placeholder="Sin alias"
+                                                onChange={(event) => setAlias(event.target.value)}
                                                 className="w-full p-3 rounded-xl font-body text-sm outline-none"
                                                 style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                                             />
