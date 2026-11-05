@@ -58,8 +58,11 @@ const SelectEventPage = () => {
 
     const handleChooseEvent = (membershipId: string) => {
         // Seleccion explicita de contexto para admins (o multi-evento).
+        const membership = memberships.find((item) => item.id === membershipId);
         setActiveMembership(membershipId);
-        router.replace("/feed");
+        router.replace(
+            membership && isAdminRole(membership.role) ? "/admin" : "/feed",
+        );
     };
 
     return (

@@ -63,6 +63,7 @@ const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
 export default function AdminDashboard() {
     const memberships = useAuthStore((state) => state.memberships);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const activeEventId = useAuthStore((state) => state.activeEventId);
     const activeMembership = memberships.find((membership) => membership.id === activeMembershipId);
     const eventName = activeMembership?.eventName ?? "Evento";
 
@@ -75,8 +76,10 @@ export default function AdminDashboard() {
         },
         {
             title: "Participantes",
-            description: "Registra participantes de forma individual o masiva mediante importación CSV.",
-            href: "/admin/participants",
+            description: "Registra participantes y administra sus cuentas dentro del evento.",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/participants`
+                : "/admin/events",
             icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg",
         },
         {

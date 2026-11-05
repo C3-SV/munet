@@ -47,11 +47,17 @@ Ambas membresías deben estar activas y pertenecer al mismo evento. No existen g
 2. `/admin/events/new` valida nombre, slug y fechas en cliente.
 3. `POST /admin/events` exige token y cualquier membresía administrativa activa.
 4. El controlador crea el evento directamente `ACTIVE` y sus datos auxiliares según el código.
-5. La UI vuelve a `/admin/events`, que todavía muestra un marcador sin listado.
+5. La UI abre la configuración del evento creado y el listado lo muestra mediante `GET /admin/events`.
 
-## Crear/listar comités desde el panel
+## Crear/listar/editar comités desde el panel
 
-El formulario envía `event_id`, nombre, código, descripción y orden a `POST /admin/committees`. El listado reutiliza `GET /events/:eventId/committees`, que sí exige membresía en ese evento. Esto produce capacidades distintas entre crear y leer si el admin pertenece a otro evento.
+El formulario envía `event_id`, nombre, código, descripción y orden a `POST /admin/committees`. El listado usa `GET /admin/committees?event_id=`, que exige rol admin pero no membresía en ese evento; así el alta y la lectura comparten alcance. La edición usa `GET/PATCH /admin/committees/:committeeId`.
+
+## Configurar evento y editar comité
+
+1. `/admin/events` lista los eventos con `GET /admin/events` y paginación.
+2. `/admin/events/:eventId` carga el evento y guarda `name`, `slug`, descripción, fechas y `status` con `PATCH /admin/events/:eventId`.
+3. `/admin/events/:eventId/committees/:committeeId/edit` carga el comité, valida que pertenezca al evento y guarda nombre, código, descripción y orden con `PATCH /admin/committees/:committeeId`.
 
 ## Flujos no existentes
 

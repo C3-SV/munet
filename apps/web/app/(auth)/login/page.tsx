@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 
 const Login = () => {
@@ -42,7 +43,7 @@ const Login = () => {
     const [oneTimePassword, setOneTimePassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [availableEvents, setAvailableEvents] = useState<any[]>([]);
+    const [availableEvents, setAvailableEvents] = useState<ActivationEvent[]>([]);
     const [activationEventId, setActivationEventId] = useState("");
     const [activationError, setActivationError] = useState("");
 
@@ -60,7 +61,15 @@ const Login = () => {
         const firstMembership = memberships[0];
 
         if (activeEventId && activeMembershipId) {
-            router.replace("/feed");
+            // Con contexto activo, el admin vuelve a su panel y el delegado al feed.
+            const activeMembership = memberships.find(
+                (membership) => membership.id === activeMembershipId,
+            );
+            router.replace(
+                activeMembership && isAdminRole(activeMembership.role)
+                    ? "/admin"
+                    : "/feed",
+            );
             return;
         }
 
@@ -101,7 +110,15 @@ const Login = () => {
                 return;
             }
 
-            router.replace("/feed");
+            // Con contexto ya resuelto, el admin entra al panel.
+            const activeMembership = state.memberships.find(
+                (membership) => membership.id === state.activeMembershipId,
+            );
+            router.replace(
+                activeMembership && isAdminRole(activeMembership.role)
+                    ? "/admin"
+                    : "/feed",
+            );
         } catch {
             // El error es gestionado globalmente en el store
         }
@@ -133,15 +150,17 @@ const Login = () => {
 
         try {
             const events = await validateActivation(activationCode.trim());
+            const firstEvent = events[0];
 
-            if (events && events.length > 0) {
+            if (firstEvent) {
                 setAvailableEvents(events);
-                setActivationEventId(events[0].event_id);
+                setActivationEventId(firstEvent.event_id);
                 setActivationStep(2);
             } else {
                 setActivationError("No se encontró ninguna cuenta por activar con este código.");
             }
-        } catch (err) {
+        } catch {
+            // El mensaje de error se muestra desde el estado global del store.
         }
     };
 
@@ -172,7 +191,8 @@ const Login = () => {
             resetActivationModal();
             setParticipantCode(activationCode.trim());
             setSuccessMessage("¡Cuenta activada con éxito! Ya puedes iniciar sesión.");
-        } catch (err) {
+        } catch {
+            // El mensaje de error se muestra desde el estado global del store.
         }
     };
 

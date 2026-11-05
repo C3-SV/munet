@@ -17,9 +17,16 @@ export type AuditActionType =
   | 'ADMIN_UPDATE_PROFILE'
   | 'ADMIN_UPLOAD_AVATAR'
   | 'CREATE_EVENT'
+  | 'UPDATE_EVENT'
   | 'CREATE_COMMITTEE'
+  | 'UPDATE_COMMITTEE'
+  | 'DELETE_COMMITTEE'
   | 'CREATE_MEMBERSHIP'
-  | 'CREATE_ACCOUNT';
+  | 'CREATE_ACCOUNT'
+  | 'UPDATE_PARTICIPANT'
+  | 'SUSPEND_ACCOUNT'
+  | 'REACTIVATE_ACCOUNT'
+  | 'RESET_PASSWORD';
 
 export type AuditEntityType =
   | 'POST'
@@ -66,11 +73,10 @@ export const logAudit = async (params: {
 
     if (error) {
       console.error('Error registrando auditoria:', {
-        code: error.code,
-        message: error.message,
         actionType: params.actionType,
         entityType: params.entityType,
         entityId: params.entityId,
+        error,
       });
     }
   } catch (error) {

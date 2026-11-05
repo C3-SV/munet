@@ -58,10 +58,22 @@ export async function authContextRequest(token: string): Promise<{
     return data;
 }
 
+export type ActivationEvent = {
+    event_id: string;
+    event_name: string;
+    membership_id: string;
+};
+
+type ActivationEventResponse = {
+    event?: { id: string; name: string } | null;
+    account_status: string;
+    membership_id: string;
+};
+
 // Valida cuentas pendientes de activacion por codigo de participante.
 export async function validateActivationRequest(
     participant_code: string,
-): Promise<{ success: boolean; events: any[] }> {
+): Promise<{ success: boolean; events: ActivationEvent[] }> {
     const res = await fetch(buildApiUrl(API_URL, `/auth/events-by-code/${participant_code}`), {
         method: "GET",
         headers: {
@@ -70,23 +82,32 @@ export async function validateActivationRequest(
         cache: "no-store",
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+        error?: string;
+        events?: ActivationEventResponse[];
+    };
 
     if (!res.ok) {
         throw new Error(data.error || "Error al validar la cuenta");
     }
 
-    const formattedEvents = (data.events || [])
-        .filter((item: any) => item.account_status === 'PENDING_ACTIVATION')
-        .map((item: any) => ({
-            event_id: item.event.id,
-            event_name: item.event.name,
-            membership_id: item.membership_id
-        }));
+    const formattedEvents = (data.events ?? []).flatMap((item) => {
+        if (item.account_status !== "PENDING_ACTIVATION" || !item.event) {
+            return [];
+        }
 
-    return { 
-        success: true, 
-        events: formattedEvents 
+        return [
+            {
+                event_id: item.event.id,
+                event_name: item.event.name,
+                membership_id: item.membership_id,
+            },
+        ];
+    });
+
+    return {
+        success: true,
+        events: formattedEvents,
     };
 }
 
