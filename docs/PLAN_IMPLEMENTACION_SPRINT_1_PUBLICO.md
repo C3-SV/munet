@@ -9,8 +9,8 @@ Fuente de las tareas: plan de sprints (`MUNET_Plan_de_Sprints.pdf`). Cada fase t
 | ID | Tarea | Rol | Prioridad | Depende de | Estado |
 |---|---|---|---|---|---|
 | S1-01 | Kickoff del sprint | Coordinación | Must | — | Hecho (lun 26) |
-| S1-03 | Reunión de decisiones con Rober y MUN ESEN | Coordinación | Must | — | Mié 28 |
-| S1-05 | Quitar los logs que imprimen contraseña y token | Frontend | Must | — | **Hecho, sin commit** |
+| S1-03 | Reunión de decisiones con Rober y MUN ESEN | Coordinación | Must | — | **Hecho** (ver `docs/DECISIONES_SPRINT_1.md`) |
+| S1-05 | Quitar los logs que imprimen contraseña y token | Frontend | Must | — | **Hecho y probado en navegador** |
 | S1-19 | Confirmar que el front no accede a datos de Supabase | Frontend | Should | — | **Hecho** (checklist abajo) |
 | S1-04 | Mergear `sitio-admin` a `main` | Coordinación | Must | — | Pendiente |
 | S1-08 | Contratos de API de las funciones nuevas | Backend (escribe) · Frontend (aprueba) | Must | S1-03 | **Borrador corregido**, falta aprobación |
@@ -19,10 +19,11 @@ Fuente de las tareas: plan de sprints (`MUNET_Plan_de_Sprints.pdf`). Cada fase t
 | S1-06 | Arreglar el registro de auditoría | Backend | Must | — | Pendiente |
 | S1-07 | Que la API entre al control de calidad | Backend | Should | — | Pendiente |
 | S1-15 | Pruebas de permisos de muros y comités | Backend | Must | S1-07 | Pendiente |
-| S1-16 | Ocultar comités ajenos y quitar el candado | Backend + Frontend | Must | S1-15 (solo para el cambio de backend) | Pendiente |
-| S1-18 | Registrar quién borró una publicación o comentario | Backend | Should | S1-02 | **Hecho en código, falta probar** |
-| S1-09 | Retirar (archivar) el comité de crisis | Coordinación + Backend | Should | S1-03 | Pendiente |
-| — | *(Sugerida, no está en el plan)* Redirigir al login cuando expira la sesión | Frontend | Should | — | Pendiente |
+| S1-16 | Ocultar comités ajenos y quitar el candado | Backend + Frontend | Must | S1-15 (solo para el cambio de backend) | **Hecho y probado en navegador** |
+| S1-18 | Registrar quién borró una publicación o comentario | Backend | Should | S1-02 | **Hecho en código, falta probar** (requiere borrar una publicación real) |
+| S1-09 | Retirar (archivar) el comité de crisis | Coordinación + Backend | Should | S1-03 | **Hecho**: no existe comité de crisis en la base |
+| — | *(Sugerida, no está en el plan)* Redirigir al login cuando expira la sesión | Frontend | Should | — | **Hecho y probado en navegador** |
+| S2-12 | *(Adelantada)* Alias del delegado | Backend + Frontend | Must | S1-02 | **Hecho y probado en navegador** |
 
 ## Reglas para todas las fases
 
