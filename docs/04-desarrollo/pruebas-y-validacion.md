@@ -13,7 +13,7 @@ Pueden ejecutarse con:
 node --test apps/api/src/lib/cors.test.mjs apps/web/lib/api/base-url.test.mjs
 ```
 
-La API tiene los scripts `check-types`, `build` (solo comprueba tipos) y `test` (`npm test -w api`, que corre todas las pruebas `*.test.mjs` de `apps/api/src` desde la raíz del repo, porque algunas usan rutas relativas a ella). El root y `apps/web` siguen sin script `test`.
+La API tiene los scripts `check-types`, `build` (solo comprueba tipos) y `test` (`npm test -w api`, que corre todas las pruebas `*.test.mjs` y `*.test.cjs` de `apps/api/src` desde la raíz del repo, porque algunas usan rutas relativas a ella). El root y `apps/web` siguen sin script `test`.
 
 ## Scripts disponibles
 
