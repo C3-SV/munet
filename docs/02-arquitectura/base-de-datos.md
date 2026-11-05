@@ -48,7 +48,7 @@ Tablas referenciadas: `users`, `events`, `event_memberships`, `committees`, `wal
 ## Anomalías observadas en el contrato
 
 - El código asigna `AUTHOR` o `ADMIN` a `posts.deleted_by_membership_id`, aunque el nombre sugiere un UUID de membresía.
-- El borrado de DM prueba varios valores posibles de estado mediante `DM_DELETED_MESSAGE_STATUS`, señal de desalineación de enum entre entornos.
+- El borrado de DM usa un único estado, `DELETED` (enum `dm_message_status_enum`: `VISIBLE`, `DELETED`). Antes probaba varios valores mediante `DM_DELETED_MESSAGE_STATUS`; esa variable ya no existe.
 - La creación de evento, encuesta y otras operaciones relacionadas no es atómica desde la API.
 
 ## Acción previa a cambios de datos
