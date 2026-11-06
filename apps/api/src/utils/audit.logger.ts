@@ -26,7 +26,9 @@ export type AuditActionType =
   | 'UPDATE_PARTICIPANT'
   | 'SUSPEND_ACCOUNT'
   | 'REACTIVATE_ACCOUNT'
-  | 'RESET_PASSWORD';
+  | 'RESET_PASSWORD'
+  | 'CHANGE_COMMITTEE'
+  | 'IMPORT_PARTICIPANTS';
 
 export type AuditEntityType =
   | 'POST'
