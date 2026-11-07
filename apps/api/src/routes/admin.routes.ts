@@ -19,6 +19,11 @@ import {
   updateParticipant,
 } from '../controllers/admin.controller';
 import {
+  changeParticipantCommittee,
+  confirmParticipantImport,
+  previewParticipantImport,
+} from '../controllers/admin-participants.controller';
+import {
   eventIdFromBody,
   eventIdFromCommittee,
   eventIdFromMembership,
@@ -76,11 +81,17 @@ const requireMembershipEventAdmin = requireEventAdmin(eventIdFromMembership, {
   missingMessage: 'Participante no encontrado',
 });
 
+// Importacion CSV en dos pasos (S2-05, S2-07). Van antes de las rutas con
+// :membershipId para que 'import' nunca se lea como un id.
+router.post('/participants/import/preview', requireAuth, requireEventAdmin(eventIdFromBody), previewParticipantImport);
+router.post('/participants/import/confirm', requireAuth, requireEventAdmin(eventIdFromBody), confirmParticipantImport);
+
 router.get('/participants', requireAuth, requireEventAdmin(eventIdFromQuery), listParticipants);
 router.get('/participants/:membershipId', requireAuth, requireMembershipEventAdmin, getParticipant);
 router.patch('/participants/:membershipId', requireAuth, requireMembershipEventAdmin, updateParticipant);
 router.post('/participants/:membershipId/suspend', requireAuth, requireMembershipEventAdmin, suspendParticipant);
 router.post('/participants/:membershipId/reactivate', requireAuth, requireMembershipEventAdmin, reactivateParticipant);
 router.post('/participants/:membershipId/reset-password', requireAuth, requireMembershipEventAdmin, resetParticipantPassword);
+router.patch('/participants/:membershipId/committee', requireAuth, requireMembershipEventAdmin, changeParticipantCommittee);
 
 export default router;

@@ -6,6 +6,8 @@ import bcrypt from 'bcrypt';
 import { validateCatalogBody } from '../utils/admin.validation';
 import { generateInitialPassword } from '../utils/password.utils';
 import { isAdminRole } from '../utils/rbac.utils';
+import { assignDelegationCode, createParticipantAccount } from '../services/participant-account.service';
+import { searchParticipants } from '../services/participant-search.service';
 
 // Helper para detectar si una propiedad viene explicitamente en el payload.
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
@@ -22,155 +24,73 @@ type CreateAccountBody = {
   last_name: string;
   display_name?: string;
   bio?: string;
+  alias?: string | null;
 };
 
-// Crea una cuenta operativa completa:
-// user + membership + profile, dejando la cuenta en PENDING_ACTIVATION.
+// Alta individual: user + membership + profile + codigo # (S1-11, S2-03).
+// La logica vive en participant-account.service para que la importacion CSV
+// siga las mismas reglas. Si un paso falla se deshace lo creado.
+// La contrasena inicial se devuelve UNA sola vez y no se guarda en claro.
 export const createAccount = async (
   req: Request<{}, {}, CreateAccountBody>,
   res: Response
 ) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const actorUserId = req.auth?.userId ?? null;
-    const {
-      event_id,
-      participant_code,
-      role,
-      committee_id,
-      delegation_name,
-      institution_name,
-      first_name,
-      last_name,
-      display_name,
-      bio
-    } = req.body;
+    const body = req.body ?? ({} as CreateAccountBody);
+    const { event_id, participant_code, role, first_name, last_name } = body;
 
-    if (
-      !event_id ||
-      !participant_code ||
-      !role ||
-      !first_name ||
-      !last_name
-    ) {
+    if (!event_id || !participant_code || !role || !first_name || !last_name) {
       return res.status(400).json({
-        error:
-          'event_id, participant_code, role, first_name y last_name son requeridos'
+        error: 'event_id, participant_code, role, first_name y last_name son requeridos'
       });
     }
 
-    // 1. validar que no exista el código
-    const { data: existing } = await supabaseAdmin
-      .from('event_memberships')
-      .select('id')
-      .eq('participant_code', participant_code)
-      .eq('event_id', event_id)
-      .is('deleted_at', null)
-      .maybeSingle();
-
-    if (existing) {
-      return res.status(400).json({ error: 'Código ya existe' });
+    if (body.alias !== undefined && body.alias !== null && (typeof body.alias !== 'string' || body.alias.trim().length > 60)) {
+      return res.status(400).json({ error: 'alias debe ser texto de hasta 60 caracteres' });
     }
 
-    // 2. validar committee_id
-    if (committee_id) {
-      const { data: committee } = await supabaseAdmin
-        .from('committees')
-        .select('id, event_id')
-        .eq('id', committee_id)
-        .is('deleted_at', null)
-        .maybeSingle();
-
-      if (!committee) {
-        return res.status(404).json({ error: 'Comité no encontrado' });
-      }
-
-      if (committee.event_id !== event_id) {
-        return res.status(400).json({
-          error: 'El comité no pertenece al evento indicado'
-        });
-      }
-    }
-
-    // 3. crear user vacío
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        created_by_user_id: actorUserId,
-        updated_by_user_id: actorUserId,
-      })
-      .select()
-      .single();
-
-    if (userError || !user) {
-      return res.status(400).json({ error: 'Error creando user' });
-    }
-
-    // 4. hashear contraseña inicial
-    const initialPassword = generateInitialPassword();
-    const initialPasswordHash = await bcrypt.hash(initialPassword, 10);
-
-    // 5. crear membership
-    const { data: membership, error: membershipError } = await supabaseAdmin
-      .from('event_memberships')
-      .insert({
+    const result = await createParticipantAccount(
+      {
         event_id,
-        user_id: user.id,
         participant_code,
         role,
-        committee_id: committee_id ?? null,
-        delegation_name,
-        institution_name,
-        account_status: 'PENDING_ACTIVATION',
-        status_changed_at: new Date().toISOString(),
-        initial_password_hash: initialPasswordHash,
-        created_by_user_id: actorUserId,
-        updated_by_user_id: actorUserId,
-      })
-      .select()
-      .single();
-
-    if (membershipError || !membership) {
-      return res.status(400).json({
-        error: membershipError?.message || 'Error creando membership'
-      });
-    }
-
-    // 6. crear profile
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        event_membership_id: membership.id,
+        committee_id: body.committee_id ?? null,
+        delegation_name: body.delegation_name ?? null,
+        institution_name: body.institution_name ?? null,
         first_name,
         last_name,
-        display_name: display_name ?? null,
-        bio: bio ?? null,
-        profile_image_path: null,
-        updated_by_membership_id: membership.id,
-      })
-      .select()
-      .single();
+        display_name: body.display_name ?? null,
+        bio: body.bio ?? null,
+        alias: typeof body.alias === 'string' ? body.alias.trim() || null : null,
+      },
+      actorUserId
+    );
 
-    if (profileError) {
-      return res.status(400).json({ error: profileError.message });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
 
     await logAudit({
       eventId: event_id,
+      membership: req.auth?.currentMembership,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
       actionType: 'CREATE_ACCOUNT',
       entityType: 'ACCOUNT',
-      entityId: membership.id,
+      entityId: result.membership.id,
       outcome: 'SUCCESS',
       reason: `Cuenta creada con codigo ${participant_code} y rol ${role}`,
     });
 
     return res.json({
       message: 'Cuenta creada correctamente',
-      user,
-      membership,
-      profile,
-      initial_password: initialPassword
+      user: result.user,
+      membership: result.membership,
+      profile: result.profile,
+      initial_password: result.initialPassword,
+      delegation_code: result.delegationCode,
+      warnings: result.warnings,
     });
   } catch (error) {
     console.error(error);
@@ -579,9 +499,13 @@ export const createMembership = async (
       reason: `Membership creada con codigo ${participant_code} y rol ${role}`,
     });
 
+    const { code: delegationCode, error: codeError } = await assignDelegationCode(membership.id);
+    if (codeError) console.error('No se pudo asignar el codigo de delegacion', membership.id, codeError);
+
     return res.json({
       message: 'Membership creada correctamente',
-      membership
+      membership: { ...membership, delegation_code: delegationCode },
+      warnings: codeError ? ['La membership se creo pero no se pudo asignar el codigo #.'] : []
     });
 
   } catch (error) {
@@ -1063,7 +987,7 @@ export const listParticipants = async (req: Request, res: Response) => {
     let query = supabaseAdmin
       .from('event_memberships')
       .select(
-        'id, event_id, user_id, participant_code, role, committee_id, delegation_name, institution_name, account_status, created_at',
+        'id, event_id, user_id, participant_code, delegation_code, role, committee_id, delegation_name, institution_name, account_status, created_at',
         { count: 'exact' }
       )
       .eq('event_id', eventId)
@@ -1071,6 +995,26 @@ export const listParticipants = async (req: Request, res: Response) => {
 
     const committeeId = typeof req.query.committee_id === 'string' ? req.query.committee_id : null;
     if (committeeId) query = query.eq('committee_id', committeeId);
+
+
+    // q: busqueda por texto (codigo de login, codigo #, nombre, apellido o
+    // alias, sin mayusculas ni tildes). Ver participant-search.service.
+    const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
+    if (q) {
+      const result = await searchParticipants({
+        eventId,
+        q,
+        page,
+        limit,
+        filters: {
+          committeeId,
+          role: typeof req.query.role === 'string' ? req.query.role : null,
+          status: typeof req.query.status === 'string' ? req.query.status : null,
+        },
+      });
+      if (result.error) return res.status(400).json({ error: result.error });
+      return res.json(result.body);
+    }
 
     const role = typeof req.query.role === 'string' ? req.query.role : null;
     if (role) query = query.eq('role', role);
@@ -1091,7 +1035,7 @@ export const listParticipants = async (req: Request, res: Response) => {
     const { data: profiles, error: profilesError } = membershipIds.length
       ? await supabaseAdmin
           .from('profiles')
-          .select('event_membership_id, first_name, last_name, display_name')
+          .select('event_membership_id, first_name, last_name, display_name, alias')
           .in('event_membership_id', membershipIds)
       : { data: [] as { event_membership_id: string }[], error: null };
 
@@ -1126,7 +1070,7 @@ export const getParticipant = async (req: Request<{ membershipId: string }>, res
     const { data: membership, error } = await supabaseAdmin
       .from('event_memberships')
       .select(
-        'id, event_id, user_id, participant_code, role, committee_id, delegation_name, institution_name, account_status, created_at'
+        'id, event_id, user_id, participant_code, delegation_code, role, committee_id, delegation_name, institution_name, account_status, created_at'
       )
       .eq('id', membershipId)
       .is('deleted_at', null)
@@ -1141,7 +1085,7 @@ export const getParticipant = async (req: Request<{ membershipId: string }>, res
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('first_name, last_name, display_name, bio, profile_image_path')
+      .select('first_name, last_name, display_name, alias, bio, profile_image_path')
       .eq('event_membership_id', membershipId)
       .maybeSingle();
 
@@ -1164,13 +1108,14 @@ type UpdateParticipantBody = {
   first_name?: string;
   last_name?: string;
   display_name?: string | null;
+  alias?: string | null;
   bio?: string | null;
 };
 
 // Campos editables: NO incluye event_id ni participant_code (RN-03: el
 // codigo es inmutable y no reasignable).
 const PARTICIPANT_MEMBERSHIP_FIELDS = ['role', 'committee_id', 'delegation_name', 'institution_name'] as const;
-const PARTICIPANT_PROFILE_FIELDS = ['first_name', 'last_name', 'display_name', 'bio'] as const;
+const PARTICIPANT_PROFILE_FIELDS = ['first_name', 'last_name', 'display_name', 'alias', 'bio'] as const;
 
 // Actualiza datos de membership y/o perfil de un participante existente.
 export const updateParticipant = async (
@@ -1189,6 +1134,11 @@ export const updateParticipant = async (
       return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
+    if (hasOwn(payload, 'alias') && payload.alias !== null && (typeof payload.alias !== 'string' || payload.alias.trim().length > 60)) {
+      return res.status(400).json({ error: 'alias debe ser texto de hasta 60 caracteres o null' });
+    }
+    if (typeof payload.alias === 'string') payload.alias = payload.alias.trim() || null;
+
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from('event_memberships')
       .select('id, event_id')
@@ -1204,7 +1154,7 @@ export const updateParticipant = async (
     if (hasOwn(payload, 'committee_id') && payload.committee_id) {
       const { data: committee, error: committeeLookupError } = await supabaseAdmin
         .from('committees')
-        .select('id, event_id')
+        .select('id, event_id, status')
         .eq('id', payload.committee_id as string)
         .is('deleted_at', null)
         .maybeSingle();
@@ -1215,6 +1165,9 @@ export const updateParticipant = async (
       }
       if (committee.event_id !== existing.event_id) {
         return res.status(400).json({ error: 'El comité no pertenece al evento de este participante' });
+      }
+      if (committee.status === 'ARCHIVED') {
+        return res.status(400).json({ error: 'El comite esta archivado' });
       }
     }
 
