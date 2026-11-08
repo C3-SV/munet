@@ -16,13 +16,8 @@ import {
 } from '../utils/dm.utils';
 import { normalize } from '../utils/posts.utils';
 
-const DELETED_DM_MESSAGE_STATUSES = [
-  process.env.DM_DELETED_MESSAGE_STATUS?.trim(),
-  'DELETED_BY_AUTHOR',
-  'ELIMINADO_AUTOR',
-  'DELETED',
-  'ELIMINADO',
-].filter((status): status is string => Boolean(status));
+// Único valor de dm_message_status_enum que representa un mensaje eliminado (enum: VISIBLE, DELETED).
+const DELETED_DM_MESSAGE_STATUS = 'DELETED';
 
 // Centraliza auditoria de borrado de mensajes directos.
 const logDmMessageDeletionAudit = async (params: {
@@ -498,46 +493,30 @@ export const deleteDmMessage = async (params: {
     };
   }
 
-  let updateErrorMessage: string | null = null;
-  let appliedStatus: string | null = null;
+  const deletedAt = new Date().toISOString();
+  const { error: updateError } = await supabaseAdmin
+    .from('dm_messages')
+    .update({
+      status: DELETED_DM_MESSAGE_STATUS,
+      updated_at: deletedAt,
+      updated_by_membership_id: params.membership.id,
+      deleted_at: deletedAt,
+      deleted_by_membership_id: params.membership.id,
+    })
+    .eq('id', params.messageId);
 
-  for (const status of DELETED_DM_MESSAGE_STATUSES) {
-    // Intenta estados compatibles con diferentes enum legacy/configurados.
-    const { error: updateError } = await supabaseAdmin
-      .from('dm_messages')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-        updated_by_membership_id: params.membership.id,
-        deleted_at: new Date().toISOString(),
-        deleted_by_membership_id: params.membership.id,
-      })
-      .eq('id', params.messageId);
-
-    if (!updateError) {
-      appliedStatus = status;
-      updateErrorMessage = null;
-      break;
-    }
-
-    updateErrorMessage = updateError.message;
-  }
-
-  if (!appliedStatus) {
+  if (updateError) {
     await logDmMessageDeletionAudit({
       eventId: params.eventId,
       membership: params.membership,
       messageId: params.messageId,
       outcome: 'FAILURE',
-      reason: updateErrorMessage ?? 'No se encontro un estado de eliminacion valido',
+      reason: updateError.message,
     });
 
     return {
-      status: 400,
-      body: {
-        error:
-          'No se pudo eliminar el mensaje. Configura DM_DELETED_MESSAGE_STATUS con un valor real de dm_message_status_enum.',
-      },
+      status: 500,
+      body: { error: 'No se pudo eliminar el mensaje' },
     };
   }
 
@@ -546,7 +525,7 @@ export const deleteDmMessage = async (params: {
     membership: params.membership,
     messageId: params.messageId,
     outcome: 'SUCCESS',
-    reason: `Mensaje eliminado por su autor con status ${appliedStatus}`,
+    reason: `Mensaje eliminado por su autor con status ${DELETED_DM_MESSAGE_STATUS}`,
   });
 
   return {

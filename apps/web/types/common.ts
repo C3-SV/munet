@@ -1,6 +1,7 @@
 export interface User {
     id: string;
     name: string;
+    alias?: string | null;
     committeeName?: string | null;
     avatar: string;
     role: string;
@@ -80,6 +81,7 @@ export interface PublicProfile {
     eventId: string;
     role: string;
     delegationName: string | null;
+    delegationCode?: string | null;
     institutionName: string | null;
     committee: {
         id: string;
@@ -91,6 +93,7 @@ export interface PublicProfile {
         firstName: string;
         lastName: string;
         displayName: string;
+        alias?: string | null;
         bio: string;
         avatar: string;
     };

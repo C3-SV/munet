@@ -6,16 +6,16 @@ La clasificación refleja el código local revisado el 2026-10-23. “Implementa
 |---|---|---|---|
 | Activación y acceso | Incorporar cuentas precreadas y abrir sesión | API de búsqueda por código, activación, login y contexto; interfaz de login | Parcialmente implementado |
 | Multi-evento | Separar participaciones y elegir contexto | Membresías activas en sesión y selector de evento | Parcialmente implementado |
-| Eventos | Crear y administrar eventos | POST administrativo e interfaz de creación; crea en estado `ACTIVE`; lista y edición son marcadores | Parcialmente implementado y divergente |
-| Comités | Organizar participantes y muros temáticos | Listado por evento, alta administrativa e interfaz de listado/creación | Parcialmente implementado |
+| Eventos | Crear y administrar eventos | POST/PATCH administrativos; interfaces de listado, creación y configuración; crea en estado `ACTIVE` | Parcialmente implementado y divergente |
+| Comités | Organizar participantes y muros temáticos | Listado y alta administrativa; interfaces de listado, creación y edición | Parcialmente implementado |
 | Muros | Comunicación general, anuncios y comités | Lectura de muros y feed; acceso calculado por tipo y membresía | Parcialmente implementado |
 | Publicaciones | Publicar texto y encuestas | Alta, listado y eliminación; encuestas de 2–10 opciones | Parcialmente implementado |
 | Comentarios | Conversación bajo publicaciones | Alta, listado y eliminación; una profundidad | Parcialmente implementado |
 | Encuestas | Votar y cerrar consultas | Voto reemplazable y cierre por autor | Parcialmente implementado |
 | Perfiles | Identidad pública en el evento | Consulta/edición propia y administrativa; avatar público | Parcialmente implementado |
 | Mensajes directos | Comunicación uno a uno | Conversaciones, participantes, mensajes y borrado lógico | Parcialmente implementado |
-| Panel administrativo | Punto de entrada operacional | Layout, dashboard de navegación y flujos de eventos/comités | Base parcial |
-| Cuentas y membresías administrativas | Altas operativas | Endpoints POST sin interfaz administrativa actual | Parcialmente implementado |
+| Panel administrativo | Punto de entrada operacional | Layout responsive, dashboard y flujos de eventos/comités | Base parcial |
+| Cuentas y membresías administrativas | Altas, consulta, edición, suspensión/reactivación y restablecimiento de contraseña | Endpoints completos (`/admin/participants`, `/admin/create-account`); interfaz administrativa de listado, alta, edición y ciclo de vida por evento; CSV pendiente | Parcialmente implementado |
 | Moderación | Retirar contenido y sancionar | Administradores pueden eliminar posts/comentarios y editar perfiles; sin reportes/sanciones | Parcialmente implementado |
 | Auditoría | Trazabilidad de acciones | Inserciones best-effort en `audit_logs` y `auth_attempts`; sin consulta ni garantía | Parcialmente implementado |
 | Notificaciones | Avisar actividad relevante | No existe módulo; Realtime solo refresca vistas | Documentado, no implementado |
@@ -27,13 +27,17 @@ La clasificación refleja el código local revisado el 2026-10-23. “Implementa
 Rutas presentes:
 
 - `/admin`: tarjetas de navegación; no presenta métricas.
-- `/admin/events`: marcador porque no existe `GET /admin/events`.
+- `/admin/events`: listado conectado a `GET /admin/events` con paginación.
 - `/admin/events/new`: formulario conectado a `POST /admin/events`.
-- `/admin/events/[eventId]`: marcador de detalle/edición.
-- `/admin/events/[eventId]/committees`: listado conectado a `GET /events/:eventId/committees`.
+- `/admin/events/[eventId]`: configuración conectada a `GET/PATCH /admin/events/:eventId`.
+- `/admin/events/[eventId]/committees`: listado conectado a `GET /admin/committees?event_id=`.
 - `/admin/events/[eventId]/committees/new`: formulario conectado a `POST /admin/committees`.
+- `/admin/events/[eventId]/committees/[committeeId]/edit`: edición conectada a `GET/PATCH /admin/committees/:committeeId`.
+- `/admin/events/[eventId]/participants`: listado conectado a `GET /admin/participants` con filtros y paginación.
+- `/admin/events/[eventId]/participants/new`: alta conectada a `POST /admin/create-account`; muestra la contraseña inicial una sola vez.
+- `/admin/events/[eventId]/participants/[membershipId]`: detalle y edición vía `GET/PATCH /admin/participants/:membershipId`, con suspensión, reactivación y restablecimiento de contraseña.
 
-El menú también enlaza `/admin/participants`, `/admin/assignments` y `/admin/moderation`, pero esas páginas no existen. El layout exige que la **membresía activa** sea administrativa; la API acepta que exista **cualquier membresía activa** administrativa. Esa diferencia se registra como [D-01](../07-auditoria/discrepancias.md#d-01-autorización-administrativa-no-acotada-al-evento).
+El menú también enlaza `/admin/assignments` y `/admin/moderation`, que siguen como marcadores. El layout exige que la **membresía activa** sea administrativa; desde el 2026-10-29 la API también exige que esa membresía sea del evento sobre el que se opera (salvo crear un evento nuevo), así que ambas capas ya coinciden.
 
 ## Límites operativos relevantes
 

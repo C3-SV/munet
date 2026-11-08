@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node --files src/server.ts"
+    "dev": "ts-node --files src/server.ts",
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "test": "cd ../.. && node --test \"apps/api/src/**/*.test.mjs\" \"apps/api/src/**/*.test.cjs\""
   },
   "keywords": [],
   "author": "",

@@ -4,9 +4,9 @@ Los ítems requieren decisión, evidencia externa o implementación futura. No s
 
 ## Prioridad crítica
 
-### P-01 — Modelo de autorización administrativa
+### P-01 — Modelo de autorización administrativa (resuelto 2026-10-29)
 
-Definir superadministrador global frente a administración por evento; separar capacidad de crear un evento de administrar uno existente. Alinear frontend y backend.
+Se decidió separar la capacidad de crear un evento (global) de administrar uno existente (acotado al evento); no se introdujo un rol de superadministrador explícito. Ver [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Sigue abierto si el negocio quiere en el futuro un rol de superadministrador global separado; eso sería una decisión y un ADR nuevos, no una reapertura de este punto.
 
 ### P-02 — Esquema y seguridad de datos
 
@@ -14,7 +14,7 @@ Versionar DDL, migraciones, enums, índices, constraints, triggers, RLS y Storag
 
 ### P-03 — Datos sensibles en logs
 
-Retirar/evitar logs de payload de autenticación y definir política de logging. Este documento solo registra el hallazgo.
+Los logs de autenticación del frontend fueron retirados. Falta definir una política de logging y revisar los registros del backend.
 
 ### P-04 — Auditoría confiable
 
@@ -40,13 +40,13 @@ El roadmap reciente se conserva como **propuesta**, no como compromiso completad
 | Tramo | Intención registrada | Estado observado |
 |---|---|---|
 | Sprint 0 | Base visual admin y protección de endpoints | Implementado parcialmente |
-| Sprint 1 | UI/backend de eventos y comités; muro automático | Parcial; altas/listado de comités sí, edición/listado de eventos no; automatismo no demostrado |
-| Sprint 2 | Participantes, CSV y restablecimiento | No implementado |
+| Sprint 1 | UI/backend de eventos y comités; muro automático | Parcial; listado/configuración de eventos y listado/alta/edición de comités; automatismo de muro no demostrado |
+| Sprint 2 | Participantes, CSV y restablecimiento | Parcial; listado, alta, edición y ciclo de vida de participantes implementados; CSV pendiente |
 | Sprint 3 | Asignaciones, suspensión, moderadores y archivos | No implementado |
 | Sprint 4 | Moderación, fijado, supervisión y bloqueo de conversación | No implementado |
 | Cierre | Pruebas, auditoría con UUID, retirar logs, alinear DB y rate limits | No implementado o no demostrado |
 
-También faltan rutas de menú para participantes/asignaciones/moderación y validación responsive/accesible.
+Participantes ya cuenta con listado, alta, edición, suspensión/reactivación y restablecimiento anidados por evento. Asignaciones y moderación siguen como marcadores; la validación de accesibilidad y de extremo a extremo queda pendiente.
 
 ## Calidad técnica
 

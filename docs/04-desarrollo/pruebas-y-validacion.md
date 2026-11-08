@@ -13,7 +13,7 @@ Pueden ejecutarse con:
 node --test apps/api/src/lib/cors.test.mjs apps/web/lib/api/base-url.test.mjs
 ```
 
-No hay script `test` en el root ni en los workspaces.
+La API tiene los scripts `check-types`, `build` (solo comprueba tipos) y `test` (`npm test -w api`, que corre todas las pruebas `*.test.mjs` y `*.test.cjs` de `apps/api/src` desde la raíz del repo, porque algunas usan rutas relativas a ella). El root y `apps/web` siguen sin script `test`.
 
 ## Scripts disponibles
 
@@ -42,7 +42,7 @@ No presentes un `turbo run` exitoso como validación de la API mientras `apps/ap
 - Voto concurrente y creación transaccional de encuestas.
 - Duplicación concurrente de conversaciones.
 - Borrado y auditoría.
-- Flujos admin conectados y rutas marcador.
+- Flujos admin de eventos/comités y sus estados de error, vacío y permiso.
 
 ## Evidencia de entrega
 

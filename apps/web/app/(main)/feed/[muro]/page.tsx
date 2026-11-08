@@ -265,7 +265,8 @@ const Feed = () => {
         // Filtro combinado de busqueda libre + comites seleccionados.
         const matchesSearch =
             post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.user.name.toLowerCase().includes(searchQuery.toLowerCase());
+            post.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (post.user.alias ?? "").toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesCommittee =
             selectedCommittees.length === 0 ||
@@ -370,7 +371,7 @@ const Feed = () => {
                             No tienes acceso a este muro
                         </h2>
                         <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                            Puedes ver el muro en el menu lateral, pero solo podras entrar cuando tengas permiso.
+                            Este muro pertenece a otro comité. Puedes entrar al muro general, a avisos y al de tu comité desde el menú lateral.
                         </p>
                     </div>
                 ) : (
