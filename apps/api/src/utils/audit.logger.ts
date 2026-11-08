@@ -44,7 +44,7 @@ export type AuditEntityType =
   | 'MEMBERSHIP'
   | 'ACCOUNT';
 
-export type AuditOutcome = 'SUCCESS' | 'FAILURE';
+export type AuditOutcome = 'SUCCESS' | 'FAILURE' | 'DENIED';
 
 // Inserta un evento en audit_logs con fallback a membership o actor explicito.
 export const logAudit = async (params: {
@@ -60,6 +60,7 @@ export const logAudit = async (params: {
   reason: string;
 }) => {
   try {
+    // supabase-js no lanza al fallar un insert: devuelve `{ error }`, que hay que revisar.
     const { error } = await supabaseAdmin.from('audit_logs').insert({
       event_id: params.eventId,
       actor_user_id: params.membership?.userId ?? params.actorUserId ?? null,
@@ -71,7 +72,15 @@ export const logAudit = async (params: {
       outcome: params.outcome,
       reason: params.reason,
     });
-    if (error) console.error('Error registrando auditoria:', error);
+
+    if (error) {
+      console.error('Error registrando auditoria:', {
+        actionType: params.actionType,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        error,
+      });
+    }
   } catch (error) {
     console.error('Error registrando auditoria:', error);
   }

@@ -34,8 +34,10 @@ export const listEventWalls = async (req: Request, res: Response) => {
 
     const walls = await loadWallsByEvent(eventId);
     // mapWallForMembership aplica canAccess/canPublish por rol+comité.
-    const wallViews = walls.map((wall) => mapWallForMembership(wall, membership));
-    // wallViews conserva todos los muros; frontend decide estado visual con canAccess.
+    // Solo se devuelven los muros accesibles: un delegado no ve los comités ajenos; un admin ve todos.
+    const wallViews = walls
+      .map((wall) => mapWallForMembership(wall, membership))
+      .filter((wall) => wall.canAccess);
 
     return res.json({
       event,
