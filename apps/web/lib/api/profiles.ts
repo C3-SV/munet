@@ -20,6 +20,7 @@ export const getMyProfile = async (context: ProfileContext): Promise<MyProfile> 
 export const updateMyProfile = async (
     context: ProfileContext & {
         displayName?: string;
+        alias?: string | null;
         bio?: string;
         avatar?: string;
     },
@@ -31,6 +32,7 @@ export const updateMyProfile = async (
         eventId: context.eventId,
         body: {
             display_name: context.displayName,
+            alias: context.alias,
             bio: context.bio,
             profile_image_path: context.avatar,
         },
@@ -81,6 +83,7 @@ export const updatePublicProfileAsAdmin = async (
         firstName?: string;
         lastName?: string;
         displayName?: string | null;
+        alias?: string | null;
         bio?: string | null;
         delegationName?: string | null;
         institutionName?: string | null;
@@ -98,6 +101,7 @@ export const updatePublicProfileAsAdmin = async (
                 first_name: context.firstName,
                 last_name: context.lastName,
                 display_name: context.displayName,
+                alias: context.alias,
                 bio: context.bio,
                 delegation_name: context.delegationName,
                 institution_name: context.institutionName,
