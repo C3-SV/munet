@@ -1,26 +1,25 @@
 # Discrepancias y riesgos
 
-## D-01 — Autorización administrativa no acotada al evento
+## D-01 — Autorización administrativa no acotada al evento (resuelto)
 
 - **Historia:** todo dato y permiso se aísla por evento.
-- **Código:** `requireAdmin` acepta cualquier membresía administrativa activa; los POST reciben `event_id` sin vincularlo a esa membresía.
-- **Clasificación:** divergente.
-- **Impacto:** un administrador de A podría crear recursos en B si conoce el identificador.
-- **Pregunta:** ¿existe un superadministrador global o debe separarse creación global de administración por evento?
+- **Código (antes del 2026-10-29):** `requireAdmin` aceptaba cualquier membresía administrativa activa; los POST recibían `event_id` sin vincularlo a esa membresía.
+- **Resolución:** [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md) acota la autorización al evento objetivo en todas las rutas admin salvo `POST /admin/events`. Código actual en `apps/api/src/middleware/auth.middleware.ts` y `apps/api/src/routes/admin.routes.ts`.
+- **Clasificación:** era divergente; resuelta.
 
 ## D-02 — Ciclo del evento
 
 - **Historia:** `DRAFT → ACTIVE → CLOSED`; cerrado es solo lectura.
-- **Código:** creación directa en `ACTIVE`; sin edición/cierre ni guardas generales de escritura.
+- **Código:** creación directa en `ACTIVE`; la UI permite cambiar `status` por `PATCH`, pero no hay guardas generales de escritura.
 - **Clasificación:** divergente/parcial.
 - **Impacto:** no puede prepararse un evento en borrador ni congelarlo confiablemente.
 
 ## D-03 — Credenciales en logs del navegador
 
 - **Historia:** seguridad y protección de datos.
-- **Código:** `apps/web/lib/api/auth.ts` registra el payload de autenticación y respuesta.
-- **Clasificación:** implementación contraria a requisito no funcional.
-- **Impacto:** posible exposición de contraseña/token en consola o herramientas de captura.
+- **Código:** los logs de payload y respuesta fueron retirados de `apps/web/lib/api/auth.ts` (2026-10-26).
+- **Clasificación:** resuelto.
+- **Impacto:** ninguno vigente; evitar reintroducir trazas con credenciales.
 
 ## D-04 — Auditoría no garantizada
 
@@ -46,9 +45,9 @@
 ## D-07 — Panel visible frente a funcionalidad operativa
 
 - **UI:** menú muestra eventos, participantes, asignaciones y moderación.
-- **Código:** solo existen rutas de eventos/comités; el listado/edición de eventos es marcador.
+- **Código:** eventos y comités tienen listado, alta y edición; participantes, asignaciones y moderación son marcadores.
 - **Clasificación:** parcialmente implementado.
-- **Impacto:** navegación a páginas inexistentes o sin datos.
+- **Impacto:** las secciones futuras no ofrecen operaciones reales.
 
 ## D-08 — Escrituras compuestas sin transacción
 

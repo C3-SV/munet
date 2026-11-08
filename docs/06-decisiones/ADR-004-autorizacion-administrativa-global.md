@@ -1,6 +1,6 @@
 # ADR-004 — Autorización administrativa global provisional
 
-- **Estado:** implementada; requiere revisión de producto/seguridad
+- **Estado:** reemplazada por [ADR-005](ADR-005-autorizacion-administrativa-por-evento.md) (2026-10-29)
 - **Fecha de origen documentada:** 2026-08-15
 - **Revisión:** 2026-10-23
 
@@ -27,9 +27,9 @@ Los documentos disponibles no registran aprobación del negocio para una de esta
 - Difiere del layout web, que exige que la membresía seleccionada sea admin.
 - Contradice el principio histórico de aislamiento si no existe un rol global deliberado.
 
-## Resolución requerida
+## Resolución
 
-Definir si existe superadministración global. Hasta entonces, no presentar esta implementación como modelo definitivo. Véase [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa).
+Resuelto el 2026-10-29 por [ADR-005](ADR-005-autorizacion-administrativa-por-evento.md): se descarta el acceso global y se acota la autorización al evento objetivo, salvo la creación de un evento nuevo. Véase también [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa).
 
 ## Evidencia
 

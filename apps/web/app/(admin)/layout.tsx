@@ -33,11 +33,13 @@ export default function AdminLayout({
         }
 
         if (!isAdmin) {
-            router.replace("/feed");
+            // Sin contexto activo, el selector resuelve el evento; con contexto
+            // no administrativo, el usuario vuelve al feed de participantes.
+            router.replace(activeMembershipId ? "/feed" : "/select-event");
         }
-    }, [hydrated, token, isAdmin, router]);
+    }, [hydrated, token, isAdmin, activeMembershipId, router]);
 
-    if (!hydrated) {
+    if (!hydrated || !token || !isAdmin) {
         return (
             <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2" style={{ borderColor: "var(--text-accent)" }}></div>
@@ -45,15 +47,11 @@ export default function AdminLayout({
         );
     }
 
-    if (!token || !isAdmin) {
-        return null;
-    }
-
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--bg-base)" }}>
             <AdminSidebar />
-            <div className="pl-64">
-                <main className="py-10 px-8">
+            <div className="md:pl-64">
+                <main className="px-4 pt-20 pb-10 sm:px-6 md:px-8 md:pt-10">
                     {children}
                 </main>
             </div>

@@ -42,7 +42,7 @@ No presentes un `turbo run` exitoso como validación de la API mientras `apps/ap
 - Voto concurrente y creación transaccional de encuestas.
 - Duplicación concurrente de conversaciones.
 - Borrado y auditoría.
-- Flujos admin conectados y rutas marcador.
+- Flujos admin de eventos/comités y sus estados de error, vacío y permiso.
 
 ## Evidencia de entrega
 
