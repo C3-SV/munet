@@ -2,15 +2,16 @@
 
 ## Estado del repositorio
 
-Solo se encontraron dos pruebas independientes:
+Solo se encontraron tres pruebas independientes:
 
 - `apps/api/src/lib/cors.test.mjs`
 - `apps/web/lib/api/base-url.test.mjs`
+- `apps/web/lib/csv.test.mjs`
 
 Pueden ejecutarse con:
 
 ```bash
-node --test apps/api/src/lib/cors.test.mjs apps/web/lib/api/base-url.test.mjs
+node --test apps/api/src/lib/cors.test.mjs apps/web/lib/api/base-url.test.mjs apps/web/lib/csv.test.mjs
 ```
 
 No hay script `test` en el root ni en los workspaces.

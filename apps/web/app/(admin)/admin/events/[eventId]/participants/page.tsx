@@ -3,12 +3,23 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+    AdminActionsMenu,
+    type AdminActionMenuItem,
+} from "../../../../../../components/admin/AdminActionsMenu";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
+import { AdminChangeCommitteeDialog } from "../../../../../../components/admin/AdminChangeCommitteeDialog";
+import { AdminConfirmDialog } from "../../../../../../components/admin/AdminConfirmDialog";
+import {
+    AdminCredentialsDialog,
+    type AdminCredentialField,
+} from "../../../../../../components/admin/AdminCredentialsDialog";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
 import { AdminFormInput } from "../../../../../../components/admin/AdminFormInput";
 import { AdminFormSelect } from "../../../../../../components/admin/AdminFormSelect";
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
+import { AdminToast } from "../../../../../../components/admin/AdminToast";
 import {
     getEvent,
     listCommittees,
@@ -16,7 +27,11 @@ import {
 } from "../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../lib/api/client";
 import {
+    changeParticipantCommittee,
     listParticipants,
+    reactivateParticipant,
+    resetParticipantPassword,
+    suspendParticipant,
     type AdminParticipant,
     type AdminParticipantPagination,
     type ParticipantAccountStatus,
@@ -29,6 +44,20 @@ type ParticipantFilters = {
     committeeId: string;
     role: string;
     status: "" | ParticipantAccountStatus;
+};
+
+type ActionType = "committee" | "reset-password" | "suspend" | "reactivate";
+
+type CredentialsState = {
+    title: string;
+    description?: string;
+    fields: AdminCredentialField[];
+    warnings?: string[];
+};
+
+type ToastState = {
+    type: "success" | "error";
+    message: string;
 };
 
 const EMPTY_FILTERS: ParticipantFilters = {
@@ -44,100 +73,183 @@ const STATUS_OPTIONS = [
     { value: "SUSPENDED", label: "Suspendido" },
 ];
 
-const getParticipantName = (participant: AdminParticipant) => {
+const getFullName = (participant: AdminParticipant, fallback = "Sin perfil") => {
     const profile = participant.profile;
-
-    if (profile?.display_name?.trim()) {
-        return profile.display_name.trim();
-    }
-
     const fullName = [profile?.first_name, profile?.last_name]
         .filter(Boolean)
         .join(" ")
         .trim();
 
-    return fullName || "Sin perfil";
+    return fullName || profile?.display_name?.trim() || fallback;
+};
+
+const getActionErrorMessage = (failure: unknown) => {
+    if (failure instanceof ApiError) {
+        return failure.status === 403
+            ? "No tienes permisos para administrar este evento."
+            : failure.message;
+    }
+
+    return "No se pudo completar la acción. Intenta de nuevo.";
 };
 
 const ParticipantRow = ({
     participant,
     committee,
     eventId,
+    committeesLoading,
+    onAction,
 }: {
     participant: AdminParticipant;
     committee?: AdminCommittee;
     eventId: string;
-}) => (
-    <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
-        style={{ borderBottom: "1px solid var(--border-light)" }}
-    >
-        <td className="px-6 py-4">
-            <span
-                className="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading"
-                style={{
-                    backgroundColor:
-                        "color-mix(in srgb, var(--text-accent) 12%, transparent)",
-                    color: "var(--text-accent)",
-                }}
-            >
-                {participant.participant_code}
-            </span>
-        </td>
+    committeesLoading: boolean;
+    onAction: (participant: AdminParticipant, action: ActionType) => void;
+}) => {
+    const fullName = getFullName(participant);
+    const displayName = participant.profile?.display_name?.trim();
+    const isSuspended = participant.account_status === "SUSPENDED";
 
-        <td className="px-6 py-4">
-            <p
-                className="text-sm font-semibold font-heading"
-                style={{ color: "var(--text-primary)" }}
-            >
-                {getParticipantName(participant)}
-            </p>
-        </td>
+    const items: AdminActionMenuItem[] = [
+        {
+            label: "Cambiar comité",
+            onSelect: () => onAction(participant, "committee"),
+            disabled: committeesLoading,
+        },
+        {
+            label: "Reiniciar contraseña",
+            onSelect: () => onAction(participant, "reset-password"),
+            disabled: isSuspended,
+        },
+        isSuspended
+            ? {
+                  label: "Reactivar cuenta",
+                  onSelect: () => onAction(participant, "reactivate"),
+              }
+            : {
+                  label: "Suspender cuenta",
+                  onSelect: () => onAction(participant, "suspend"),
+                  danger: true,
+              },
+    ];
 
-        <td className="px-6 py-4 hidden md:table-cell">
-            {committee ? (
+    return (
+        <tr
+            className="transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ borderBottom: "1px solid var(--border-light)" }}
+        >
+            <td className="px-6 py-4">
+                <div className="min-w-0">
+                    <Link
+                        href={`/admin/events/${eventId}/participants/${participant.id}`}
+                        className="text-sm font-semibold font-heading hover:underline"
+                        style={{ color: "var(--text-primary)" }}
+                    >
+                        {fullName}
+                    </Link>
+                    {displayName && displayName !== fullName && (
+                        <p
+                            className="mt-0.5 text-xs truncate"
+                            style={{ color: "var(--text-muted)" }}
+                        >
+                            {displayName}
+                        </p>
+                    )}
+                </div>
+            </td>
+
+            <td className="px-6 py-4 hidden lg:table-cell">
                 <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    <span className="font-semibold">{committee.code}</span>
-                    {" — "}
-                    {committee.name}
+                    {participant.profile?.alias?.trim() || "—"}
                 </span>
-            ) : participant.committee_id ? (
-                <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    Comité no disponible
-                </span>
-            ) : (
-                <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    —
-                </span>
-            )}
-        </td>
+            </td>
 
-        <td className="px-6 py-4 hidden sm:table-cell">
-            <span
-                className="text-xs font-semibold font-heading uppercase tracking-wide"
-                style={{ color: "var(--text-secondary)" }}
-            >
-                {participant.role}
-            </span>
-        </td>
+            <td className="px-6 py-4">
+                {participant.delegation_code ? (
+                    <span
+                        className="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading"
+                        style={{
+                            backgroundColor:
+                                "color-mix(in srgb, #f59e0b 12%, transparent)",
+                            color: "#b45309",
+                        }}
+                    >
+                        {participant.delegation_code}
+                    </span>
+                ) : (
+                    <span
+                        className="text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                    >
+                        Sin código
+                    </span>
+                )}
+            </td>
 
-        <td className="px-6 py-4">
-            <AdminStatusBadge status={participant.account_status} />
-        </td>
-
-        <td className="px-6 py-4">
-            <div className="flex justify-end">
-                <Link
-                    href={`/admin/events/${eventId}/participants/${participant.id}`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
+            <td className="px-6 py-4 hidden sm:table-cell">
+                <span
+                    className="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading"
+                    style={{
+                        backgroundColor:
+                            "color-mix(in srgb, var(--text-accent) 12%, transparent)",
+                        color: "var(--text-accent)",
+                    }}
                 >
-                    Gestionar
-                </Link>
-            </div>
-        </td>
-    </tr>
-);
+                    {participant.participant_code}
+                </span>
+            </td>
+
+            <td className="px-6 py-4 hidden lg:table-cell">
+                {committee ? (
+                    <span
+                        className="text-sm"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        <span className="font-semibold">{committee.code}</span>
+                        {" — "}
+                        {committee.name}
+                    </span>
+                ) : participant.committee_id ? (
+                    <span
+                        className="text-sm"
+                        style={{ color: "var(--text-muted)" }}
+                    >
+                        Comité no disponible
+                    </span>
+                ) : (
+                    <span
+                        className="text-sm"
+                        style={{ color: "var(--text-muted)" }}
+                    >
+                        —
+                    </span>
+                )}
+            </td>
+
+            <td className="px-6 py-4 hidden xl:table-cell">
+                <span
+                    className="text-xs font-semibold font-heading uppercase tracking-wide"
+                    style={{ color: "var(--text-secondary)" }}
+                >
+                    {participant.role}
+                </span>
+            </td>
+
+            <td className="px-6 py-4">
+                <AdminStatusBadge status={participant.account_status} />
+            </td>
+
+            <td className="px-6 py-4">
+                <div className="flex justify-end">
+                    <AdminActionsMenu
+                        items={items}
+                        label={`Acciones para ${fullName}`}
+                    />
+                </div>
+            </td>
+        </tr>
+    );
+};
 
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
@@ -166,30 +278,38 @@ export default function EventParticipantsPage() {
 
     const [eventName, setEventName] = useState(membershipEventName ?? "Evento");
     const [committees, setCommittees] = useState<AdminCommittee[]>([]);
+    const [committeesLoading, setCommitteesLoading] = useState(true);
     const [participants, setParticipants] = useState<AdminParticipant[]>([]);
     const [pagination, setPagination] =
         useState<AdminParticipantPagination | null>(null);
     const [page, setPage] = useState(1);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [filters, setFilters] = useState<ParticipantFilters>(EMPTY_FILTERS);
-    const [appliedFilters, setAppliedFilters] =
-        useState<ParticipantFilters>(EMPTY_FILTERS);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+
+    const [actionParticipant, setActionParticipant] =
+        useState<AdminParticipant | null>(null);
+    const [actionType, setActionType] = useState<ActionType | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
+    const [credentials, setCredentials] = useState<CredentialsState | null>(
+        null,
+    );
+    const [toast, setToast] = useState<ToastState | null>(null);
 
     const committeeById = useMemo(
         () => new Map(committees.map((committee) => [committee.id, committee])),
         [committees],
     );
 
-    const hasSelectedFilters = Boolean(
-        filters.committeeId || filters.role.trim() || filters.status,
-    );
-
-    const hasAppliedFilters = Boolean(
-        appliedFilters.committeeId ||
-            appliedFilters.role.trim() ||
-            appliedFilters.status,
+    const hasActiveFilters = Boolean(
+        search.trim() ||
+            filters.committeeId ||
+            filters.role.trim() ||
+            filters.status,
     );
 
     const committeeOptions = [
@@ -229,6 +349,8 @@ export default function EventParticipantsPage() {
 
         let cancelled = false;
 
+        setCommitteesLoading(true);
+
         listCommittees(token, eventId)
             .then((data) => {
                 if (!cancelled) {
@@ -237,12 +359,28 @@ export default function EventParticipantsPage() {
             })
             .catch(() => {
                 // Sin comités disponibles, la tabla muestra el respaldo.
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setCommitteesLoading(false);
+                }
             });
 
         return () => {
             cancelled = true;
         };
     }, [eventId, token]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 300);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [search]);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -256,11 +394,12 @@ export default function EventParticipantsPage() {
 
         listParticipants(token, {
             eventId,
+            q: debouncedSearch || undefined,
             page,
             limit: PAGE_SIZE,
-            committeeId: appliedFilters.committeeId || undefined,
-            role: appliedFilters.role || undefined,
-            status: appliedFilters.status || undefined,
+            committeeId: filters.committeeId || undefined,
+            role: filters.role || undefined,
+            status: filters.status || undefined,
         })
             .then((data) => {
                 if (!cancelled) {
@@ -272,7 +411,7 @@ export default function EventParticipantsPage() {
                 if (!cancelled) {
                     setError(
                         loadError instanceof ApiError
-                            ? loadError.message
+                            ? getActionErrorMessage(loadError)
                             : "No se pudieron cargar los participantes. Intenta de nuevo.",
                     );
                 }
@@ -286,29 +425,166 @@ export default function EventParticipantsPage() {
         return () => {
             cancelled = true;
         };
-    }, [appliedFilters, eventId, page, reloadKey, token]);
+    }, [
+        debouncedSearch,
+        eventId,
+        filters.committeeId,
+        filters.role,
+        filters.status,
+        page,
+        reloadKey,
+        token,
+    ]);
 
     const updateFilter = <K extends keyof ParticipantFilters>(
         field: K,
         value: ParticipantFilters[K],
     ) => {
         setFilters((previous) => ({ ...previous, [field]: value }));
-    };
-
-    const handleApplyFilters = (event: React.FormEvent) => {
-        event.preventDefault();
         setPage(1);
-        setAppliedFilters({ ...filters });
     };
 
     const handleClearFilters = () => {
+        setSearch("");
+        setDebouncedSearch("");
         setFilters(EMPTY_FILTERS);
-        setAppliedFilters(EMPTY_FILTERS);
         setPage(1);
+    };
+
+    const refreshParticipants = () => {
+        setReloadKey((value) => value + 1);
+    };
+
+    const openAction = (
+        participant: AdminParticipant,
+        action: ActionType,
+    ) => {
+        setActionParticipant(participant);
+        setActionType(action);
+        setActionError(null);
+    };
+
+    const closeActionDialog = () => {
+        if (actionLoading) {
+            return;
+        }
+
+        setActionParticipant(null);
+        setActionType(null);
+        setActionError(null);
+    };
+
+    const handleConfirmLifecycleAction = async (reason: string) => {
+        if (
+            !token ||
+            !actionParticipant ||
+            (actionType !== "suspend" && actionType !== "reactivate")
+        ) {
+            return;
+        }
+
+        setActionLoading(true);
+        setActionError(null);
+
+        try {
+            const response =
+                actionType === "suspend"
+                    ? await suspendParticipant(
+                          token,
+                          actionParticipant.id,
+                          reason,
+                      )
+                    : await reactivateParticipant(
+                          token,
+                          actionParticipant.id,
+                          reason,
+                      );
+
+            setToast({ type: "success", message: response.message });
+            setActionParticipant(null);
+            setActionType(null);
+            refreshParticipants();
+        } catch (actionFailure) {
+            setActionError(getActionErrorMessage(actionFailure));
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!token || !actionParticipant) {
+            return;
+        }
+
+        setActionLoading(true);
+        setActionError(null);
+
+        try {
+            const response = await resetParticipantPassword(
+                token,
+                actionParticipant.id,
+            );
+
+            setCredentials({
+                title: "Contraseña temporal generada",
+                description: `Comparte esta contraseña con ${getFullName(
+                    actionParticipant,
+                    "el participante",
+                )}.`,
+                fields: [
+                    {
+                        key: "password",
+                        label: "Contraseña temporal",
+                        value: response.temporary_password,
+                    },
+                ],
+            });
+            setToast({ type: "success", message: response.message });
+            setActionParticipant(null);
+            setActionType(null);
+            refreshParticipants();
+        } catch (actionFailure) {
+            setActionError(getActionErrorMessage(actionFailure));
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleChangeCommittee = async (
+        committeeId: string | null,
+        reason: string,
+    ) => {
+        if (!token || !actionParticipant) {
+            return;
+        }
+
+        setActionLoading(true);
+        setActionError(null);
+
+        try {
+            const response = await changeParticipantCommittee(
+                token,
+                actionParticipant.id,
+                committeeId,
+                reason || undefined,
+            );
+
+            setToast({ type: "success", message: response.message });
+            setActionParticipant(null);
+            setActionType(null);
+            refreshParticipants();
+        } catch (actionFailure) {
+            setActionError(getActionErrorMessage(actionFailure));
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const totalPages = Math.max(1, pagination?.total_pages ?? 1);
     const totalParticipants = pagination?.total ?? participants.length;
+    const actionParticipantName = actionParticipant
+        ? getFullName(actionParticipant, "el participante")
+        : "el participante";
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -322,18 +598,31 @@ export default function EventParticipantsPage() {
                     { label: "Participantes" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants/new`}>
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href={`/admin/events/${eventId}/participants/import`}
                         >
-                            Nuevo participante
-                        </AdminButton>
-                    </Link>
+                            <AdminButton
+                                variant="secondary"
+                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/file-import.svg"
+                            >
+                                Importar CSV
+                            </AdminButton>
+                        </Link>
+                        <Link
+                            href={`/admin/events/${eventId}/participants/new`}
+                        >
+                            <AdminButton
+                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            >
+                                Nuevo participante
+                            </AdminButton>
+                        </Link>
+                    </div>
                 }
             />
 
-            <form
-                onSubmit={handleApplyFilters}
+            <div
                 className="rounded-2xl p-4 sm:p-5 space-y-4"
                 style={{
                     backgroundColor: "var(--bg-surface)",
@@ -341,7 +630,16 @@ export default function EventParticipantsPage() {
                     boxShadow: "var(--shadow-sm)",
                 }}
             >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <AdminFormInput
+                    id="participant-search"
+                    label="Buscar participante"
+                    placeholder="Nombre, alias, código de login o #"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    hint="La búsqueda se aplica automáticamente."
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <AdminFormSelect
                         id="participant-filter-committee"
                         label="Comité"
@@ -350,12 +648,12 @@ export default function EventParticipantsPage() {
                             updateFilter("committeeId", event.target.value)
                         }
                         options={committeeOptions}
-                        disabled={committees.length === 0}
+                        disabled={committeesLoading || committees.length === 0}
                     />
                     <AdminFormInput
                         id="participant-filter-role"
                         label="Rol"
-                        placeholder="Ej: DELEGADO"
+                        placeholder="Ej: PARTICIPANT"
                         value={filters.role}
                         onChange={(event) =>
                             updateFilter(
@@ -378,8 +676,8 @@ export default function EventParticipantsPage() {
                     />
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-3">
-                    {(hasSelectedFilters || hasAppliedFilters) && (
+                {hasActiveFilters && (
+                    <div className="flex justify-end">
                         <AdminButton
                             type="button"
                             variant="secondary"
@@ -388,15 +686,9 @@ export default function EventParticipantsPage() {
                         >
                             Limpiar filtros
                         </AdminButton>
-                    )}
-                    <AdminButton
-                        type="submit"
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/filter.svg"
-                    >
-                        Filtrar
-                    </AdminButton>
-                </div>
-            </form>
+                    </div>
+                )}
+            </div>
 
             <div
                 className="rounded-2xl overflow-hidden"
@@ -416,7 +708,7 @@ export default function EventParticipantsPage() {
                         action={
                             <AdminButton
                                 variant="secondary"
-                                onClick={() => setReloadKey((value) => value + 1)}
+                                onClick={refreshParticipants}
                                 icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
                             >
                                 Reintentar
@@ -428,22 +720,22 @@ export default function EventParticipantsPage() {
                 {!loading && !error && participants.length === 0 && (
                     <AdminEmptyState
                         icon={
-                            hasAppliedFilters
+                            hasActiveFilters
                                 ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/search.svg"
                                 : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
                         }
                         title={
-                            hasAppliedFilters
+                            hasActiveFilters
                                 ? "Sin resultados"
                                 : "No hay participantes registrados"
                         }
                         description={
-                            hasAppliedFilters
-                                ? "No se encontraron participantes con los filtros seleccionados."
+                            hasActiveFilters
+                                ? "No se encontraron participantes con la búsqueda o los filtros seleccionados."
                                 : "Registra el primer participante para este evento."
                         }
                         action={
-                            hasAppliedFilters ? (
+                            hasActiveFilters ? (
                                 <AdminButton
                                     variant="secondary"
                                     onClick={handleClearFilters}
@@ -452,15 +744,27 @@ export default function EventParticipantsPage() {
                                     Limpiar filtros
                                 </AdminButton>
                             ) : (
-                                <Link
-                                    href={`/admin/events/${eventId}/participants/new`}
-                                >
-                                    <AdminButton
-                                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                    <Link
+                                        href={`/admin/events/${eventId}/participants/import`}
                                     >
-                                        Registrar participante
-                                    </AdminButton>
-                                </Link>
+                                        <AdminButton
+                                            variant="secondary"
+                                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/file-import.svg"
+                                        >
+                                            Importar CSV
+                                        </AdminButton>
+                                    </Link>
+                                    <Link
+                                        href={`/admin/events/${eventId}/participants/new`}
+                                    >
+                                        <AdminButton
+                                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                                        >
+                                            Registrar participante
+                                        </AdminButton>
+                                    </Link>
+                                </div>
                             )
                         }
                     />
@@ -477,8 +781,10 @@ export default function EventParticipantsPage() {
                                     }}
                                 >
                                     {[
-                                        "Código",
-                                        "Participante",
+                                        "Nombre completo",
+                                        "Alias",
+                                        "Código #",
+                                        "Código de login",
                                         "Comité",
                                         "Rol",
                                         "Estado",
@@ -488,13 +794,21 @@ export default function EventParticipantsPage() {
                                             key={column}
                                             className={[
                                                 "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
-                                                index === 2
-                                                    ? "hidden md:table-cell"
+                                                index === 1
+                                                    ? "hidden lg:table-cell"
                                                     : "",
                                                 index === 3
                                                     ? "hidden sm:table-cell"
                                                     : "",
-                                                index === 5 ? "text-right" : "",
+                                                index === 4
+                                                    ? "hidden lg:table-cell"
+                                                    : "",
+                                                index === 5
+                                                    ? "hidden xl:table-cell"
+                                                    : "",
+                                                index === 7
+                                                    ? "text-right"
+                                                    : "",
                                             ].join(" ")}
                                             style={{
                                                 color: "var(--text-muted)",
@@ -520,6 +834,8 @@ export default function EventParticipantsPage() {
                                                 : undefined
                                         }
                                         eventId={eventId}
+                                        committeesLoading={committeesLoading}
+                                        onAction={openAction}
                                     />
                                 ))}
                             </tbody>
@@ -575,6 +891,84 @@ export default function EventParticipantsPage() {
                     </div>
                 )}
             </div>
+
+            {actionType === "committee" && actionParticipant && (
+                <AdminChangeCommitteeDialog
+                    participantName={actionParticipantName}
+                    currentCommitteeId={actionParticipant.committee_id}
+                    committees={committees}
+                    loading={actionLoading}
+                    error={actionError}
+                    onCancel={closeActionDialog}
+                    onConfirm={handleChangeCommittee}
+                />
+            )}
+
+            {(actionType === "suspend" || actionType === "reactivate") &&
+                actionParticipant && (
+                    <AdminConfirmDialog
+                        key={actionType}
+                        title={
+                            actionType === "suspend"
+                                ? "Suspender cuenta"
+                                : "Reactivar cuenta"
+                        }
+                        description={
+                            actionType === "suspend"
+                                ? `La cuenta de ${actionParticipantName} dejará de operar hasta que se reactive. Indica el motivo.`
+                                : `La cuenta de ${actionParticipantName} volverá a estar activa. Indica el motivo.`
+                        }
+                        confirmLabel={
+                            actionType === "suspend"
+                                ? "Suspender cuenta"
+                                : "Reactivar cuenta"
+                        }
+                        variant={
+                            actionType === "suspend" ? "danger" : "primary"
+                        }
+                        requireReason
+                        reasonLabel={
+                            actionType === "suspend"
+                                ? "Motivo de la suspensión"
+                                : "Motivo de la reactivación"
+                        }
+                        loading={actionLoading}
+                        error={actionError}
+                        onCancel={closeActionDialog}
+                        onConfirm={handleConfirmLifecycleAction}
+                    />
+                )}
+
+            {actionType === "reset-password" && actionParticipant && (
+                <AdminConfirmDialog
+                    title="Restablecer contraseña"
+                    description={`Se generará una contraseña temporal para ${actionParticipantName}. La contraseña actual dejará de funcionar.`}
+                    confirmLabel="Restablecer contraseña"
+                    loading={actionLoading}
+                    error={actionError}
+                    onCancel={closeActionDialog}
+                    onConfirm={handleResetPassword}
+                />
+            )}
+
+            {credentials && (
+                <AdminCredentialsDialog
+                    title={credentials.title}
+                    description={credentials.description}
+                    fields={credentials.fields}
+                    warnings={credentials.warnings}
+                    note="Guarda esta información ahora. No se volverá a mostrar."
+                    onClose={() => setCredentials(null)}
+                />
+            )}
+
+            {toast && (
+                <AdminToast
+                    type={toast.type}
+                    message={toast.message}
+                    onDismiss={() => setToast(null)}
+                />
+            )}
         </div>
     );
 }

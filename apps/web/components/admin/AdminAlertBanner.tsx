@@ -1,45 +1,61 @@
 "use client";
 
-// Banner de feedback temporal para confirmar acciones exitosas en el panel admin.
-// Se muestra brevemente y luego desaparece, o el padre lo puede desmontar.
+// Banner de feedback para confirmar acciones y mostrar advertencias en el panel admin.
 
 type AdminAlertBannerProps = {
-    type: "success" | "error";
+    type: "success" | "error" | "warning";
     message: string;
     onDismiss?: () => void;
 };
+
+const PALETTES = {
+    success: {
+        color: "#16a34a",
+        backgroundColor: "color-mix(in srgb, #22c55e 10%, transparent)",
+        border: "1px solid color-mix(in srgb, #22c55e 25%, transparent)",
+        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-check.svg",
+        iconFilter:
+            "invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)",
+    },
+    error: {
+        color: "#ef4444",
+        backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)",
+        border: "1px solid color-mix(in srgb, #ef4444 25%, transparent)",
+        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-x.svg",
+        iconFilter:
+            "invert(30%) sepia(80%) saturate(600%) hue-rotate(330deg)",
+    },
+    warning: {
+        color: "#b45309",
+        backgroundColor: "color-mix(in srgb, #f59e0b 10%, transparent)",
+        border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg",
+        iconFilter:
+            "invert(55%) sepia(90%) saturate(800%) hue-rotate(345deg) brightness(85%)",
+    },
+} as const;
 
 export const AdminAlertBanner = ({
     type,
     message,
     onDismiss,
 }: AdminAlertBannerProps) => {
-    const isSuccess = type === "success";
+    const palette = PALETTES[type];
 
     return (
         <div
             className="flex items-start gap-3 rounded-xl px-4 py-3"
-            role="alert"
+            role={type === "error" ? "alert" : "status"}
             style={{
-                backgroundColor: isSuccess
-                    ? "color-mix(in srgb, #22c55e 10%, transparent)"
-                    : "color-mix(in srgb, #ef4444 10%, transparent)",
-                border: `1px solid ${isSuccess ? "color-mix(in srgb, #22c55e 25%, transparent)" : "color-mix(in srgb, #ef4444 25%, transparent)"}`,
-                color: isSuccess ? "#16a34a" : "#ef4444",
+                backgroundColor: palette.backgroundColor,
+                border: palette.border,
+                color: palette.color,
             }}
         >
             <img
-                src={
-                    isSuccess
-                        ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-check.svg"
-                        : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-x.svg"
-                }
+                src={palette.icon}
                 className="size-5 mt-0.5 shrink-0"
-                style={{
-                    filter: isSuccess
-                        ? "invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)"
-                        : "invert(30%) sepia(80%) saturate(600%) hue-rotate(330deg)",
-                }}
+                style={{ filter: palette.iconFilter }}
                 alt=""
             />
             <p className="text-sm font-medium flex-1">{message}</p>
@@ -52,11 +68,7 @@ export const AdminAlertBanner = ({
                     <img
                         src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/x.svg"
                         className="size-4"
-                        style={{
-                            filter: isSuccess
-                                ? "invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)"
-                                : "invert(30%) sepia(80%) saturate(600%) hue-rotate(330deg)",
-                        }}
+                        style={{ filter: palette.iconFilter }}
                         alt=""
                     />
                 </button>
