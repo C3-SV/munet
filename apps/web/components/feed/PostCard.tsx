@@ -27,7 +27,7 @@ export const PostCard = ({
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const authorLabel = `${post.user.name} | ${post.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
+    const authorLabel = `${post.user.name}${post.user.alias ? ` “${post.user.alias}”` : ""} | ${post.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
 
     const handleDeletePost = async () => {
         // Soft delete con confirmacion previa; backend decide permiso final.

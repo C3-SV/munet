@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore, isAdminRole } from "../../stores/auth.store";
 import { AdminSidebar } from "../../components/layout/AdminSidebar";
+import { BrandAttribution } from "../../components/layout/BrandAttribution";
 
 export default function AdminLayout({
     children,
@@ -50,10 +51,13 @@ export default function AdminLayout({
     return (
         <div className="min-h-screen" style={{ backgroundColor: "var(--bg-base)" }}>
             <AdminSidebar />
-            <div className="md:pl-64">
+            <div className="md:pl-64 min-h-screen flex flex-col">
                 <main className="px-4 pt-20 pb-10 sm:px-6 md:px-8 md:pt-10">
                     {children}
                 </main>
+                <footer className="mt-auto flex justify-center border-t px-4 py-4" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-surface)" }}>
+                    <BrandAttribution />
+                </footer>
             </div>
         </div>
     );

@@ -19,6 +19,7 @@ const ProfilePage = () => {
 
     const [profileData, setProfileData] = useState<MyProfile | null>(null);
     const [displayName, setDisplayName] = useState("");
+    const [alias, setAlias] = useState("");
     const [bio, setBio] = useState("");
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -52,6 +53,7 @@ const ProfilePage = () => {
                 if (!cancelled) {
                     setProfileData(profile);
                     setDisplayName(profile.profile.displayName);
+                    setAlias(profile.profile.alias ?? "");
                     setBio(profile.profile.bio ?? "");
                 }
             } catch (loadError) {
@@ -82,10 +84,13 @@ const ProfilePage = () => {
                 token,
                 eventId,
                 displayName,
+                // Alias vacío = sin alias (se envía null para borrarlo).
+                alias: alias.trim() ? alias.trim() : null,
                 bio,
             });
 
             setProfileData(updated);
+            setAlias(updated.profile.alias ?? "");
         } catch (saveError) {
             setError(saveError instanceof Error ? saveError.message : "No se pudo actualizar el perfil");
         } finally {
@@ -180,12 +185,28 @@ const ProfilePage = () => {
                             <h2 className="text-2xl font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                 {profileData.profile.displayName}
                             </h2>
+                            {(profileData.profile.alias ||
+                                `${profileData.profile.firstName} ${profileData.profile.lastName}`.trim() !==
+                                    profileData.profile.displayName) && (
+                                <p className="text-sm font-body mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                                    {`${profileData.profile.firstName} ${profileData.profile.lastName}`.trim()}
+                                    {profileData.profile.alias ? ` · alias “${profileData.profile.alias}”` : ""}
+                                </p>
+                            )}
                             <p className="text-[11px] font-extrabold font-heading uppercase tracking-widest mt-1" style={{ color: "var(--text-secondary)" }}>
                                 {profileData.delegationName ?? "Delegacion"}
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                     |
                                 </span>
                                 {profileData.committee?.name ?? "Sin comité"}
+                                {profileData.delegationCode && (
+                                    <>
+                                        <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
+                                            |
+                                        </span>
+                                        {profileData.delegationCode}
+                                    </>
+                                )}
                             </p>
                         </div>
                     </div>
@@ -277,6 +298,24 @@ const ProfilePage = () => {
                                     className="w-full p-3 rounded-xl font-body text-sm outline-none"
                                     style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                    Alias
+                                </label>
+                                <input
+                                    type="text"
+                                    value={alias}
+                                    maxLength={60}
+                                    placeholder="Opcional"
+                                    onChange={(e) => setAlias(e.target.value)}
+                                    className="w-full p-3 rounded-xl font-body text-sm outline-none"
+                                    style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                                />
+                                <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                    Se muestra junto a tu nombre. Máximo 60 caracteres.
+                                </p>
                             </div>
 
                             <div className="space-y-2">

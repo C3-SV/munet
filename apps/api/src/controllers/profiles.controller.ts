@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
+import { findProtectedFields, parseAlias } from '../utils/profile.utils';
 import { isAdminRole } from '../utils/rbac.utils';
 
 type MembershipProfileRow = {
@@ -12,12 +13,14 @@ type MembershipProfileRow = {
   institution_name: string | null;
   account_status: string;
   participant_code: string;
+  delegation_code: string | null;
   profiles:
     | {
         id: string;
         first_name: string;
         last_name: string;
         display_name: string | null;
+        alias: string | null;
         bio: string | null;
         profile_image_path: string | null;
       }
@@ -26,6 +29,7 @@ type MembershipProfileRow = {
         first_name: string;
         last_name: string;
         display_name: string | null;
+        alias: string | null;
         bio: string | null;
         profile_image_path: string | null;
       }[]
@@ -127,11 +131,13 @@ const loadMembershipProfile = async (membershipId: string, eventId: string) => {
         institution_name,
         account_status,
         participant_code,
+        delegation_code,
         profiles (
           id,
           first_name,
           last_name,
           display_name,
+          alias,
           bio,
           profile_image_path
         ),
@@ -178,6 +184,7 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
     role: row.role,
     accountStatus: row.account_status,
     participantCode: row.participant_code,
+    delegationCode: row.delegation_code ?? null,
     delegationName: row.delegation_name,
     institutionName: row.institution_name,
     committee: visibleCommittee
@@ -192,6 +199,7 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
       firstName,
       lastName,
       displayName,
+      alias: profile?.alias?.trim() || null,
       bio: profile?.bio ?? '',
       avatar:
         profile?.profile_image_path ??
@@ -419,6 +427,14 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'x-event-id es requerido' });
     }
 
+    const protectedFields = findProtectedFields(req.body);
+
+    if (protectedFields.length > 0) {
+      return res.status(400).json({
+        error: `No puedes modificar estos campos: ${protectedFields.join(', ')}`,
+      });
+    }
+
     const { display_name, bio, profile_image_path } = req.body as {
       display_name?: string;
       bio?: string;
@@ -437,11 +453,25 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No hay registro de perfil para editar' });
     }
 
+    // El alias es opcional: si no viene en el cuerpo se conserva; null o vacío lo borra.
+    let aliasToSave = profile.alias;
+
+    if (hasOwn(req.body as Record<string, unknown>, 'alias')) {
+      const parsedAlias = parseAlias((req.body as Record<string, unknown>).alias);
+
+      if ('error' in parsedAlias) {
+        return res.status(400).json({ error: parsedAlias.error });
+      }
+
+      aliasToSave = parsedAlias.value;
+    }
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
         // Solo sobrescribimos campos enviados; lo demás conserva valor previo.
         display_name: display_name ?? profile.display_name,
+        alias: aliasToSave,
         bio: bio ?? profile.bio,
         profile_image_path: profile_image_path ?? profile.profile_image_path,
         updated_at: new Date().toISOString(),
@@ -566,12 +596,26 @@ export const updatePublicProfileAsAdmin = async (req: Request, res: Response) =>
       }
     }
 
+    // El admin puede corregir el alias de un participante (por ejemplo si es inapropiado).
+    let aliasToSave = profile.alias;
+
+    if (hasOwn(payload, 'alias')) {
+      const parsedAlias = parseAlias(payload.alias);
+
+      if ('error' in parsedAlias) {
+        return res.status(400).json({ error: parsedAlias.error });
+      }
+
+      aliasToSave = parsedAlias.value;
+    }
+
     const profileUpdate = {
       first_name: firstNameCandidate,
       last_name: lastNameCandidate,
       display_name: hasOwn(payload, 'display_name')
         ? normalizeNullableText(payload.display_name)
         : profile.display_name,
+      alias: aliasToSave,
       bio: hasOwn(payload, 'bio') ? normalizeNullableText(payload.bio) : profile.bio,
       updated_at: new Date().toISOString(),
       updated_by_membership_id: adminContext.membership.id,
@@ -775,6 +819,7 @@ export const getPublicProfile = async (req: Request, res: Response) => {
         eventId: profile.eventId,
         role: profile.role,
         delegationName: profile.delegationName,
+        delegationCode: profile.delegationCode,
         institutionName: profile.institutionName,
         committee: profile.committee,
         profile: profile.profile,

@@ -27,7 +27,6 @@ Basadas en `apps/api/.env.example` y usos del código:
 | `SUPABASE_PROFILE_IMAGES_BUCKET` | Bucket de avatares; el código tiene valor predeterminado |
 | `PORT` | Puerto HTTP, predeterminado 3002 |
 | `WEB_APP_URL` | Origen permitido por CORS |
-| `DM_DELETED_MESSAGE_STATUS` | Enum usado al borrar mensajes |
 
 `ALLOW_DEMO_POSTS` y `DEFAULT_POST_AUTHOR_MEMBERSHIP_ID` aparecen en el ejemplo, pero no tienen uso encontrado en el código actual: son configuración obsoleta.
 

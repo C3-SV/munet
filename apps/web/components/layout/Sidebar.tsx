@@ -14,7 +14,6 @@ type NavItem = {
     href: string;
     icon: string;
     current: boolean;
-    canAccess: boolean;
 };
 
 // Item base de navegacion lateral (muro general/avisos).
@@ -25,7 +24,6 @@ const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
         style={{
             backgroundColor: item.current ? "var(--sidebar-active-bg)" : "transparent",
             color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
-            opacity: item.canAccess ? 1 : 0.55,
         }}
     >
         <img
@@ -38,26 +36,16 @@ const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
             alt=""
         />
         <span className="flex-1">{item.name}</span>
-        {!item.canAccess && (
-            <img
-                src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/lock.svg"
-                className="size-4"
-                style={{ opacity: 0.7, filter: isDark ? "invert(1)" : "none" }}
-                alt="Sin acceso"
-            />
-        )}
     </Link>
 );
 
-// Render de cada muro de comite, incluyendo estado visual de acceso restringido.
+// Render de cada muro de comite al que el usuario tiene acceso.
 const CommitteeItem = ({
     wall,
     pathname,
-    isDark,
 }: {
     wall: EventWall;
     pathname: string | null;
-    isDark: boolean;
 }) => {
     const isSelected = pathname === `/feed/${wall.slug}`;
 
@@ -69,18 +57,9 @@ const CommitteeItem = ({
                 style={{
                     color: isSelected ? "var(--sidebar-active-text)" : "var(--text-secondary)",
                     backgroundColor: isSelected ? "var(--sidebar-active-bg)" : "transparent",
-                    opacity: wall.canAccess ? 1 : 0.55,
                 }}
             >
                 <span className="flex-1 truncate">{wall.committeeName ?? wall.name}</span>
-                {!wall.canAccess && (
-                    <img
-                        src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/lock.svg"
-                        className="size-3.5"
-                        style={{ opacity: 0.8, filter: isDark ? "invert(1)" : "none" }}
-                        alt="Sin acceso"
-                    />
-                )}
             </Link>
         </li>
     );
@@ -131,7 +110,8 @@ export const Sidebar = () => {
                 });
 
                 if (!cancelled) {
-                    setWalls(response.walls);
+                    // Solo se muestran los muros a los que el usuario tiene acceso.
+                    setWalls(response.walls.filter((wall) => wall.canAccess));
                 }
             } catch {
                 if (!cancelled) {
@@ -198,7 +178,6 @@ export const Sidebar = () => {
                       icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/world.svg",
                       current:
                           pathname === `/feed/${generalWall.slug}` || pathname === "/feed",
-                      canAccess: generalWall.canAccess,
                   },
               ]
             : []),
@@ -209,7 +188,6 @@ export const Sidebar = () => {
                       href: `/feed/${announcementsWall.slug}`,
                       icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/bell.svg",
                       current: pathname === `/feed/${announcementsWall.slug}`,
-                      canAccess: announcementsWall.canAccess,
                   },
               ]
             : []),
@@ -377,7 +355,6 @@ export const Sidebar = () => {
                                             key={wall.id}
                                             wall={wall}
                                             pathname={pathname}
-                                            isDark={isDark}
                                         />
                                     ))}
                                     {committeeWalls.length === 0 && (

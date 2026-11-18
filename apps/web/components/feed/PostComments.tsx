@@ -227,7 +227,7 @@ export const PostComments = ({
             ) : comments.length > 0 ? (
                 <div className="space-y-3">
                     {comments.map((comment) => {
-                        const authorLabel = `${comment.user.name} | ${comment.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
+                        const authorLabel = `${comment.user.name}${comment.user.alias ? ` “${comment.user.alias}”` : ""} | ${comment.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
 
                         return (
                             <div

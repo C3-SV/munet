@@ -51,6 +51,7 @@ export type PostRow = {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }[]
           | null;
@@ -76,6 +77,7 @@ export type PostRow = {
               first_name: string;
               last_name: string;
               display_name: string | null;
+              alias: string | null;
               profile_image_path: string | null;
             }[]
           | null;
@@ -123,6 +125,7 @@ export const POST_SELECT = `
       first_name,
       last_name,
       display_name,
+      alias,
       profile_image_path
     )
   ),

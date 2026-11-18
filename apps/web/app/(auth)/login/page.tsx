@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
+import { BrandAttribution } from "../../../components/layout/BrandAttribution";
 
 const Login = () => {
     const router = useRouter();
@@ -571,6 +572,9 @@ const Login = () => {
                     </div>
                 </div>
             )}
+            <div className="mt-8 flex justify-center">
+                <BrandAttribution />
+            </div>
         </div>
     );
 };

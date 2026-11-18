@@ -21,7 +21,9 @@ El panel administrativo y otros elementos cargan SVG de Tabler Icons desde `cdn.
 
 ## Integraciones ausentes
 
-No hay evidencia de correo transaccional, SMS/push, almacenamiento de adjuntos de publicaciones, analítica, monitoreo, importación CSV o servicios de moderación automática.
+No hay evidencia de correo transaccional, SMS/push, almacenamiento de adjuntos de publicaciones, analítica, monitoreo o servicios de moderación automática.
+
+El CSV se procesa en la API sin un servicio de terceros. Consulta [el contrato CSV](../03-referencia/api.md#contrato-csv).
 
 ## Reglas de integración
 

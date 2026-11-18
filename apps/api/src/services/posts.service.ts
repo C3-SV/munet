@@ -936,6 +936,8 @@ export const deletePostService = async (params: {
     .update({
       status: 'DELETED',
       deleted_by_membership_id: deletedByActorType,
+      // Quién borró (uuid); deleted_by_membership_id solo guarda el tipo de actor (AUTHOR/ADMIN).
+      deleted_by_membership_uuid: params.membership.id,
       deleted_at: new Date().toISOString(),
       updated_by_membership_id: params.membership.id,
     })

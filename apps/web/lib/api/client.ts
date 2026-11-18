@@ -1,3 +1,4 @@
+import { useAuthStore } from "../../stores/auth.store";
 import { API_URL, buildApiUrl } from "./base-url";
 
 export class ApiError extends Error {
@@ -37,6 +38,15 @@ export const requestApi = async <T>(
     });
 
     const payload = await response.json().catch(() => ({}));
+
+    // Sesión inválida o expirada: limpia la sesión local y vuelve al login en lugar de dejar la pantalla pegada.
+    if (response.status === 401 && typeof window !== "undefined") {
+        useAuthStore.getState().logout();
+
+        if (window.location.pathname !== "/login") {
+            window.location.replace("/login");
+        }
+    }
 
     // Homologa errores backend para manejo centralizado en UI.
     if (!response.ok) {

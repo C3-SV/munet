@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
+import { BrandAttribution } from "../../components/layout/BrandAttribution";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -67,10 +68,10 @@ const SelectEventPage = () => {
 
     return (
         <div
-            className="min-h-screen px-4 sm:px-6 py-10"
+            className="min-h-screen flex flex-col px-4 sm:px-6 py-10"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto w-full flex-1">
                 <header className="mb-8">
                     <h1
                         className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight"
@@ -156,6 +157,9 @@ const SelectEventPage = () => {
                         Como administrador debes seleccionar explicitamente el evento al iniciar sesion.
                     </p>
                 )}
+            </div>
+            <div className="mt-10 flex justify-center">
+                <BrandAttribution />
             </div>
         </div>
     );

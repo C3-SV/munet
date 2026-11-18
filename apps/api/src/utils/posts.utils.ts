@@ -41,6 +41,7 @@ export const getProfileName = (
         first_name: string;
         last_name: string;
         display_name: string | null;
+        alias?: string | null;
       }
     | null
 ) => {
@@ -87,6 +88,7 @@ export const mapPost = (post: PostRow) => {
     user: {
       id: membership?.id ?? 'unknown',
       name: getProfileName(profile),
+      alias: profile?.alias?.trim() || null,
       committeeName: authorCommittee,
       avatar:
         profile?.profile_image_path ??

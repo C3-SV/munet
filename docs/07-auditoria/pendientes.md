@@ -1,24 +1,30 @@
 # Pendientes y decisiones abiertas
 
-Los ítems requieren decisión, evidencia externa o implementación futura. No son cambios ejecutados por esta auditoría.
+Orden propuesto para el siguiente incremento funcional de MUNET. Las decisiones de negocio siguen abiertas donde se indican.
 
-## Prioridad crítica
+| Prioridad | Trabajo | Resultado verificable |
+|---|---|---|
+| 1 | Preparar una base aislada reproducible y completar el alta de evento. Alinear el rol automático con el enum vigente y garantizar los muros general y anuncios junto con el acceso del creador. | Un organizador crea un evento, vuelve a seleccionarlo y ve los muros. Un segundo evento sirve para comprobar límites de acceso. |
+| 2 | Completar el alta, activación y mantenimiento de cuentas. Resolver la unicidad o desambiguación del código de ingreso entre eventos, alinear los roles de los formularios y manejar la reactivación de una cuenta que nunca se activó. | El organizador entrega credenciales. El delegado activa, inicia sesión y recupera acceso con ayuda de administración. Las colisiones tienen una resolución clara. |
+| 3 | Verificar y completar código de delegación, CSV y asignaciones. Comprobar migraciones 001/002 en pruebas, habilitar una recuperación de códigos faltantes y conectar plantilla, previsualización, confirmación y resultados al panel. Definir si se necesita asignación masiva. | Un lote con filas válidas y fallidas devuelve resultados y credenciales de las altas. Cada delegado ve su código y su comité. |
+| 4 | Completar el ciclo del evento. Definir borrador, cierre, archivo y reapertura. Aplicar la regla de solo lectura de manera uniforme y decidir si el borrado de comités se ofrece en el panel. | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
+| 5 | Validar el recorrido de un evento de ensayo. Probar delegados en comités distintos, anuncios, votos, comentarios, perfiles, chat y actualización entre sesiones. | El equipo ejecuta el [recorrido de validación](../04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) con datos ficticios y registra resultados. |
+| 6 | Definir el mínimo de moderación para MUN ESEN. Completar la pantalla y acordar responsabilidades de mesa, motivos y acciones sobre contenido y cuentas. | El equipo identifica y resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
 
-### P-01 — Modelo de autorización administrativa (resuelto 2026-10-29)
+## Decisiones de producto
 
-Se decidió separar la capacidad de crear un evento (global) de administrar uno existente (acotado al evento); no se introdujo un rol de superadministrador explícito. Ver [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Sigue abierto si el negocio quiere en el futuro un rol de superadministrador global separado; eso sería una decisión y un ADR nuevos, no una reapertura de este punto.
+- Definir recuperación autónoma y verificación de identidad, así como efectos de suspensión sobre sesiones y Realtime.
+- Acordar la necesidad de reportes, notificaciones, adjuntos, fijado, reapertura de encuestas y exportación masiva.
+- Acordar si se requieren supervisión de DM, bloqueo, expulsión y consulta de auditoría. Definir permisos, motivo, retención y privacidad antes de implementarlos.
+### P-01 Modelo de autorización administrativa
 
-### P-02 — Esquema y seguridad de datos
+La administración por evento se decidió el 29 de octubre de 2026 en [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Un rol transversal, si se pide, requerirá una decisión nueva.
 
-Versionar DDL, migraciones, enums, índices, constraints, triggers, RLS y Storage. Confirmar aislamiento con pruebas negativas.
+## Trabajo técnico y operativo posterior
 
-### P-03 — Datos sensibles en logs
+Completitud del DDL, políticas RLS y Storage, transacciones e idempotencia, auditoría y logging, paginación, contratos compartidos, cobertura de CI, accesibilidad, rendimiento, observabilidad, respaldos y preparación de producción. Los objetivos históricos se conservan en [requerimientos](../01-producto/requerimientos.md).
 
-Los logs de autenticación del frontend fueron retirados. Falta definir una política de logging y revisar los registros del backend.
-
-### P-04 — Auditoría confiable
-
-Decidir si acciones críticas deben fallar cuando no puede registrarse la auditoría; definir consulta, retención y acceso.
+## Defectos detectados en la prueba manual del Sprint 2 (2026-11-17)
 
 ### P-05 — `POST /admin/events` falla al crear la membresía admin del creador (para Christian)
 
@@ -36,49 +42,3 @@ Detectado el 2026-11-17 en la prueba manual del alta individual (Sprint 2). Es u
 - Causa probable (no confirmada): la migración `supabase/migrations/002_codigo_delegacion.sql` sigue sin aplicarse, así que la función y la tabla `event_delegation_counters` no existen. El error exacto está en el log de la API: `No se pudo asignar el codigo de delegacion <membershipId> <error>`.
 - Acción: revisar y aplicar la 002 siguiendo los pasos de su cabecera (PR, aviso a Rober, nadie importando en ese momento, verificación final). Su backfill asignará código a las cuentas ya creadas sin él, incluidas las de pruebas manuales.
 - Impacto: mientras tanto, todo participante nuevo queda con "Sin código" y la columna Código # de la tabla aparece vacía.
-
-## Producto y reglas
-
-- ¿Quién puede supervisar DM y bajo qué causa/consentimiento?
-- ¿Se puede reabrir una encuesta cerrada?
-- ¿Cómo se deduplican reportes y qué estados tienen?
-- ¿Cómo se recupera una cuenta o contraseña?
-- ¿Qué implica suspender una cuenta en sesiones, contenido y chat?
-- ¿Puede desactivarse un evento y cómo difiere de `CLOSED`?
-- ¿Cuál es el alcance final del panel administrativo?
-- ¿Reportes y notificaciones siguen aprobados o solo postergados?
-- ¿“código de participante” identifica login globalmente o requiere evento?
-- Resolver contradicciones históricas sobre adjuntos y notificaciones.
-
-## Panel administrativo
-
-El roadmap reciente se conserva como **propuesta**, no como compromiso completado:
-
-| Tramo | Intención registrada | Estado observado |
-|---|---|---|
-| Sprint 0 | Base visual admin y protección de endpoints | Implementado parcialmente |
-| Sprint 1 | UI/backend de eventos y comités; muro automático | Parcial; listado/configuración de eventos y listado/alta/edición de comités; automatismo de muro no demostrado |
-| Sprint 2 | Participantes, CSV y restablecimiento | Implementado en backend y frontend; verificación E2E y de accesibilidad pendiente |
-| Sprint 3 | Asignaciones, suspensión, moderadores y archivos | No implementado |
-| Sprint 4 | Moderación, fijado, supervisión y bloqueo de conversación | No implementado |
-| Cierre | Pruebas, auditoría con UUID, retirar logs, alinear DB y rate limits | No implementado o no demostrado |
-
-Participantes ya cuenta con listado con búsqueda, alta, importación CSV, alias, código #, cambio de comité, edición, suspensión/reactivación y restablecimiento anidados por evento. Asignaciones y moderación siguen como marcadores; la validación de accesibilidad y de extremo a extremo queda pendiente.
-
-## Calidad técnica
-
-- Incorporar API a build/lint/typecheck/test.
-- Contratos compartidos u OpenAPI y validación de schemas.
-- Transacciones e idempotencia en altas compuestas.
-- Paginación de feeds, participantes, conversaciones y mensajes.
-- Rate limiting, request ID, métricas y alertas.
-- Pruebas unitarias, integración, autorización y E2E.
-- Alinear nombres/enum de borrado y unicidad de conversaciones/votos.
-
-## Operaciones y cumplimiento
-
-- Ambientes, dominios y responsables de despliegue.
-- CI/CD, rollback y health checks.
-- Backups, RTO/RPO, retención y borrado de datos.
-- Política de privacidad y tratamiento de perfiles/mensajes.
-- Navegadores, rendimiento (las cifras históricas 250/300 y 500/800 son contradictorias) y accesibilidad.
