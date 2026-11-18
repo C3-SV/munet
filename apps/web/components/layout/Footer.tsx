@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useTheme } from "../../lib/theme-context";
+import { BrandAttribution } from "./BrandAttribution";
 
 export const Footer = () => {
     const { theme } = useTheme();
@@ -35,28 +36,31 @@ export const Footer = () => {
                         (c) {new Date().getFullYear()} MUN ESEN. Plataforma oficial.
                     </span>
                 </div>
-                <div
-                    className="flex items-center gap-6 text-xs font-body font-semibold"
-                    style={{ color: "var(--text-muted)" }}
-                >
-                    <Link
-                        href="#"
-                        className="transition-colors"
+                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+                    <BrandAttribution />
+                    <div
+                        className="flex items-center gap-6 text-xs font-body font-semibold"
                         style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
                     >
-                        Soporte técnico
-                    </Link>
-                    <Link
-                        href="#"
-                        className="transition-colors"
-                        style={{ color: "var(--text-muted)" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
-                    >
-                        Términos de uso
-                    </Link>
+                        <Link
+                            href="#"
+                            className="transition-colors"
+                            style={{ color: "var(--text-muted)" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
+                        >
+                            Soporte técnico
+                        </Link>
+                        <Link
+                            href="#"
+                            className="transition-colors"
+                            style={{ color: "var(--text-muted)" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
+                        >
+                            Términos de uso
+                        </Link>
+                    </div>
                 </div>
             </div>
         </footer>

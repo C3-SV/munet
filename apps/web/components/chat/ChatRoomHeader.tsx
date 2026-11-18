@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
+import { BrandAttribution } from "../layout/BrandAttribution";
 
 interface ChatRoomHeaderProps {
     delegate: Delegate;
@@ -92,6 +93,7 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
                     </div>
                 </div>
             </div>
+            <BrandAttribution compact className="shrink-0 gap-1.5" />
         </div>
     );
 };
