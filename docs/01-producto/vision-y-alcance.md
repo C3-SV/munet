@@ -4,7 +4,7 @@
 
 MUNET busca centralizar la operación digital de un Modelo de Naciones Unidas: acceso de participantes, pertenencia a eventos y comités, comunicación pública por muros, perfiles, mensajería directa y tareas administrativas.
 
-El código actual implementa una parte de esa visión. La experiencia participante es la más desarrollada; el panel administrativo tiene navegación, formularios conectados para crear eventos y comités, y varias secciones todavía sin ruta o sin contrato backend.
+El sitio participante ofrece comunicación y acceso por evento. El panel incorpora gestión de eventos, comités y cuentas individuales. Consulta el [manual funcional](manual-funcional.md) para los recorridos disponibles.
 
 ## Actores
 
@@ -21,15 +21,15 @@ El código actual implementa una parte de esa visión. La experiencia participan
 - Comentarios de un nivel, voto y cierre de encuestas, eliminación lógica de contenido.
 - Perfil propio y público; carga de avatar.
 - Mensajería directa individual dentro del evento.
-- Altas administrativas mediante API; interfaz inicial para crear eventos y comités.
+- Listado y configuración de eventos, alta y edición de comités, alta y mantenimiento individual de participantes y cambio de comité. CSV disponible en API.
 
 La [matriz de trazabilidad](../07-auditoria/matriz-de-trazabilidad.md) detalla cuánto de cada requisito está implementado.
 
 ## No demostrado como operativo
 
-- Administración completa de eventos, participantes y asignaciones.
+- Alta utilizable de un evento nuevo con sus muros, cierre integral, importación desde el panel y asignaciones masivas.
 - Reportes de contenido, sanciones, bloqueo de conversaciones y supervisión de mensajes.
-- Centro de notificaciones, exportación CSV, recuperación de contraseña y auditoría consultable.
+- Centro de notificaciones, exportación CSV, recuperación autónoma de contraseña y auditoría consultable.
 - Políticas RLS, restricciones e integridad de la base desplegada.
 - Despliegue y comportamiento en producción.
 

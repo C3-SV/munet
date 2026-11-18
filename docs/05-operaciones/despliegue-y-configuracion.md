@@ -9,8 +9,8 @@ El contexto recién incorporado reporta frontend en Vercel, colaboración MUN ES
 ## Componentes a desplegar
 
 - `apps/web`: aplicación Next.js; necesita URL de API y variables públicas de Supabase.
-- `apps/api`: servidor Node/Express; necesita claves de Supabase, origen web y configuración de DM/Storage.
-- Supabase: Auth, Postgres, Realtime y Storage; su definición no está versionada.
+- `apps/api`: servidor Node/Express que necesita claves de Supabase, origen web y configuración de Storage.
+- Supabase: Auth, Postgres, Realtime y Storage. Hay un snapshot y migraciones incrementales. Falta una base reproducible y verificar la configuración del entorno.
 - `apps/docs`: plantilla sin documentación oficial; no debe confundirse con un portal operativo.
 
 ## Configuración sensible
@@ -29,7 +29,7 @@ Los nombres están en [configuración local](../04-desarrollo/configuracion-loca
 ## Pendientes operativos
 
 - Definir CI/CD y responsables de promoción.
-- Versionar esquema, migraciones y políticas.
+- Completar el versionado del esquema base, las políticas y la configuración del entorno.
 - Definir health check, logs, métricas, alertas y retención.
 - Acordar backup, RTO/RPO y recuperación.
 - Documentar dominios, regiones y ambientes sin exponer secretos.

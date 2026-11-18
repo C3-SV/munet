@@ -1,49 +1,36 @@
 # Pruebas y validación
 
-## Estado del repositorio
+## Comandos locales
 
-Solo se encontraron dos pruebas independientes:
-
-- `apps/api/src/lib/cors.test.mjs`
-- `apps/web/lib/api/base-url.test.mjs`
-
-Pueden ejecutarse con:
-
-```bash
-node --test apps/api/src/lib/cors.test.mjs apps/web/lib/api/base-url.test.mjs
-```
-
-La API tiene los scripts `check-types`, `build` (solo comprueba tipos) y `test` (`npm test -w api`, que corre todas las pruebas `*.test.mjs` y `*.test.cjs` de `apps/api/src` desde la raíz del repo, porque algunas usan rutas relativas a ella). El root y `apps/web` siguen sin script `test`.
-
-## Scripts disponibles
-
-| Comando | Alcance real |
+| Comando | Alcance |
 |---|---|
-| `npm run build` | Workspaces que definen `build`; web/docs, no API |
-| `npm run lint` | Workspaces que definen `lint`; web/docs/configs, no API |
-| `npm run check-types` | Workspaces que definen `check-types`; web/docs, no API |
-| `npm run format` | Escribe archivos; no usar como comprobación de solo lectura |
+| `npm test -w api` | Suites Node de `apps/api/src`, ejecutadas desde la raíz por el script del workspace. Incluyen utilidades y pruebas con sustitutos de Supabase y bcrypt. |
+| `npm run check-types -w api` | TypeScript de la API sin emitir archivos. `npm run build -w api` hace la misma comprobación. |
+| `node --test apps/web/lib/api/base-url.test.mjs` | Normalización y composición de URL base de la API en web. |
+| `npm run build` y `npm run check-types` | Turbo ejecuta los scripts disponibles en workspaces, incluida la API. |
+| `npm run lint` | Turbo ejecuta los scripts disponibles. La API carece de lint propio. |
 
-No presentes un `turbo run` exitoso como validación de la API mientras `apps/api/package.json` carezca de esos scripts.
+El root y la web carecen de script `test`. `npm run format` escribe archivos.
 
-## Verificación mínima por tipo de cambio
+## Evidencia del 18 de noviembre de 2026
 
-- Documentación: enlaces relativos, `git diff --check`, búsqueda de secretos y revisión de diff.
-- Frontend: lint, typecheck, build y recorrido manual de estados relevantes.
-- API: compilación TypeScript explícita, pruebas unitarias/integración y casos negativos de autorización.
-- Datos: validar migración y RLS en entorno aislado; nunca producción por defecto.
+Sobre [el commit de referencia](../README.md), con Node 22.20.0 y las dependencias fijadas instaladas sin scripts:
 
-## Casos críticos faltantes
+- `npm test -w api` terminó con 110 pruebas correctas, cero fallos. Incluye autorización administrativa, catálogos, altas, búsqueda, CSV, cambio de comité, perfiles y permisos de muros.
+- `npm run check-types -w api` terminó con código 0.
+- `node --test apps/web/lib/api/base-url.test.mjs` terminó con dos pruebas correctas, cero fallos.
 
-- Autorización cruzada entre eventos.
-- Roles administrativos y cuentas inactivas.
-- Activación/login sin fuga de secretos.
-- Restricciones de muros y anuncios.
-- Voto concurrente y creación transaccional de encuestas.
-- Duplicación concurrente de conversaciones.
-- Borrado y auditoría.
-- Flujos admin de eventos/comités y sus estados de error, vacío y permiso.
+Las pruebas usan sustitutos o funciones aisladas. No hubo ejecución de migraciones, builds web ni recorridos con Auth, Storage, Realtime o una base real.
 
-## Evidencia de entrega
+## Recorrido en un entorno aislado
 
-Registra comandos exactos, código de salida y limitaciones. Un test no ejecutado debe declararse como tal; no se infiere éxito por inspección.
+Usar datos ficticios, dos eventos, dos comités y perfiles administrativos y de delegado.
+
+1. Crear un evento, confirmar acceso del creador y comprobar general y anuncios. Guardar fechas válidas e inválidas, editar el evento y comprobar qué acciones se permiten al cerrarlo.
+2. Crear un comité y comprobar su muro. Editar su nombre y verificar el cambio en el muro. Verificar que administración de otro evento y participantes no puedan administrar sus registros.
+3. Dar de alta una cuenta y probar la previsualización CSV sin escritura, lotes con resultados parciales y duplicados. Comprobar la asignación y estabilidad del código `#`.
+4. Activar con contraseña inicial, entrar y seleccionar evento. Probar un código repetido entre eventos, restablecimiento antes y después de activar, y suspensión/reactivación de una cuenta pendiente.
+5. Cambiar de comité desde la ficha y volver a cargar la sesión del delegado. Confirmar pérdida de acceso al muro anterior y acceso al nuevo. Probar además un comité archivado y un comité de otro evento.
+6. Probar alias/avatar, anuncios, publicaciones, comentarios, voto y cierre, chat 1:1 y borrado lógico. Observar actualización entre dos sesiones y el efecto de suspender una membresía con sesión abierta.
+
+Registrar comando o pasos, datos de prueba, resultado y limitaciones. Para cambios documentales, verificar enlaces y referencias, ejecutar `git diff --check` y revisar `git status --short`.

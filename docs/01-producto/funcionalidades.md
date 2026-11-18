@@ -1,50 +1,22 @@
 # Funcionalidades y estado
 
-La clasificación refleja el código local revisado el 2026-10-23. “Implementado” no significa verificado en producción.
+Base de la clasificación: [revisión de main](../README.md). Para operar la plataforma, consulta el [manual funcional](manual-funcional.md).
 
-| Área | Problema que resuelve | Implementación actual | Estado |
-|---|---|---|---|
-| Activación y acceso | Incorporar cuentas precreadas y abrir sesión | API de búsqueda por código, activación, login y contexto; interfaz de login | Parcialmente implementado |
-| Multi-evento | Separar participaciones y elegir contexto | Membresías activas en sesión y selector de evento | Parcialmente implementado |
-| Eventos | Crear y administrar eventos | POST/PATCH administrativos; interfaces de listado, creación y configuración; crea en estado `ACTIVE` | Parcialmente implementado y divergente |
-| Comités | Organizar participantes y muros temáticos | Listado y alta administrativa; interfaces de listado, creación y edición | Parcialmente implementado |
-| Muros | Comunicación general, anuncios y comités | Lectura de muros y feed; acceso calculado por tipo y membresía | Parcialmente implementado |
-| Publicaciones | Publicar texto y encuestas | Alta, listado y eliminación; encuestas de 2–10 opciones | Parcialmente implementado |
-| Comentarios | Conversación bajo publicaciones | Alta, listado y eliminación; una profundidad | Parcialmente implementado |
-| Encuestas | Votar y cerrar consultas | Voto reemplazable y cierre por autor | Parcialmente implementado |
-| Perfiles | Identidad pública en el evento | Consulta/edición propia y administrativa; avatar público | Parcialmente implementado |
-| Mensajes directos | Comunicación uno a uno | Conversaciones, participantes, mensajes y borrado lógico | Parcialmente implementado |
-| Panel administrativo | Punto de entrada operacional | Layout responsive, dashboard y flujos de eventos/comités | Base parcial |
-| Cuentas y membresías administrativas | Altas, consulta, edición, suspensión/reactivación y restablecimiento de contraseña | Endpoints completos (`/admin/participants`, `/admin/create-account`); interfaz administrativa de listado, alta, edición y ciclo de vida por evento; CSV pendiente | Parcialmente implementado |
-| Moderación | Retirar contenido y sancionar | Administradores pueden eliminar posts/comentarios y editar perfiles; sin reportes/sanciones | Parcialmente implementado |
-| Auditoría | Trazabilidad de acciones | Inserciones best-effort en `audit_logs` y `auth_attempts`; sin consulta ni garantía | Parcialmente implementado |
-| Notificaciones | Avisar actividad relevante | No existe módulo; Realtime solo refresca vistas | Documentado, no implementado |
-| Reportes | Escalar contenido problemático | Sin rutas, UI ni tablas usadas por el código | Documentado, no implementado |
-| CSV | Carga/descarga masiva | Solo aparece en requisitos y roadmap | Documentado, no implementado |
+| Área | Estado | Alcance observado |
+|---|---|---|
+| Activación e inicio de sesión | Implementado | Búsqueda de cuentas pendientes, activación con contraseña inicial y login por código. Recuperación autónoma pendiente. |
+| Selección de evento | Implementado | Selección entre membresías activas, con entrada al panel o al feed según rol. |
+| Administración de eventos | Parcial / no verificado | Listado acotado, alta y edición. El alta intenta crear una membresía con un rol ausente del esquema de referencia y no inserta los muros general y de anuncios. Cerrar no impone solo lectura. |
+| Comités | Parcial | Listado, alta con muro y edición en web. El borrado lógico de comité y muro existe en API. |
+| Administración de participantes | Implementado | Listado filtrado y paginado, alta individual, edición, suspensión, reactivación y restablecimiento. La búsqueda por texto está en la API. |
+| Importación CSV | Parcial | Previsualización y confirmación por lotes en API. Pantalla, plantilla descargable y exportación de resultados pendientes. |
+| Asignaciones | Parcial | Alta y ficha individual permiten asignar, mover o quitar comité. API dedicada con motivo opcional. Pantalla general y cambios masivos pendientes. |
+| Código de delegación | No verificado | El backend pide un código por evento a una función de la migración 002. Los perfiles lo muestran si existe. El alta puede completarse con aviso si falta el código. |
+| Perfiles | Implementado | Perfil propio y de miembros del evento, alias, avatar y edición administrativa con restricciones. |
+| Muros, publicaciones y encuestas | Implementado | Muros existentes del evento, publicaciones de texto o encuesta, voto reemplazable, cierre por autor y borrado lógico. Fijado y adjuntos pendientes. |
+| Comentarios | Implementado | Comentarios, un nivel de respuesta y borrado lógico. En anuncios, escritura reservada a administración. |
+| Mensajes directos | Implementado | Texto individual dentro del evento, historial y borrado lógico por el autor. Grupos, adjuntos y bloqueo ausentes. |
+| Moderación | Parcial | Retiro de posts y comentarios desde los muros por administradores y suspensión desde la ficha. La pantalla de moderación es un marcador. |
+| Reportes, notificaciones y consulta de auditoría | Pendiente | Realtime refresca vistas y el backend intenta registrar acciones. Faltan reportes y bandejas de notificaciones y auditoría. |
 
-## Panel administrativo nuevo
-
-Rutas presentes:
-
-- `/admin`: tarjetas de navegación; no presenta métricas.
-- `/admin/events`: listado conectado a `GET /admin/events` con paginación.
-- `/admin/events/new`: formulario conectado a `POST /admin/events`.
-- `/admin/events/[eventId]`: configuración conectada a `GET/PATCH /admin/events/:eventId`.
-- `/admin/events/[eventId]/committees`: listado conectado a `GET /admin/committees?event_id=`.
-- `/admin/events/[eventId]/committees/new`: formulario conectado a `POST /admin/committees`.
-- `/admin/events/[eventId]/committees/[committeeId]/edit`: edición conectada a `GET/PATCH /admin/committees/:committeeId`.
-- `/admin/events/[eventId]/participants`: listado conectado a `GET /admin/participants` con filtros y paginación.
-- `/admin/events/[eventId]/participants/new`: alta conectada a `POST /admin/create-account`; muestra la contraseña inicial una sola vez.
-- `/admin/events/[eventId]/participants/[membershipId]`: detalle y edición vía `GET/PATCH /admin/participants/:membershipId`, con suspensión, reactivación y restablecimiento de contraseña.
-
-El menú también enlaza `/admin/assignments` y `/admin/moderation`, que siguen como marcadores. El layout exige que la **membresía activa** sea administrativa; desde el 2026-10-29 la API también exige que esa membresía sea del evento sobre el que se opera (salvo crear un evento nuevo), así que ambas capas ya coinciden.
-
-## Límites operativos relevantes
-
-- Los listados de feed y chat no implementan paginación robusta.
-- Varias mutaciones de múltiples tablas no son transaccionales.
-- No hay archivos adjuntos en publicaciones ni chat, pese al alcance histórico para publicaciones.
-- Las suscripciones Realtime refrescan datos; no constituyen un sistema de notificaciones.
-- El estado del evento no impide escrituras en los controladores revisados.
-
-Los detalles por endpoint están en [referencia de API](../03-referencia/api.md).
+La [referencia de API](../03-referencia/api.md) señala qué rutas tienen cliente web. Los casos que requieren confirmación en un entorno aislado figuran en [discrepancias](../07-auditoria/discrepancias.md).

@@ -32,7 +32,7 @@ Recorre `auth.middleware.ts`, `rbac.utils.ts`, utilidades de muro y el controlad
 
 ## Investigar base de datos
 
-Busca `.from('tabla')` y sigue selects/inserts/updates. Contrasta [modelos](../03-referencia/modelos-de-datos.md). No afirmes constraints, RLS, triggers o tipos que el repositorio no contiene.
+Busca `.from('tabla')` y sigue selects/inserts/updates. Contrasta [modelos](../03-referencia/modelos-de-datos.md), [snapshot y migraciones](../02-arquitectura/base-de-datos.md). Comprueba qué garantías están definidas en SQL, cuáles solo se enumeran y cuáles requieren un entorno aislado.
 
 ## Seguir una operación completa
 

@@ -1,88 +1,62 @@
-# Discrepancias y riesgos
+# Discrepancias entre requisitos, código y entorno
 
-## D-01 — Autorización administrativa no acotada al evento (resuelto)
+El estado corresponde a la [revisión de main](../README.md). Las decisiones históricas se conservan en sus fuentes.
 
-- **Historia:** todo dato y permiso se aísla por evento.
-- **Código (antes del 2026-10-29):** `requireAdmin` aceptaba cualquier membresía administrativa activa; los POST recibían `event_id` sin vincularlo a esa membresía.
-- **Resolución:** [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md) acota la autorización al evento objetivo en todas las rutas admin salvo `POST /admin/events`. Código actual en `apps/api/src/middleware/auth.middleware.ts` y `apps/api/src/routes/admin.routes.ts`.
-- **Clasificación:** era divergente; resuelta.
+## D-01 — Autorización administrativa por evento
 
-## D-02 — Ciclo del evento
+El comportamiento transversal de ADR-004 fue reemplazado por [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Las rutas con recurso objetivo verifican membresía administrativa activa en su evento. Las dos rutas de colección de eventos usan `requireAdmin` y el listado filtra por eventos administrados. Corroborar con dos eventos en un entorno aislado.
 
-- **Historia:** `DRAFT → ACTIVE → CLOSED`; cerrado es solo lectura.
-- **Código:** creación directa en `ACTIVE`; la UI permite cambiar `status` por `PATCH`, pero no hay guardas generales de escritura.
-- **Clasificación:** divergente/parcial.
-- **Impacto:** no puede prepararse un evento en borrador ni congelarlo confiablemente.
+## D-02 — Ciclo del evento y muros iniciales
+
+El requisito histórico pide borrador y cierre con solo lectura. El alta empieza en `ACTIVE`. La edición permite cerrar o archivar, pero no hay guarda general de escritura. El alta de comités sí rechaza eventos cerrados o archivados. La creación de evento tampoco inserta muros general y de anuncios. Los índices de la 001 no los aprovisionan. Falta verificar si existe un mecanismo adicional en la base del entorno. El feed abre inicialmente `/feed/general`, por lo que la ausencia de ese muro impide cargar la vista inicial.
 
 ## D-03 — Credenciales en logs del navegador
 
-- **Historia:** seguridad y protección de datos.
-- **Código:** los logs de payload y respuesta fueron retirados de `apps/web/lib/api/auth.ts` (2026-10-26).
-- **Clasificación:** resuelto.
-- **Impacto:** ninguno vigente; evitar reintroducir trazas con credenciales.
+Las trazas de payload y respuesta de login se retiraron del cliente. La revisión actual confirma ausencia de esas trazas en `apps/web/lib/api/auth.ts`.
 
-## D-04 — Auditoría no garantizada
+## D-04 — Auditoría sin garantía
 
-- **Historia:** acciones críticas y moderación deben ser auditables.
-- **Código:** loggers absorben errores y no existe consulta.
-- **Clasificación:** parcialmente implementado/divergente.
-- **Impacto:** una acción puede completarse sin evidencia.
+Los loggers intentan registrar las acciones e intentos. Un error de auditoría puede coexistir con una operación exitosa. Falta consulta administrativa y la cobertura varía según la acción.
 
-## D-05 — Esquema y RLS ausentes
+## D-05 — Compatibilidad entre API y esquema
 
-- **Historia:** aislamiento, integridad y seguridad en profundidad.
-- **Repositorio:** no incluye migraciones ni políticas; API usa service role.
-- **Clasificación:** pendiente de verificación.
-- **Impacto:** no se puede reproducir ni auditar la capa de datos.
+- El alta de evento intenta insertar `role: 'ADMIN'`. El [snapshot](../../supabase/schema.sql) enumera `ADMIN_MUN` y `ADMIN_TECH` como valores administrativos. Si el enum efectivo coincide, falla la membresía y el controlador intenta revertir el evento.
+- El alta individual y la edición usan un campo de rol libre en web, con ejemplos como `DELEGADO`, ajeno al enum de referencia. El CSV sí normaliza a `PARTICIPANT` o `MODERATOR`.
+- Participantes, perfiles y borrado de contenido dependen de columnas de la 001. La API invoca una función de la 002 al dar de alta y conserva la cuenta con un aviso si la RPC devuelve error. Estado de aplicación y permisos efectivos pendientes de verificar.
+- El snapshot y las dos migraciones no describen todas las políticas, triggers, publicación Realtime ni buckets. Véase [base de datos](../02-arquitectura/base-de-datos.md).
 
-## D-06 — Alcance reciente frente a requisitos históricos
+## D-06 — Funciones postergadas
 
-- **Historia:** reportes y notificaciones internas son REQ-20/REQ-22.
-- **Plan reciente:** `munet-context-general.md` los pone fuera del incremento inmediato.
-- **Clasificación:** divergencia de planificación, no descontinuación demostrada.
-- **Impacto:** riesgo de borrar requisitos por confundir “no ahora” con “nunca”.
+Reportes y notificaciones persisten como requisitos históricos. Los planes recientes postergan su desarrollo. Adjuntos y fijado tienen soporte de esquema, sin recorrido en UI ni API.
 
-## D-07 — Panel visible frente a funcionalidad operativa
+## D-07 — Diferencias entre API y panel
 
-- **UI:** menú muestra eventos, participantes, asignaciones y moderación.
-- **Código:** eventos y comités tienen listado, alta y edición; participantes, asignaciones y moderación son marcadores.
-- **Clasificación:** parcialmente implementado.
-- **Impacto:** las secciones futuras no ofrecen operaciones reales.
+CSV, búsqueda de participantes por texto, borrado de comités y el endpoint dedicado de cambio de comité carecen de controles web propios. La ficha sí cambia comité mediante la edición general y el listado ofrece filtros. Las páginas generales de asignaciones y moderación son marcadores.
 
-## D-08 — Escrituras compuestas sin transacción
+## D-08 — Escrituras compuestas
 
-- **Historia:** consistencia y trazabilidad.
-- **Código:** encuestas, cuentas y otras altas hacen escrituras secuenciales/rollback manual.
-- **Clasificación:** divergente respecto a calidad esperada.
-- **Impacto:** estados parciales ante fallos o concurrencia.
+Alta de evento, comités, cuentas, encuestas y edición de varios datos ejecutan escrituras separadas. Algunas intentan compensación. Se requiere comprobar recuperación ante fallos y reintentos, en particular CSV y credenciales devueltas una sola vez. El borrado de comité responde éxito aunque falle la actualización de su muro.
 
-## D-09 — Referencias de borrado inconsistentes
+## D-09 — Atribución de borrado
 
-- **Código:** `deleted_by_membership_id` recibe valores de categoría como `AUTHOR`/`ADMIN`; DM prueba estados configurables.
-- **Clasificación:** pendiente de verificación/divergente semántico.
-- **Impacto:** incompatibilidad con columnas/enums y pérdida de atribución precisa.
+Posts conservan `AUTHOR` o `ADMIN` en el campo histórico, cuyo nombre sugiere un identificador. Posts y comentarios también escriben el UUID del actor en campos de la 001. DM usa `DELETED` y la membresía autora. El requisito histórico de ocultación sin marcador no está satisfecho en todos los casos.
 
-## D-10 — Pipeline incompleto
+## D-10 — Cobertura de pruebas y pipeline
 
-- **Configuración:** Turbo define build/lint/typecheck.
-- **API:** solo expone `dev`.
-- **Clasificación:** implementado distinto a expectativa de calidad.
-- **Impacto:** los comandos del root pueden pasar sin revisar backend.
+La API tiene `build`, `check-types` y `test`. Turbo incluye la API en build y tipos. Faltan lint de API, tarea general de test y recorridos integrados. Véase [verificación](../04-desarrollo/pruebas-y-validacion.md).
 
-## D-11 — Realtime sin evidencia de autorización uniforme
+## D-11 — Realtime y Storage no verificados
 
-- **Código:** chat establece token Realtime; feed/comentarios no explícitamente.
-- **Datos:** RLS no está versionado.
-- **Clasificación:** pendiente de verificación.
-- **Impacto:** eventos no recibidos o exposición según configuración externa.
+Chat establece explícitamente el JWT de Realtime. Feed y comentarios no lo establecen en sus suscripciones revisadas. Confirmar entrega y permisos con dos sesiones y un entorno aislado, además de la subida y lectura de avatares.
 
-## D-12 — Documentación previa sobreafirmaba madurez
+## D-12 — Código de ingreso y activación
 
-El README y documento técnico previos describían módulos como sistema integrado sin separar intención, código y producción. Esta reconstrucción los reemplaza por estados y evidencia explícitos.
+La unicidad de `participant_code` documentada es por evento. El login no recibe evento y devuelve 409 ante códigos activos vinculados a usuarios diferentes. La activación usa un correo derivado del código si el usuario interno todavía no tiene correo. La colisión en el flujo completo debe reproducirse en una base aislada y resolverse como decisión de producto.
 
-## D-13 — Versión de Node declarada incompatible
+## D-13 — Versión de Node
 
-- **Root:** `engines.node` declara `>=18`.
-- **Dependencia:** Next.js 16.1.5 exige `>=20.9.0` en `package-lock.json`.
-- **Clasificación:** configuración divergente.
-- **Impacto:** una instalación que cumpla solo el requisito del root puede fallar.
+El root declara `>=18`, mientras que Next.js 16.1.5 requiere `>=20.9.0` según el lockfile. Consulta [configuración local](../04-desarrollo/configuracion-local.md).
+
+## D-14 — Reactivación de cuentas sin activar
+
+Suspender puede aplicarse a una cuenta pendiente. Reactivar establece `ACTIVE` sin comprobar si existe identidad de Supabase Auth. La persona podría quedar sin poder activar ni restablecer la contraseña desde la ficha. Verificar la transición de extremo a extremo y distinguir el estado previo.

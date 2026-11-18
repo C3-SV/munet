@@ -1,6 +1,6 @@
 # Catálogo de requerimientos
 
-Se conservan los identificadores históricos. El texto resume comportamiento esperado; la última columna refleja el código local al 2026-10-23. Evidencia ampliada: [matriz de trazabilidad](../07-auditoria/matriz-de-trazabilidad.md).
+Se conservan los identificadores históricos. La última columna refleja la [revisión de main](../README.md). La evidencia está en la [matriz de trazabilidad](../07-auditoria/matriz-de-trazabilidad.md).
 
 | ID | Requerimiento esperado | Estado actual |
 |---|---|---|
@@ -11,8 +11,8 @@ Se conservan los identificadores históricos. El texto resume comportamiento esp
 | REQ-05 | Personal habilita participante con identidad, comité, código inmutable/único y contraseña temporal; audita alta. | Parcial |
 | REQ-06 | Participante activa cuenta, cambia contraseña temporal y pasa a activa; se audita. | Parcial |
 | REQ-07 | Solo cuenta activa inicia sesión; se registran intentos y logout revoca sesión. | Parcial; logout solo local |
-| REQ-08 | Bloqueo por umbral configurable; desbloqueo, suspensión y rehabilitación autorizados/auditados. | Documentado, no implementado |
-| REQ-09 | Recuperación con verificación; nueva credencial solo reactiva bloqueo de seguridad, no suspensión/expulsión. | Documentado, no implementado |
+| REQ-08 | Bloqueo por umbral configurable; desbloqueo, suspensión y rehabilitación autorizados/auditados. | Parcial: suspensión/reactivación |
+| REQ-09 | Recuperación con verificación; nueva credencial solo reactiva bloqueo de seguridad, no suspensión/expulsión. | Parcial: restablecimiento asistido |
 | REQ-10 | Ver perfiles permitidos; usuario edita nombre/bio/foto; campos institucionales requieren admin y auditoría. | Parcial |
 | REQ-11 | Ver general/anuncios y solo comité autorizado; cada post tiene un muro. | Parcial |
 | REQ-12 | Publicar texto/enlace en general/comité; tag no cambia visibilidad; solo coordinación publica anuncios. | Parcial |
@@ -24,9 +24,9 @@ Se conservan los identificadores históricos. El texto resume comportamiento esp
 | REQ-18 | Enviar texto/enlaces; autor/hora/conversación; solo autor elimina lógicamente; sin adjuntos/edición. | Parcial |
 | REQ-19 | Supervisión DM de solo lectura, permiso/motivo y auditoría previa fail-closed. | Documentado, no implementado |
 | REQ-20 | Reportar post/comentario visible; estados y deduplicación por actor/objetivo. | Documentado, no implementado; postergado |
-| REQ-21 | Revisar reportes, incidentes, ocultar/retirar, suspender/expulsar con motivo y actor. | Mayormente no implementado |
+| REQ-21 | Revisar reportes, incidentes, ocultar/retirar, suspender/expulsar con motivo y actor. | Parcial: retiro y suspensión |
 | REQ-22 | Avisos internos persistentes por DM/anuncios con historial/contador y Realtime. | Documentado, no implementado; postergado |
-| REQ-23 | CSV con validación/previsualización/confirmación, errores por fila y lote auditado. | Documentado, no implementado |
+| REQ-23 | CSV con validación/previsualización/confirmación, errores por fila y lote auditado. | Parcial: API sin interfaz |
 | REQ-24 | Acciones críticas e intentos indebidos auditados; consulta completa para Admin técnico. | Parcial |
 
 ## Requerimientos expresamente excluidos
@@ -48,7 +48,7 @@ Estos son objetivos históricos, no resultados medidos:
 | NFR-03 | Crear post/comentario p95 <600 ms hasta persistencia | No medido |
 | NFR-04 | DM p95 <500 ms o <800 ms, cifras contradictorias | No medido; umbral pendiente |
 | NFR-05 | Pico 3× y p95 <1200 ms; fuentes hablan de 250/300 usuarios | No medido; carga base pendiente |
-| NFR-06 | Cero accesos cruzados por evento/comité/rol/DM | No demostrado; existe riesgo admin global |
+| NFR-06 | Cero accesos cruzados por evento/comité/rol/DM | Pruebas locales de autorización administrativa. Verificación integral pendiente. |
 | NFR-07 | 100 % de acciones críticas auditadas | No cumplido: logger best-effort |
 | NFR-08 | Cero pérdida silenciosa de posts/mensajes | No probado; escrituras no transaccionales |
 | NFR-09 | RTO <60 min y RPO provisional <15 min | No verificado ni operacionalizado |
