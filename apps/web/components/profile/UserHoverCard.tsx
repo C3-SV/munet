@@ -84,7 +84,7 @@ export const UserHoverCard = ({
 
     return (
         <div
-            className="relative inline-block"
+            className="relative inline-block min-w-0 max-w-full"
             onMouseEnter={openCard}
             onMouseLeave={scheduleCloseCard}
         >

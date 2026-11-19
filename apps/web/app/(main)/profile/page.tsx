@@ -198,7 +198,7 @@ const ProfilePage = () => {
                                     {profileAlias ? ` · ${profileAlias}` : ""}
                                 </p>
                             )}
-                            <p className="text-[11px] font-extrabold font-heading uppercase tracking-widest mt-1" style={{ color: "var(--text-secondary)" }}>
+                            <p className="text-xs font-semibold font-heading mt-1" style={{ color: "var(--text-secondary)" }}>
                                 {profileData.delegationName ?? "Delegacion"}
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                     |

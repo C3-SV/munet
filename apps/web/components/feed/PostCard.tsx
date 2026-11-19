@@ -112,7 +112,7 @@ export const PostCard = ({
                     committeeName={post.user.committeeName}
                     role={post.user.role}
                 >
-                    <div className="cursor-pointer">
+                    <div className="cursor-pointer min-w-0 max-w-full">
                         <PersonLabel
                             person={{
                                 name: post.user.name,

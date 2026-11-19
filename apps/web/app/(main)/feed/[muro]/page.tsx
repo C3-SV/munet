@@ -422,6 +422,7 @@ const Feed = () => {
                                         token={token}
                                         eventId={eventId}
                                         canComment={canCommentInWall}
+                                        showAuthorCommittee={activeWall?.kind !== "committee"}
                                         onPostUpdated={handlePostUpdated}
                                         onPostDeleted={handlePostDeleted}
                                     />
