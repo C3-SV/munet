@@ -68,3 +68,29 @@
 - [ ] Convertir los ejemplos aprobados en casos de perfil propio/público: cero, texto, encuesta, eliminado/moderado, comité permitido/restringido y publicaciones de otro evento.
 - [ ] Añadir a las dos respuestas de lectura un campo propuesto `publicationCount: number`; calcularlo en API por membresía y evento con la regla aprobada de tipo, estado y visibilidad. Mostrar cero como valor válido y mantener el estado de error si falla la carga. Evitar contar con el conjunto parcial del feed web.
 - [ ] Confirmar resultados exactos en fixtures desde dos contextos y que la nueva propiedad no agrega información sobre contenido restringido fuera de lo aprobado. Ejecutar pruebas y tipos API/web. Actualizar las reglas pertinentes, API y matriz antes de cerrar con `feat(web): mostrar publicaciones contabilizadas en perfiles`.
+
+## Registro de avance
+
+**Estado al 19 de noviembre de 2026.** Ejecución en `feat/web-improvements`. Las casillas siguen sin marcar porque la verificación en QA no se ha hecho; este registro describe lo implementado y su evidencia.
+
+| Commit | Alcance |
+| --- | --- |
+| `9ba0c46` | W01: logotipo provisional de MUN ESEN en `/guia`, según tema claro u oscuro. Los archivos finales siguen pendientes de aprobación de MUN ESEN. |
+| `a9b85dd` | W02 API: `GET /events/:eventId/participants`, con búsqueda sin tildes, filtro por comité, paginación posterior al filtrado y 19 pruebas con sustitutos. |
+| `629af92` | W02 web: página `/directory`, cliente `listParticipantDirectory` y enlace en la barra lateral. |
+| `c6766bc` | W03: selector de comité en el buscador de destinatarios y corrección de estado al cambiar de evento, término o comité. |
+
+**Evidencia:** `npm test -w api` pasa 129/129; `check-types` pasa en api y web; `node --test` pasa 14/14 en web.
+
+**Decisiones tomadas y por confirmar:**
+- Roles: el directorio incluye a todos los miembros activos, según el contrato de sprint 1.
+- Comités archivados: se muestran y se pueden filtrar; pendiente de confirmar.
+- Coste de búsqueda: filtrado en memoria por lotes de 500; se mide en Q03.
+- Exclusión propia en W03: se hace en cliente, sin parámetro nuevo en la API.
+
+**Pendiente:**
+- W02 y W03 sin prueba en QA ni en navegador; la búsqueda más allá de 80 filas y la paginación sin omisiones requieren fixtures.
+- Documentación de traza y matriz de trazabilidad.
+- A03 en directorio: el código ya se muestra cuando existe; las superficies de DM y chat requieren la decisión S2-13.
+- W04: bloqueado por B02 (regla de conteo de publicaciones).
+- W01: sustituir los logos provisionales cuando MUN ESEN apruebe los archivos finales.
