@@ -1,8 +1,9 @@
 import React from "react";
-import type { Message } from "../../types/common";
+import { formatTime } from "../../lib/format-datetime";
+import type { DirectMessage } from "../../types/chat";
 
 interface ChatMessageProps {
-    message: Message;
+    message: DirectMessage;
     isMe: boolean;
     isNew?: boolean;
     onDelete?: (messageId: string) => void;
@@ -45,7 +46,9 @@ export const ChatMessage = ({
                         color: isMe ? "var(--text-muted)" : "var(--bubble-other-time)",
                     }}
                 >
-                    <span>{message.timestamp}</span>
+                    <time dateTime={message.createdAt}>
+                        {formatTime(message.createdAt)}
+                    </time>
                     {isMe && onDelete && (
                         <button
                             type="button"

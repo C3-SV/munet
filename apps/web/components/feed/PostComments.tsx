@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
+import { formatDateTime } from "../../lib/format-datetime";
 import type { PostComment } from "../../types/common";
 
 type PostCommentsProps = {
@@ -10,28 +11,6 @@ type PostCommentsProps = {
     token: string;
     eventId: string;
     disabled?: boolean;
-};
-
-const formatRelativeTime = (timestamp: number) => {
-    // Formato compacto para timestamps de comentarios.
-    const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
-
-    if (diffInMinutes < 1) {
-        return "justo ahora";
-    }
-
-    if (diffInMinutes < 60) {
-        return `hace ${diffInMinutes} min`;
-    }
-
-    const diffInHours = Math.floor(diffInMinutes / 60);
-
-    if (diffInHours < 24) {
-        return `hace ${diffInHours} h`;
-    }
-
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `hace ${diffInDays} d`;
 };
 
 export const PostComments = ({
@@ -262,7 +241,12 @@ export const PostComments = ({
                                                 {authorLabel}
                                             </p>
                                             <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                                {formatRelativeTime(comment.timestamp)}
+                                                <time
+                                                    dateTime={comment.createdAt}
+                                                    title={formatDateTime(comment.createdAt)}
+                                                >
+                                                    {formatDateTime(comment.createdAt)}
+                                                </time>
                                             </p>
                                         </div>
                                     </div>

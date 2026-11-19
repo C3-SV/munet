@@ -12,6 +12,7 @@ import {
     getConversations,
     sendConversationMessage,
 } from "../../../../lib/api/chat";
+import { formatDayLabel, formatTime, isSameLocalDay } from "../../../../lib/format-datetime";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
@@ -40,7 +41,7 @@ const ChatRoomPage = () => {
                 ? {
                       ...conversation.otherParticipant,
                       lastActive: conversation.lastMessageAt
-                          ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                          ? `${formatDayLabel(conversation.lastMessageAt)} · ${formatTime(conversation.lastMessageAt)}`
                           : "Nuevo",
                   }
                 : {
@@ -288,7 +289,7 @@ const ChatRoomPage = () => {
             className="flex flex-col h-full"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
-            <ChatRoomHeader delegate={delegate} isOnline={false} />
+            <ChatRoomHeader delegate={delegate} />
 
             {error && (
                 <div
@@ -305,39 +306,51 @@ const ChatRoomPage = () => {
 
             <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
                 <div className="max-w-3xl mx-auto">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
-                        <span
-                            className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full font-heading"
-                            style={{
-                                color: "var(--text-muted)",
-                                backgroundColor: "var(--bg-surface-secondary)",
-                                border: "1px solid var(--border-color)",
-                            }}
-                        >
-                            HOY
-                        </span>
-                        <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
-                    </div>
-
                     {isLoading ? (
                         <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
                             Cargando mensajes...
                         </p>
                     ) : messages.length > 0 ? (
-                        messages.map((message) => (
-                            <ChatMessage
-                                key={message.id}
-                                message={message}
-                                isMe={message.senderId === activeMembershipId}
-                                isNew={newMessageIds.has(message.id)}
-                                onDelete={
-                                    message.senderId === activeMembershipId
-                                        ? handleDeleteMessage
-                                        : undefined
-                                }
-                                isDeleting={deletingMessageIds.has(message.id)}
-                            />
+                        messages.map((message, index) => (
+                            <React.Fragment key={message.id}>
+                                {(index === 0 ||
+                                    !isSameLocalDay(
+                                        messages[index - 1]?.createdAt ?? "",
+                                        message.createdAt,
+                                    )) && (
+                                    <div className="flex items-center gap-3 my-6">
+                                        <div
+                                            className="flex-1 h-px"
+                                            style={{ backgroundColor: "var(--border-color)" }}
+                                        />
+                                        <span
+                                            className="text-xs font-semibold px-3 py-1 rounded-full font-heading"
+                                            style={{
+                                                color: "var(--text-muted)",
+                                                backgroundColor: "var(--bg-surface-secondary)",
+                                                border: "1px solid var(--border-color)",
+                                            }}
+                                        >
+                                            {formatDayLabel(message.createdAt)}
+                                        </span>
+                                        <div
+                                            className="flex-1 h-px"
+                                            style={{ backgroundColor: "var(--border-color)" }}
+                                        />
+                                    </div>
+                                )}
+                                <ChatMessage
+                                    message={message}
+                                    isMe={message.senderId === activeMembershipId}
+                                    isNew={newMessageIds.has(message.id)}
+                                    onDelete={
+                                        message.senderId === activeMembershipId
+                                            ? handleDeleteMessage
+                                            : undefined
+                                    }
+                                    isDeleting={deletingMessageIds.has(message.id)}
+                                />
+                            </React.Fragment>
                         ))
                     ) : (
                         <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>

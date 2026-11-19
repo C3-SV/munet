@@ -21,6 +21,7 @@ import {
 } from "../../../lib/api/chat";
 import { listParticipantDirectory } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
+import { formatDayLabel, formatTime } from "../../../lib/format-datetime";
 import { supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
@@ -440,7 +441,7 @@ const Chats = () => {
                                     delegate={{
                                         ...conversation.otherParticipant,
                                         lastActive: conversation.lastMessageAt
-                                            ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                                            ? `${formatDayLabel(conversation.lastMessageAt)} · ${formatTime(conversation.lastMessageAt)}`
                                             : "Nuevo",
                                     }}
                                     href={`/chat/${conversation.id}`}

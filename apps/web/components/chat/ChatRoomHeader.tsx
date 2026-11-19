@@ -5,10 +5,9 @@ import { BrandAttribution } from "../layout/BrandAttribution";
 
 interface ChatRoomHeaderProps {
     delegate: Delegate;
-    isOnline?: boolean;
 }
 
-export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProps) => {
+export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
     return (
         <div
             className="flex items-center gap-3 px-4 py-3 md:px-6 shrink-0"
@@ -54,12 +53,6 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
                         className="size-10 rounded-full object-cover"
                         style={{ border: "2px solid var(--border-color)" }}
                     />
-                    {isOnline && (
-                        <span
-                            className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500"
-                            style={{ boxShadow: "0 0 0 2px var(--bg-surface)" }}
-                        ></span>
-                    )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -70,20 +63,6 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
                         {delegate.name}
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        {isOnline && (
-                            <span className="text-[11px] text-green-500 font-medium font-heading">
-                                En línea
-                            </span>
-                        )}
-                        {!isOnline && (
-                            <span
-                                className="text-[11px] font-medium font-heading"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                hace {delegate.lastActive}
-                            </span>
-                        )}
-                        <span style={{ color: "var(--border-color)" }}>·</span>
                         <span
                             className="text-[10px] font-extrabold uppercase tracking-widest font-heading truncate"
                             style={{ color: "var(--text-accent)" }}

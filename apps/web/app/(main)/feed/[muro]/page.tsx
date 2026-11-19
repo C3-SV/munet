@@ -231,27 +231,6 @@ const Feed = () => {
         return [...committees].sort((a, b) => a.localeCompare(b));
     }, [allEventCommittees, posts]);
 
-    const formatRelativeTime = (timestamp: number) => {
-        // Formateo liviano para mostrar tiempo relativo en tarjetas del feed.
-        const diffInMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
-
-        if (diffInMinutes < 1) {
-            return "justo ahora";
-        }
-
-        if (diffInMinutes < 60) {
-            return `hace ${diffInMinutes} minuto${diffInMinutes === 1 ? "" : "s"}`;
-        }
-
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        if (diffInHours < 24) {
-            return `hace ${diffInHours} hora${diffInHours === 1 ? "" : "s"}`;
-        }
-
-        const diffInDays = Math.floor(diffInHours / 24);
-        return `hace ${diffInDays} dia${diffInDays === 1 ? "" : "s"}`;
-    };
-
     const handlePublishPost = async (draft: {
         content: string;
         postType: "TEXT" | "POLL";
@@ -439,10 +418,7 @@ const Feed = () => {
                                 sortedAndFilteredPosts.map((post) => (
                                     <PostCard
                                         key={post.id}
-                                        post={{
-                                            ...post,
-                                            createdAt: formatRelativeTime(post.timestamp),
-                                        }}
+                                        post={post}
                                         token={token}
                                         eventId={eventId}
                                         canComment={canCommentInWall}
