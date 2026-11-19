@@ -60,3 +60,28 @@
 - [ ] Registrar evidencia del problema y priorizar cada mejora posterior con web/MUN. Abrir un plan propio si cambia un contrato o una regla, con la decisión que lo habilita.
 - [ ] Para limpieza, reproducir la comprobación afectada, acotar el cambio a web participante y repetir las verificaciones. Para reportes/notificaciones, confirmar alcance, permisos y entregables antes de estimar. B15 exige una decisión expresa de privacidad, permisos y auditoría antes de planear la supervisión o bloqueo de DM.
 - [ ] Registrar el resultado de cada tarea cerrada y actualizar su documento especializado. Los commits se nombran por el ajuste comprobado.
+
+## Registro de inventario estático
+
+**Estado al 19 de noviembre de 2026.** Inventario de solo lectura sobre `7d57fa1` en `feat/web-improvements`. No hay tareas cerradas: todas las casillas siguen sin marcar porque dependen de decisiones de producto (B03/B04, B11, B14, B15) o de Q03.
+
+**W07 · Selección multi-evento (evidencia estática).** El plan describe bien el comportamiento actual: para participantes con varias membresías, login, el store, `select-event` y el layout eligen `memberships[0]` sin mostrar selector. Hallazgos:
+- `docs/03-referencia/flujos-funcionales.md:9` describe un selector para elegir evento cuando hay varias membresías. El código solo muestra el selector a administradores; `manual-funcional.md:69` coincide con el flujo documentado, no con el código.
+- El orden de `memberships[0]` depende de una consulta sin `ORDER BY` (`apps/api/src/services/auth-context.service.ts:70-99`; `auth.controller.ts:232-239`), así que la selección automática puede cambiar entre sesiones.
+- `refreshContext` (`apps/web/stores/auth.store.ts:273-304`) no tiene llamadas en `apps/web`: la ruta de restauración que el plan quiere cambiar no la ejecuta ninguna pantalla.
+- La hidratación solo comprueba que la membresía recordada siga en la lista local (`auth.store.ts:212-215`); no revalida suspensión ni cierre de evento.
+- `setActiveMembership` no limpia estado del evento anterior (`auth.store.ts:256-270`). El sidebar conserva los muros previos hasta que termina la nueva carga (`Sidebar.tsx:97-128`); el plan pide esa limpieza y no existe.
+- El sidebar no ofrece cambio de evento a participantes (`Sidebar.tsx:167, 294-302`). La pregunta abierta del plan se responde con "no" en el código actual.
+- El 409 por colisión de código no se mapea en login (`apps/web/app/(auth)/login/page.tsx:131-136`).
+
+**W05 · Fotos en el muro general (evidencia estática).** No hay implementación de adjuntos en posts: el editor solo admite texto y encuesta (`PostEditor.tsx:3-7, 62-66`), el cliente API y las rutas no tienen campos ni endpoints de archivos (`feed.ts:26-67`; `posts.routes.ts:18-25`), y `createPostService` no toca Storage (`posts.service.ts:489-501`). Storage solo se usa para avatares de perfil (`profiles.controller.ts:85-86, 379`). La tabla `attachments` existe en la migración 001 (`001_alias_codigo_fijados_archivos.sql:44-61`), con RLS sin políticas; el bucket privado no está versionado. Hallazgos:
+- `RN-11` (`docs/01-producto/reglas-de-negocio.md:46`) fija JPG/PNG ≤ 5 MB **o PDF ≤ 20 MB**. El plan propone solo JPG/PNG y dice "menor alcance aprobado" (`04-condicionadas.md:17`); ningún documento de decisión respalda ese alcance.
+- B03 y B04 no aparecen en `pendientes.md` ni en `reglas-de-negocio.md`: no hay registro de decisión.
+
+**W06 · Tour (evidencia estática).** `apps/web/app/guia/page.tsx` tiene cuatro secciones (primeros pasos, participantes, organizadores, FAQ) sin video, iframe ni reproductor. No hay guion, subtítulos ni archivos de video en `apps/web/public`. B11 vive en la planilla externa `MUNET_Plan_Maestro_Unificado_2026-11-18.xlsx`, que no está en el repositorio.
+
+**Q04 · Mantenimiento posterior (evidencia estática).** REQ-20 (reportes) y REQ-22 (avisos persistentes) figuran como "documentado, no implementado; postergado" (`requerimientos.md:26, 28`; `matriz-de-trazabilidad.md:26, 28`). S3-11 y S3-08 no tienen definición en el repositorio. Ninguna condición previa de Q04 (demo terminada, producto estable, listado aprobado) consta como cumplida. B15 no tiene ID en `pendientes.md`; su equivalente es la decisión sobre supervisión, bloqueo y expulsión de DM, sin ADR.
+
+**IDs de decisión sin registro en el repositorio:** B03, B04, B07, B11, B14, B15, S2-13, S3-08 y S3-11. Aparecen solo en los planes o en la planilla externa. Esto impide cerrar W05, W07 y W06 hasta que MUN ESEN o el equipo admin las registren.
+
+**Lo que no se ejecutó:** pruebas de W07 con varias membresías reales, carga de adjuntos, recorrido del tour. Requieren cuentas de prueba, decisiones de producto y el proyecto de QA independiente.
