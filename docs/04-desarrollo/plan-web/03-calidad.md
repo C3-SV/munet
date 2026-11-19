@@ -122,25 +122,25 @@ En `/admin` el control es `requireEventAdmin` (`auth.middleware.ts:167-203`) con
 | --- | --- | --- | --- |
 | H1 | `POST /admin/memberships` acepta un `committee_id` que puede pertenecer a otro evento. Las demás rutas que aceptan comité lo validan. Impacto por confirmar. | `admin.controller.ts:407-476` frente a `participant-account.service.ts:115`, `admin.controller.ts:1154-1170` | API (admin); coordinar con D03–D05 |
 | H2 | Endpoint público que, dado un código, devuelve `membership_id` y datos del evento para membresías pendientes. Ese `membership_id` es el identificador que usan los endpoints de perfil. | `routes/auth.routes.ts:9`; `admin.controller.ts:675-731` | API; decisión sobre el contrato público |
-| H3 | `requireEventMembership` está exportado y sin uso. El aislamiento de participante depende de una comparación repetida en `events`, `posts`, `dm` y `profiles` (`resolveMembership` en `posts.controller.ts:12`, `dm.controller.ts:16`, `events.controller.ts:8`). | `auth.middleware.ts:74-104` | API |
+| H3 | `requireEventMembership` está exportado y sin uso. El aislamiento de participante depende de una comparación repetida en `events`, `posts`, `dm` y `profiles` (`resolveMembership` en `posts.controller.ts:12` y `dm.controller.ts:16`; `resolveMembershipForEvent` en `events.controller.ts:8`). | `auth.middleware.ts:74-104` | API |
 | H4 | UPDATEs por id sin `event_id` tras una lectura acotada. No hay IDOR visible, pero no es defensa en profundidad. Afecta `dm.service.ts:410-412` (`last_message_at` por conversación), `dm.service.ts:506` (mensaje por id) y `comments.service.ts:436` (comentario por id). | Citas indicadas | API |
 | H5 | `POST /admin/events` y `GET /admin/events` usan `requireAdmin` global, sin evento objetivo. Está documentado como excepción, pero cualquier admin activo puede crear eventos. | `admin.routes.ts:43-49`; `admin.controller.ts:228-233` | API/admin; decisión de producto |
 
 **Web: consumidores de Supabase.**
 
-- `apps/web/lib/supabase.ts:1-16` crea el único cliente del navegador con la anon key pública; `persistSession: false` y `autoRefreshToken: false` (`:12`). `realtimeEnabled` (`:6`) desactiva el cliente si faltan variables.
+- `apps/web/lib/supabase.ts:1-16` crea el único cliente del navegador con la anon key pública; `persistSession: false` (`:11`) y `autoRefreshToken: false` (`:12`). `realtimeEnabled` (`:6`) desactiva el cliente si faltan variables.
 - Cuatro módulos importan ese cliente, y todos lo usan solo para Realtime:
 
 | Módulo | Import | Canal y filtro | `setAuth(token)` |
 | --- | --- | --- | --- |
-| `apps/web/app/(main)/chat/page.tsx` | `:13` | `dm-inbox:` · `event_id=eq.` (`:165-187`) | `:163` |
+| `apps/web/app/(main)/chat/page.tsx` | `:24` | `dm-inbox:` · `event_id=eq.` (`:182-222`; filtros en `:203` y `:213`) | `:189` |
 | `apps/web/app/(main)/chat/[id]/page.tsx` | `:15` | `dm-room:` · `conversation_id=eq.`, `id=eq.` (`:171-193`) | `:169` |
 | `apps/web/app/(main)/feed/[muro]/page.tsx` | `:11` | `feed-posts:` · `poll_id=eq.`, `wall_id=eq.` (`:102-159`) | `:101` |
 | `apps/web/components/feed/PostComments.tsx` | `:5` | `post-comments:` · `post_id=eq.` (`:104-121`) | `:103` |
 
 - Búsqueda en `apps/web` de `.from(`, `.rpc(`, `.storage` y `.auth.`: sin coincidencias. No hay acceso directo a tablas, RPC ni Storage desde el navegador en el código revisado. Las llamadas HTTP a la API no se auditaron en detalle.
 - Los filtros `event_id=eq.` y similares los fija el cliente. El aislamiento de Realtime depende de RLS **no versionadas** (`supabase/schema.sql:5`; `docs/02-arquitectura/base-de-datos.md:11`).
-- Guardas de sesión y de Realtime deshabilitado: `chat/page.tsx:158`, `chat/[id]/page.tsx:164`, `feed/[muro]/page.tsx:93` (incluye `isForbidden`), `PostComments.tsx:95`. Es evidencia de la guarda, no de una vista válida con Realtime apagado.
+- Guardas de sesión y de Realtime deshabilitado: `chat/page.tsx:184-186`, `chat/[id]/page.tsx:164`, `feed/[muro]/page.tsx:93` (incluye `isForbidden`), `PostComments.tsx:95`. Es evidencia de la guarda, no de una vista válida con Realtime apagado.
 
 ### Q02 · Límites de uso y auditoría
 
@@ -160,10 +160,10 @@ En `/admin` el control es `requireEventAdmin` (`auth.middleware.ts:167-203`) con
 | Q02-3 | `logAuthAttempt` no revisa el `{ error }` que devuelve supabase-js. Un insert rechazado no se registra ni se loguea. `logAudit` sí revisa ese error. | `apps/api/src/utils/auth.logger.ts:16-21`; `audit.logger.ts:64-83` |
 | Q02-4 | Activación con estado parcial. Si `createUser` tiene éxito (`auth.controller.ts:140-160`) y falla `users.update` (`:165-176`) o `event_memberships.update` (`:179-193`), la respuesta es error, sin auditoría ni compensación. La cuenta de Auth queda creada con la membresía aún `PENDING_ACTIVATION`. Que el reintento falle por email existente es una inferencia, no verificada en ejecución. | Citas indicadas |
 | Q02-5 | Errores de actualización sin revisar: `last_login_at` (`auth.controller.ts:303-312`) no comprueba el error. | `auth.controller.ts:303-312` |
-| Q02-6 | Denegaciones sin auditoría. `DENIED` existe en tipo y enum, pero ningún código lo usa. Los 403 de middleware no se auditan. Solo se registran como `FAILURE`: `POLL_CLOSED` (`services/posts.service.ts:795`, `:840`) e `IMPORT_PARTICIPANTS` (`admin-participants.controller.ts:225`). | `audit.logger.ts:47`; `schema.sql:9`; `auth.middleware.ts:95-99`, `:190-194` |
+| Q02-6 | Denegaciones sin auditoría. `DENIED` existe en tipo y enum, pero ningún código lo usa. Los 403 de middleware no se auditan. Se registran como `FAILURE`: `POLL_CLOSED` (`services/posts.service.ts:795`, `:840`), `IMPORT_PARTICIPANTS` (`admin-participants.controller.ts:225`, solo si hay filas fallidas) y `DELETE_DM_MESSAGE` (`services/dm.service.ts:479` para un 403 de borrado ajeno, `:513` para error de actualización). | `audit.logger.ts:47`; `schema.sql:9`; `auth.middleware.ts:95-99`, `:190-194` |
 | Q02-7 | `logAudit` es best effort: su fallo no interrumpe la escritura. Es el punto que el plan deja pendiente de decisión. | `audit.logger.ts:76-86`; p. ej. `admin.controller.ts:491-498` tras el insert |
 | Q02-8 | Secretos en respuesta JSON. `initial_password` se devuelve en `createAccount` (`admin.controller.ts:91`; `admin-participants.controller.ts:184`) y `temporary_password` en `resetParticipantPassword` (`admin.controller.ts:1435`). `Cache-Control: no-store` figura en `createAccount` (`admin.controller.ts:38`) y en `admin-participants.controller.ts:24`, `:128`. El handler de reset (`admin.controller.ts:1360-1437`) no fija esa cabecera en el texto revisado. La razón de auditoría no incluye la contraseña (`admin.controller.ts:1430`). | Citas indicadas |
-| Q02-9 | Logs de error. Los `console.error(error)` de los catch (`auth.controller.ts:50`, `:206`, `:334`, `:360`; `auth.middleware.ts:65`, `:199`) registran el objeto de excepción completo. No se verificó si el SDK incluye cabeceras o payload. En `apps/api/src` no hay `console` que imprima `body`, `password`, `token` ni `initial_password` (búsqueda estática). | Búsqueda estática |
+| Q02-9 | Logs de error. Los `console.error(error)` de los catch (`auth.controller.ts:206`, `:334`, `:360`; `auth.middleware.ts:65`, `:199`) registran el objeto de excepción completo. `auth.controller.ts:50` registra `findError` dentro de un `if` del `try`, no en un catch. No se verificó si el SDK incluye cabeceras o payload. En `apps/api/src` no hay `console` que imprima `body`, `password`, `token` ni `initial_password` (búsqueda estática). | Búsqueda estática |
 | Q02-10 | Web: `apps/web/stores/auth.store.ts:142-145` guarda la sesión completa en `localStorage` (`SESSION_KEY`, `TOKEN_KEY`). No es un log, pero deja abierto el riesgo ante XSS o en equipos compartidos. Búsqueda de `console` con `pass`, `token`, `session`, `secret` o `initial` en `apps/web/app`, `lib`, `components` y `stores`: sin coincidencias. | `auth.store.ts:142-145` |
 
 ### Q03 · Inventario de base de datos, RLS, Realtime y Node
@@ -184,12 +184,12 @@ En `/admin` el control es `requireEventAdmin` (`auth.middleware.ts:167-203`) con
 | D1 | La API llama a `rpc('assign_delegation_code')`, definida solo en la 002, que no está aplicada. Si falla, la membresía se crea sin `delegation_code` y con aviso. No hay guarda de versión. | `apps/api/src/services/participant-account.service.ts:49`, `:185-194`; `admin.controller.ts:502-510`; `002:34-73` |
 | D2 | `base-de-datos.md` dibuja `EVENT_DELEGATION_COUNTERS` en el diagrama de dominio sin marcarlo como pendiente de la 002. | `docs/02-arquitectura/base-de-datos.md:30` |
 | D3 | El comentario de `assignDelegationCode` dice "advisory lock", pero la 002 usa `SELECT ... FOR UPDATE` y un upsert del contador. | `participant-account.service.ts:44-45`; `002:45-49`, `:59-63` |
-| D4 | `membership_role_enum` declara `PARTICIPANT, MODERATOR, ADMIN_MUN, ADMIN_TECH`. El código decide admin por texto que contenga `ADMIN`, `COORDINADOR` u `ORGANIZADOR`. `COORDINADOR` y `ORGANIZADOR` no están en el enum; si el enum se aplica en la base, no se podrían guardar. Requiere confirmación en base. | `schema.sql:17`; `apps/api/src/utils/rbac.utils.ts:6-13`; `participant-import.utils.ts:101-103`; `AGENTS.md` (provisional) |
+| D4 | `membership_role_enum` declara `PARTICIPANT, MODERATOR, ADMIN_MUN, ADMIN_TECH`. El código decide admin por texto que contenga `ADMIN`, `COORDINADOR` u `ORGANIZADOR`. `COORDINADOR`, `ORGANIZADOR` y `ADMIN` (que se escribe en `apps/api/src/controllers/admin.controller.ts:171` al crear un evento) no están en el enum; si el enum se aplica en la base, no se podrían guardar. Requiere confirmación en base. | `schema.sql:17`; `apps/api/src/utils/rbac.utils.ts:6-13`; `participant-import.utils.ts:101-103`; `AGENTS.md` (provisional) |
 | D5 | `membership_account_status_enum` incluye `BLOCKED`, `EXPELLED`, `ARCHIVED`. El código usa `ACTIVE`, `PENDING_ACTIVATION`, `SUSPENDED`. | `schema.sql:16`; `admin.controller.ts:1263`; `auth.controller.ts:70`, `:238` |
 | D6 | `auth_attempt_result_enum` incluye `BLOCKED` y `audit_outcome_enum` incluye `DENIED`. El código no escribe ninguno de los dos. | `schema.sql:9-10`, `:60`; `auth.logger.ts:9`; `audit.logger.ts:47` |
 | D7 | La tabla `sessions_audit` existe en el snapshot. No hay referencias en `apps/api` ni en `apps/web`. | `schema.sql:232-241`; búsqueda sin coincidencias |
 | D8 | La tabla `attachments` (001) tiene RLS habilitado sin políticas. No hay referencias en `apps/api` ni en `apps/web`. El bucket privado se crea desde el panel y no está en el repositorio. | `001:44-61`; búsqueda sin coincidencias |
-| D9 | `schema.sql:5` afirma que no incluye RLS, pero la 001 (`:61`) y la 002 (`:29-30`) sí habilitan RLS en sus tablas. Las políticas de las tablas principales no están versionadas. | `schema.sql:5`; `001:61`; `002:29-30` |
+| D9 | `schema.sql:5` dice que no incluye políticas RLS, pero la 001 (`:61`) y la 002 (`:29-30`) sí habilitan RLS en sus tablas. Las políticas de las tablas principales no están versionadas. | `schema.sql:5`; `001:61`; `002:29-30` |
 
 **No versionado (requiere infraestructura).** Búsqueda en todo el repositorio de `create policy`, `alter publication`, `supabase_realtime`, `storage.buckets` y `create bucket`: sin coincidencias.
 
@@ -208,7 +208,7 @@ En `/admin` el control es `requireEventAdmin` (`auth.middleware.ts:167-203`) con
 | `package.json` (raíz) | `engines.node` = `>=18` (`package.json:18-20`); `packageManager` = `npm@11.6.2` (`:21`) | `apps/api/package.json` y `apps/web/package.json` no declaran `engines`. |
 | `package-lock.json`, entrada raíz | `>=18` (`package-lock.json:24`) | Coincide con la raíz. |
 | `package-lock.json`, `node_modules/next` 16.1.5 | `>=20.9.0` (`:6548`) | Exige Node 20.9 o superior. |
-| `package-lock.json`, `@supabase/supabase-js` 2.101.1 | `>=20.0.0` (`:1718`, `:1730`, `:1748`) | Exige Node 20 o superior. |
+| `package-lock.json`, `@supabase/supabase-js` 2.101.1 | `>=20.0.0` (`:1792`; también `:1718`, `:1730`, `:1748` en sus dependencias) | Exige Node 20 o superior. |
 | Familia `@tailwindcss/oxide`, `eslint`, `@typescript-eslint/*` | `>= 20`; `^18.18.0 \|\| ^20.9.0 \|\| >=21.1.0` | Excluye algunas versiones de 18 y 20. |
 | `docs/04-desarrollo/configuracion-local.md:5` | Documenta Node 20.9 o superior y registra el desajuste con `>=18` como pendiente. | Documentación coherente con el lockfile, no con `engines`. |
 | TypeScript | `apps/api/node_modules/typescript` 6.0.2; raíz y web 5.9.2 (`package-lock.json`) | Dos versiones de TypeScript en el lockfile. No afecta a `engines`, sí a la homogeneidad de tipos. |
@@ -216,3 +216,38 @@ En `/admin` el control es `requireEventAdmin` (`auth.middleware.ts:167-203`) con
 Conclusión de la evidencia: el mínimo efectivo del lockfile es **Node 20.9**; `engines` declara **18**. No hay `.nvmrc`, `.node-version` ni configuración de `engines` específica por app; `.npmrc` está vacío. El cambio de `engines` queda como decisión posterior, según el plan (`03-calidad.md:62`).
 
 **Pendiente de confirmar en base o en QA** (registrar como **sin ejecutar**): políticas RLS efectivas, publicación Realtime, buckets y sus políticas, aplicación real de la 002, valores reales de `role` y `account_status` (D4, D5) y la configuración efectiva de QA.
+
+## Registro de ejecución
+
+**Estado al 19 de noviembre de 2026.** Ejecución local sobre `e099e37` en `feat/web-improvements`. No se modificó código ni se escribió en la base real. Las casillas siguen sin marcar: su verificación requiere cuentas de prueba, navegador o decisiones pendientes.
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm test -w api` | 129 pasan, 0 fallan |
+| `npm run check-types -w api` | sin errores |
+| `npm run check-types -w web` | sin errores |
+| `node --test apps/web/lib/api/base-url.test.mjs` | 2 pasan |
+| `node --test apps/web/lib/**/*.test.mjs` | 14 pasan (`apps/web` no define script `test`) |
+| `git status --short` y `git diff --check` | sin salida, antes y después |
+
+**Verificación estática de citas.** 97 afirmaciones de Q01–Q03 contrastadas con el código: 84 confirmadas, 11 discrepancias y 2 no verificables (requieren la base viva). Las discrepancias de cita quedan corregidas en este documento:
+- Q01: líneas de `chat/page.tsx` (import, `setAuth`, canal y guarda), `persistSession` en `:11` y nombre `resolveMembershipForEvent` en `events.controller.ts:8`.
+- Q02: `auth.controller.ts:50` no es un catch; `FAILURE` también se registra en `DELETE_DM_MESSAGE` (`dm.service.ts:479`, `:513`).
+- Q03: D4 incluye `ADMIN` (`admin.controller.ts:171`); D9 niega políticas RLS, no RLS; el engine de `@supabase/supabase-js` está en `package-lock.json:1792`.
+
+Los hallazgos H1–H5 y Q02-1 a Q02-10 se confirman en sustancia; no se corrigen aquí porque afectan a rutas o servicios compartidos de API/admin.
+
+**Sondeo dinámico de la API local** (`apps/api` en el puerto 3002, sin tokens de usuario y sin escrituras; lectura de la base real solo en el caso de código inexistente):
+- 44 rutas protegidas sin `Authorization`: todas responden 401. Con un token inválido, las 6 primeras probadas también 401. Con las 3 rutas públicas suman las 47 del inventario.
+- `GET /auth/events-by-code/:code` con código inexistente: 200 con lista vacía. `POST /auth/activate` y `POST /auth/login` sin cuerpo: 400, sin escritura.
+- 60 `POST /auth/login` sin email en ráfaga: 60 respuestas 400 y ningún 429. Confirma Q02-1 para esa rama; el umbral real de contraseñas no se mide sin cuentas.
+- CORS: un origen ajeno no se refleja; la API responde solo `WEB_APP_URL`.
+- Config: `ALLOW_DEMO_POSTS=true` en `apps/api/.env` no tiene lectura en `apps/api/src`; no tiene efecto.
+
+**Lint web:** `npm run lint -w web` devuelve 0 errores y 32 advertencias (`--max-warnings 0` lo hace fallar). Las advertencias son `<img>` sin `next/image` y dependencias de `useEffect` en `PostComments.tsx`. `npm run build -w web` termina con código 0 y genera todas las rutas, incluidas `/directory` y `/guia`.
+
+**Bloqueado o sin ejecutar** (requiere cuentas de prueba, autorización o decisiones):
+- Q01: recorridos con fixtures de QA, cambio de comité, suspensión, retiro de contenido y verificación de RLS/Realtime. Depende de admin.
+- Q02: contrato 429, umbral, política ante indisponibilidad de auditoría y pruebas con reloj simulado. Depende de decisiones de API/admin; hoy no existe ningún 429.
+- Q03: base desechable, orden 001→002 y carga. Depende de la autorización del responsable. `supabase/migrations/002_codigo_delegacion.sql:5` indica que la base es compartida y de producción; confirmar el destino antes de cualquier prueba.
+- Engines de Node: decisión posterior, sin cambio.
