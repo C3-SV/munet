@@ -2,6 +2,8 @@
 
 Orden propuesto para el siguiente incremento funcional de MUNET. Las decisiones de negocio siguen abiertas donde se indican.
 
+El [plan del equipo web](../04-desarrollo/plan-web/README.md) detalla la secuencia para participantes e integraciones y las entregas que requiere del equipo admin.
+
 | Prioridad | Trabajo | Resultado verificable |
 |---|---|---|
 | 1 | Preparar una base aislada reproducible y completar el alta de evento. Alinear el rol automático con el enum vigente y garantizar los muros general y anuncios junto con el acceso del creador. | Un organizador crea un evento, vuelve a seleccionarlo y ve los muros. Un segundo evento sirve para comprobar límites de acceso. |
