@@ -61,3 +61,14 @@ test("isSameLocalDay respeta la medianoche local", () => {
         true,
     );
 });
+
+test("usa la zona horaria indicada y normaliza la medianoche", () => {
+    assert.equal(
+        formatDateTime("2026-11-19T15:05:00Z", { timeZone: "Asia/Tokyo" }),
+        "20 nov 2026 · 00:05",
+    );
+    assert.equal(
+        formatTime("2026-11-19T06:00:00Z", { timeZone }),
+        "00:00",
+    );
+});
