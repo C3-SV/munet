@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
+import { PersonLabel } from "../ui/PersonLabel";
 import type { PostComment } from "../../types/common";
 
 type PostCommentsProps = {
@@ -11,6 +12,7 @@ type PostCommentsProps = {
     token: string;
     eventId: string;
     disabled?: boolean;
+    showAuthorCommittee?: boolean;
 };
 
 export const PostComments = ({
@@ -18,6 +20,7 @@ export const PostComments = ({
     token,
     eventId,
     disabled = false,
+    showAuthorCommittee = true,
 }: PostCommentsProps) => {
     const COMMENT_SUBMIT_COOLDOWN_MS = 1200;
     const [comments, setComments] = useState<PostComment[]>([]);
@@ -214,8 +217,6 @@ export const PostComments = ({
             ) : comments.length > 0 ? (
                 <div className="space-y-3">
                     {comments.map((comment) => {
-                        const authorLabel = `${comment.user.name}${comment.user.alias ? ` “${comment.user.alias}”` : ""} | ${comment.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
-
                         return (
                             <div
                                 key={comment.id}
@@ -226,20 +227,17 @@ export const PostComments = ({
                                 }}
                             >
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <img
-                                            src={comment.user.avatar}
-                                            alt={comment.user.name}
-                                            className="size-7 rounded-full object-cover"
-                                            style={{ border: "1px solid var(--border-color)" }}
-                                        />
-                                        <div className="min-w-0">
-                                            <p
-                                                className="text-sm font-semibold font-heading truncate"
-                                                style={{ color: "var(--text-primary)" }}
-                                            >
-                                                {authorLabel}
-                                            </p>
+                                    <div className="min-w-0 flex-1">
+                                        <PersonLabel
+                                            size="sm"
+                                            person={{
+                                                name: comment.user.name,
+                                                alias: comment.user.alias,
+                                                committeeName: comment.user.committeeName,
+                                                avatar: comment.user.avatar,
+                                            }}
+                                            showSecondary={showAuthorCommittee}
+                                        >
                                             <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
                                                 <time
                                                     dateTime={comment.createdAt}
@@ -248,7 +246,7 @@ export const PostComments = ({
                                                     {formatDateTime(comment.createdAt)}
                                                 </time>
                                             </p>
-                                        </div>
+                                        </PersonLabel>
                                     </div>
 
                                     <div className="flex items-center gap-3">

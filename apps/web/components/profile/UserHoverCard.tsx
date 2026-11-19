@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createConversation } from "../../lib/api/chat";
+import { PersonLabel } from "../ui/PersonLabel";
 import { useAuthStore } from "../../stores/auth.store";
 
 type UserHoverCardProps = {
     membershipId: string;
     name: string;
+    alias?: string | null;
+    committeeName?: string | null;
     role: string;
     children: ReactNode;
 };
@@ -16,6 +19,8 @@ type UserHoverCardProps = {
 export const UserHoverCard = ({
     membershipId,
     name,
+    alias,
+    committeeName,
     role,
     children,
 }: UserHoverCardProps) => {
@@ -97,18 +102,11 @@ export const UserHoverCard = ({
                     boxShadow: "var(--shadow-md)",
                 }}
             >
-                <p
-                    className="text-sm font-bold font-heading"
-                    style={{ color: "var(--text-primary)" }}
-                >
-                    {name}
-                </p>
-                <p
-                    className="text-[11px] font-extrabold uppercase tracking-widest mt-1"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    {role}
-                </p>
+                <PersonLabel
+                    person={{ name, alias, committeeName, roleName: role }}
+                    size="sm"
+                    showAvatar={false}
+                />
 
                 <div className="mt-3 flex items-center gap-2">
                     <Link

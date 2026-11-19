@@ -2,12 +2,15 @@ import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
 import { BrandAttribution } from "../layout/BrandAttribution";
+import { buildPersonLabel } from "../../lib/person-label";
 
 interface ChatRoomHeaderProps {
     delegate: Delegate;
 }
 
 export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
+    const label = buildPersonLabel({ name: delegate.name, alias: delegate.alias });
+
     return (
         <div
             className="flex items-center gap-3 px-4 py-3 md:px-6 shrink-0"
@@ -57,14 +60,19 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
 
                 <div className="flex-1 min-w-0">
                     <h2
-                        className="text-sm font-bold font-heading leading-tight truncate"
+                        className="flex items-baseline gap-1.5 min-w-0 text-sm font-bold font-heading leading-tight"
                         style={{ color: "var(--text-primary)" }}
                     >
-                        {delegate.name}
+                        <span className="truncate">{label.primary}</span>
+                        {label.alias && (
+                            <span className="truncate font-normal" style={{ color: "var(--text-secondary)" }}>
+                                {label.alias}
+                            </span>
+                        )}
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
                         <span
-                            className="text-[10px] font-extrabold uppercase tracking-widest font-heading truncate"
+                            className="text-xs font-semibold font-heading truncate"
                             style={{ color: "var(--text-accent)" }}
                         >
                             {delegate.role} · {delegate.committee}

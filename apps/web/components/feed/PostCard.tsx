@@ -4,6 +4,7 @@ import { formatDateTime } from "../../lib/format-datetime";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
 import { Card } from "../ui/Card";
+import { PersonLabel } from "../ui/PersonLabel";
 import type { Post } from "../../types/common";
 
 interface PostCardProps {
@@ -11,6 +12,8 @@ interface PostCardProps {
     token: string;
     eventId: string;
     canComment?: boolean;
+    // En el muro de un comité el comité no se repite en cada publicación.
+    showAuthorCommittee?: boolean;
     onPostUpdated?: (post: Post) => void;
     onPostDeleted?: (postId: string) => void;
 }
@@ -20,6 +23,7 @@ export const PostCard = ({
     token,
     eventId,
     canComment = true,
+    showAuthorCommittee = true,
     onPostUpdated,
     onPostDeleted,
 }: PostCardProps) => {
@@ -27,8 +31,6 @@ export const PostCard = ({
     const [isClosingPoll, setIsClosingPoll] = useState(false);
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    const authorLabel = `${post.user.name}${post.user.alias ? ` “${post.user.alias}”` : ""} | ${post.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
 
     const handleDeletePost = async () => {
         // Soft delete con confirmacion previa; backend decide permiso final.
@@ -106,24 +108,20 @@ export const PostCard = ({
                 <UserHoverCard
                     membershipId={post.user.id}
                     name={post.user.name}
+                    alias={post.user.alias}
+                    committeeName={post.user.committeeName}
                     role={post.user.role}
                 >
-                    <div className="flex items-center gap-4 cursor-pointer">
-                        <div className="relative shrink-0">
-                            <img
-                                src={post.user.avatar}
-                                className="size-11 rounded-full object-cover"
-                                alt={post.user.name}
-                                style={{ border: "2px solid var(--border-color)" }}
-                            />
-                        </div>
-                        <div>
-                            <h4
-                                className="font-bold font-heading text-[14px]"
-                                style={{ color: "var(--text-primary)" }}
-                            >
-                                {authorLabel}
-                            </h4>
+                    <div className="cursor-pointer">
+                        <PersonLabel
+                            person={{
+                                name: post.user.name,
+                                alias: post.user.alias,
+                                committeeName: post.user.committeeName,
+                                avatar: post.user.avatar,
+                            }}
+                            showSecondary={showAuthorCommittee}
+                        >
                             <div
                                 className="flex items-center gap-1.5 text-xs font-body mt-0.5"
                                 style={{ color: "var(--text-muted)" }}
@@ -135,7 +133,7 @@ export const PostCard = ({
                                     {formatDateTime(post.createdAt)}
                                 </time>
                             </div>
-                        </div>
+                        </PersonLabel>
                     </div>
                 </UserHoverCard>
 
@@ -286,6 +284,7 @@ export const PostCard = ({
                 token={token}
                 eventId={eventId}
                 disabled={!canComment || Boolean(post.isDeleted)}
+                showAuthorCommittee={showAuthorCommittee}
             />
         </Card>
     );

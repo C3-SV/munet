@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
+import { buildPersonLabel } from "../../../lib/person-label";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import type { MyProfile } from "../../../types/common";
 
@@ -149,6 +150,10 @@ const ProfilePage = () => {
         }
     };
 
+    const profileAlias = profileData
+        ? buildPersonLabel({ name: profileData.profile.displayName, alias: profileData.profile.alias }).alias
+        : null;
+
     if (!profileData) {
         return (
             <div className="p-4 sm:p-6 lg:p-12">
@@ -190,7 +195,7 @@ const ProfilePage = () => {
                                     profileData.profile.displayName) && (
                                 <p className="text-sm font-body mt-0.5" style={{ color: "var(--text-secondary)" }}>
                                     {`${profileData.profile.firstName} ${profileData.profile.lastName}`.trim()}
-                                    {profileData.profile.alias ? ` · alias “${profileData.profile.alias}”` : ""}
+                                    {profileAlias ? ` · ${profileAlias}` : ""}
                                 </p>
                             )}
                             <p className="text-[11px] font-extrabold font-heading uppercase tracking-widest mt-1" style={{ color: "var(--text-secondary)" }}>

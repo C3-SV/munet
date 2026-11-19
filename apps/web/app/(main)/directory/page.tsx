@@ -7,6 +7,7 @@ import {
     type ParticipantDirectoryResponse,
 } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
+import { PersonLabel } from "../../../components/ui/PersonLabel";
 import { useAuthStore } from "../../../stores/auth.store";
 
 const PAGE_SIZE = 20;
@@ -255,27 +256,14 @@ const Directory = () => {
                                             boxShadow: "var(--shadow-sm)",
                                         }}
                                     >
-                                        <div className="flex flex-1 flex-col min-w-0">
-                                            <span
-                                                className="font-heading font-bold text-base truncate"
-                                                style={{ color: "var(--text-primary)" }}
-                                            >
-                                                {fullName}
-                                            </span>
-                                            {participant.alias && (
-                                                <span
-                                                    className="font-body text-sm truncate"
-                                                    style={{ color: "var(--text-secondary)" }}
-                                                >
-                                                    {`“${participant.alias}”`}
-                                                </span>
-                                            )}
-                                            <span
-                                                className="mt-1 text-[11px] font-bold uppercase tracking-widest font-heading truncate"
-                                                style={{ color: "var(--text-muted)" }}
-                                            >
-                                                {participant.committee?.name ?? "Sin comité"}
-                                            </span>
+                                        <div className="flex flex-1 min-w-0">
+                                            <PersonLabel
+                                                person={{
+                                                    name: fullName,
+                                                    alias: participant.alias,
+                                                    committeeName: participant.committee?.name ?? null,
+                                                }}
+                                            />
                                         </div>
                                         {participant.delegationCode && (
                                             <span

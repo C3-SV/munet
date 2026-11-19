@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
 import { buildInitials } from "../../lib/api/chat-recipient-search";
+import { buildPersonLabel } from "../../lib/person-label";
 
 interface ChatItemProps {
     delegate: Delegate;
@@ -19,6 +20,7 @@ export const ChatItem = ({
     unreadCount,
 }: ChatItemProps) => {
     // Contenido comun para modo `Link` (inbox) y modo `button` (busqueda).
+    const label = buildPersonLabel({ name: delegate.name, alias: delegate.alias });
     const content = (
         <>
             <div className="relative shrink-0">
@@ -52,10 +54,15 @@ export const ChatItem = ({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                     <h4
-                        className="font-bold font-heading text-[14px] truncate"
+                        className="flex items-baseline gap-1.5 min-w-0 font-bold font-heading text-[14px]"
                         style={{ color: "var(--text-primary)" }}
                     >
-                        {delegate.name}
+                        <span className="truncate">{label.primary}</span>
+                        {label.alias && (
+                            <span className="truncate font-normal" style={{ color: "var(--text-secondary)" }}>
+                                {label.alias}
+                            </span>
+                        )}
                     </h4>
                     <span
                         className="text-[11px] shrink-0 font-medium"
