@@ -31,7 +31,7 @@
 **Rutas y archivos** · `/guia`, `/login`, `apps/web/app/guia/page.tsx`, `apps/web/app/(auth)/login/page.tsx` y `apps/web/components/layout/Footer.tsx`. Reutilizar `BrandAttribution` sin modificar el componente compartido con admin. En `main` ya existe la guía. El footer participante tiene dos enlaces con `href="#"` y la guía aún carece de la atribución C3.
 
 - [ ] Comprobar con navegador local que se puede llegar desde login y desde el footer participante. Registrar qué enlaces carecen de destino y verificar las anclas internas de la guía.
-- [ ] Añadir un enlace visible a `/guia` desde login y el footer participante. Usar el componente existente para mostrar C3 en la guía. Retirar enlaces vacíos de soporte/términos hasta disponer de sus destinos oficiales. Mantener anclas internas con destino.
+- [x] Añadir un enlace visible a `/guia` desde login y el footer participante. Usar el componente existente para mostrar C3 en la guía. Retirar enlaces vacíos de soporte/términos hasta disponer de sus destinos oficiales. Mantener anclas internas con destino.
 - [ ] Repetir navegación anónima y autenticada a la guía, retorno a login, navegación por teclado, foco visible, tema claro/oscuro y comprobación del nombre accesible del enlace C3. Ejecutar `npm run check-types -w web`.
 - [ ] Actualizar la guía/registro que corresponda y cerrar con `fix(web): enlazar la guía y completar la atribución C3`.
 
@@ -40,7 +40,7 @@
 **Rutas y archivos** · `/login`, `apps/web/app/(auth)/login/page.tsx`, `apps/web/lib/api/auth.ts`, `apps/web/stores/auth.store.ts`. Contratos existentes `POST /auth/login`, `GET /auth/events-by-code/:participant_code` y `POST /auth/activate`. Login busca solo membresías `ACTIVE`; el paso de activación es el que identifica las pendientes.
 
 - [ ] Preparar casos locales con respuestas simuladas para código sin membresía activa, credenciales inválidas, colisión 409, respuesta de preactivación vacía o con uno/varios eventos, y fallo de red.
-- [ ] En login diferenciar “No pudimos encontrar una cuenta activa con este código” de “Credenciales inválidas”. Dar una acción explícita para abrir la activación y precargar el código escrito. Confirmar que hay una cuenta pendiente cuando el flujo existente devuelve un evento elegible. Preservar el estado HTTP en el cliente y usar el par actual 400/`Membership no encontrado` para orientar el siguiente paso. Ese par también puede aparecer si falla la búsqueda, por lo que la UI ofrece revisar el código o intentar de nuevo. Otros 400, el 409 y los fallos de red conservan sus mensajes propios. Mantener el login activo cuando el código también tenga una pendiente en otro evento y conservar la selección que ya ofrece el modal.
+- [x] En login diferenciar “No pudimos encontrar una cuenta activa con este código” de “Credenciales inválidas”. Dar una acción explícita para abrir la activación y precargar el código escrito. Confirmar que hay una cuenta pendiente cuando el flujo existente devuelve un evento elegible. Preservar el estado HTTP en el cliente y usar el par actual 400/`Membership no encontrado` para orientar el siguiente paso. Ese par también puede aparecer si falla la búsqueda, por lo que la UI ofrece revisar el código o intentar de nuevo. Otros 400, el 409 y los fallos de red conservan sus mensajes propios. Mantener el login activo cuando el código también tenga una pendiente en otro evento y conservar la selección que ya ofrece el modal.
 - [ ] Verificar inicio de sesión con credenciales válidas, activación y entrada posterior, errores sin superposición y aviso accesible. Comprobar que el formulario no inicia una consulta automática de estado ni registra credenciales. Ejecutar `npm run check-types -w web` y `node --test apps/web/lib/api/base-url.test.mjs`.
 - [ ] Actualizar [autenticación](../../03-referencia/autenticacion.md), [flujos](../../03-referencia/flujos-funcionales.md) y la trazabilidad cuando corresponda. Cerrar con `fix(web): orientar el ingreso de cuentas pendientes`.
 
@@ -58,9 +58,9 @@
 **Rutas y archivos** · `apps/web/app/(main)/feed/[muro]/page.tsx`, `apps/web/components/feed/PostComments.tsx`, `apps/web/app/(main)/chat/page.tsx`, `apps/web/app/(main)/chat/[id]/page.tsx` y `apps/web/lib/supabase.ts`. Chat establece auth explícita. Feed y comentarios carecen de ese paso explícito; las suscripciones de votos y listado DM requieren confirmar el alcance efectivo de las políticas en QA.
 
 - [ ] Con la línea base D03, registrar en dos sesiones el envío visible de post, comentario, voto/reemplazo/cierre y DM/respuesta/borrado lógico sin recarga manual. Confirmar que un tercero en otro evento, comité restringido o fuera de la conversación no reciba el contenido ni eventos privados.
-- [ ] Si aparece una brecha del cliente, asegurar que el JWT de la sesión activa esté establecido antes de suscribirse. Limpiar canales al cambiar evento, recurso o sesión. Mantener la relectura autorizada por API. Ante una brecha de RLS/publicación, coordinar la resolución en Q03 y repetir el caso con la política de QA aprobada.
+- [x] Si aparece una brecha del cliente, asegurar que el JWT de la sesión activa esté establecido antes de suscribirse. Limpiar canales al cambiar evento, recurso o sesión. Mantener la relectura autorizada por API. Ante una brecha de RLS/publicación, coordinar la resolución en Q03 y repetir el caso con la política de QA aprobada.
 - [ ] Repetir en reconexión y cambio de contexto, verificando ausencia de canales o respuestas del contexto anterior, duplicados y datos ajenos. Ejecutar tipos web, suites de API si cambia el contrato y registrar evidencia separada para entrega, autorización y reconexión.
-- [ ] Cerrar el ajuste de cliente si hubo cambios con `fix(web): estabilizar suscripciones del participante`. Si el recorrido ya pasaba, registrar únicamente la evidencia.
+- [x] Cerrar el ajuste de cliente si hubo cambios con `fix(web): estabilizar suscripciones del participante`. Si el recorrido ya pasaba, registrar únicamente la evidencia.
 
 ## D08 y D09 · Responsive y guion de demo
 
@@ -70,3 +70,34 @@
 - [ ] D08. Corregir desbordes, controles inaccesibles o errores confirmados en el componente de origen y repetir el caso. Verificar tipos web y guardar resultados. Cerrar cada arreglo comprobado con un commit acotado, por ejemplo `fix(web): mantener accesible el compositor de chat en móvil`.
 - [ ] D09. Con D01–D08 comprobados o con limitaciones registradas, consolidar el guion participante: ingresar/activar A y B, navegar muros, publicar y comentar, votar, abrir perfil/editar avatar, conversar, revisar guía y repetir la prueba de aislamiento. Admin aporta sus pasos y el inventario de fixtures. Una persona que no intervino en la preparación debe poder repetir el recorrido en QA.
 - [ ] D09. Registrar resultados frente al **Checklist demo**, pasos 05–15 y 18, y referenciar la evidencia admin de los pasos restantes. Cerrar con `docs(web): guardar guion y evidencia de la demo`.
+
+## Registro de avance
+
+**Estado al 18 de noviembre de 2026.** Ejecución parcial en `feat/web-improvements`. Las casillas marcadas describen cambios implementados y verificados de forma estática o local; el resto queda pendiente.
+
+| Commit | Alcance |
+| --- | --- |
+| `b304f88` `fix(web): enlazar la guía y completar la atribución C3` | D06: enlaces a `/guia` desde login y footer, retirada de enlaces vacíos, C3 con el componente compartido. |
+| `fb08810` `fix(web): orientar el ingreso de cuentas pendientes` | D07: estado HTTP en el cliente, orientación de login, documentación de autenticación. |
+| `37518e7` `fix(web): estabilizar suscripciones del participante` | D04: `setAuth` antes de suscribir en feed y comentarios, relectura al reconectar, limpieza de publicaciones al cambiar de contexto. |
+| `91468cc` `fix(web): acotar la escucha de votos de encuesta al muro` | D04: una suscripción `poll_votes` por encuesta del muro en lugar de todas las filas visibles. |
+
+**Evidencia registrada**
+
+- Estática: `npm run check-types -w web` sin errores; `node --test apps/web/lib/api/base-url.test.mjs` pasa 2/2; `git diff --check` sin hallazgos.
+- Lint: sin errores. Quedan advertencias preexistentes: 30 de `no-img-element` y 2 de `exhaustive-deps` en `PostComments.tsx`, por `loadComments` sin memorizar. No se añadieron advertencias nuevas en los archivos tocados.
+- Navegador local, sin API: `/login` enlaza a `/guia`; `/guia` muestra la atribución C3 y el retorno a login.
+
+**Pendiente o no verificado**
+
+- Footer y navegación desde una sesión autenticada.
+- Flujo de cuenta pendiente con API: casos simulados, activación posterior y errores sin superposición.
+- Teclado, foco, tema oscuro y viewport 360×800 en D06, D07 y D08.
+- Suscripciones `poll_votes` y `posts`: entrega real, aislamiento por evento y reconexión en QA. El filtro `poll_id` requiere que `poll_votes` esté en la publicación de Realtime del entorno de QA, que no está versionada.
+- D03/D05 y D09: dependen de fixtures de QA (D01/D02) y del guion participante.
+
+**Limitaciones conocidas**
+
+- La suscripción `poll_votes` abre un filtro por encuesta. Si el muro tiene muchas encuestas, crece el número de vinculaciones del canal.
+- Las eliminaciones de votos no llegan con filtro por `poll_id` si la réplica no incluye la columna. El flujo actual de la API solo elimina votos heredados duplicados.
+- `PostComments` abre un canal y una consulta por publicación; el coste crece con el número de publicaciones visibles.
