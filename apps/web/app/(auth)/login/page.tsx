@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
@@ -13,6 +14,7 @@ const Login = () => {
     const login = useAuthStore((state) => state.login);
     const loading = useAuthStore((state) => state.loading);
     const error = useAuthStore((state) => state.error);
+    const errorStatus = useAuthStore((state) => state.errorStatus);
     const clearError = useAuthStore((state) => state.clearError);
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
     const hydrated = useAuthStore((state) => state.hydrated);
@@ -123,6 +125,24 @@ const Login = () => {
         } catch {
             // El error es gestionado globalmente en el store
         }
+    };
+
+    // Orientación según estado HTTP: 400 "Membership no encontrado" = sin cuenta activa con ese código.
+    const isMembershipNotFound = errorStatus === 400 && error === "Membership no encontrado";
+    const displayedError = isMembershipNotFound
+        ? "No pudimos encontrar una cuenta activa con este código. Revisa el código o intenta de nuevo."
+        : errorStatus === 401
+            ? "Credenciales inválidas. Revisa tu código y tu contraseña."
+            : error;
+
+    // Abre la activación con el código ya escrito; la consulta ocurre solo al pulsar "Continuar".
+    const openActivationFromLogin = () => {
+        clearError();
+        setSuccessMessage("");
+        setActivationError("");
+        setActivationCode(participantCode.trim());
+        setActivationStep(1);
+        setShowActivationModal(true);
     };
 
     // --- FUNCIONES DE ACTIVACIÓN ---
@@ -337,12 +357,24 @@ const Login = () => {
                         )}
 
                         {/* Error de Login principal */}
-                        {!showActivationModal && error && (
-                            <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
+                        {!showActivationModal && displayedError && (
+                            <div role="alert" className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <p className="text-center">{error}</p>
+                                <p className="text-center">{displayedError}</p>
+                            </div>
+                        )}
+                        {!showActivationModal && isMembershipNotFound && (
+                            <div className="-mt-3 text-center">
+                                <button
+                                    type="button"
+                                    onClick={openActivationFromLogin}
+                                    className="text-sm font-semibold hover:underline"
+                                    style={{ color: "var(--text-accent)" }}
+                                >
+                                    Revisar si tengo una cuenta por activar
+                                </button>
                             </div>
                         )}
 
@@ -371,6 +403,16 @@ const Login = () => {
                         >
                             ¿Es tu primera vez? Activa tu cuenta aquí
                         </button>
+                    </div>
+
+                    <div className="mt-4 text-center">
+                        <Link
+                            href="/guia"
+                            className="text-sm font-semibold hover:underline"
+                            style={{ color: "var(--text-accent)" }}
+                        >
+                            ¿Cómo funciona MUNET? Consulta la guía de uso
+                        </Link>
                     </div>
                 </div>
             </div>
