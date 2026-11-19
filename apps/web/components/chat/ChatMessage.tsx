@@ -18,7 +18,7 @@ export const ChatMessage = ({
 }: ChatMessageProps) => {
     return (
         <div
-            className={`flex w-full mb-3 ${isMe ? "justify-end" : "justify-start"} ${isNew ? "animate-message-in" : ""}`}
+            className={`flex w-full mb-3 ${isMe ? "justify-end" : "justify-start"} ${isNew ? "motion-fade-in" : ""}`}
         >
             <div
                 className="max-w-[82%] md:max-w-[65%] flex flex-col"
