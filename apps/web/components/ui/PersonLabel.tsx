@@ -54,7 +54,7 @@ export const PersonLabel = ({
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "2px solid var(--border-color)",
-                            color: "var(--text-secondary)",
+                            color: "var(--text-primary)",
                         }}
                     >
                         {initials}
