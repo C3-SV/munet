@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
+import { buildInitials } from "../../lib/api/chat-recipient-search";
 
 interface ChatItemProps {
     delegate: Delegate;
@@ -21,12 +22,27 @@ export const ChatItem = ({
     const content = (
         <>
             <div className="relative shrink-0">
-                <img
-                    src={delegate.avatar}
-                    alt={delegate.name}
-                    className="size-11 rounded-full object-cover"
-                    style={{ border: "2px solid var(--border-color)" }}
-                />
+                {delegate.avatar ? (
+                    <img
+                        src={delegate.avatar}
+                        alt={delegate.name}
+                        className="size-11 rounded-full object-cover"
+                        style={{ border: "2px solid var(--border-color)" }}
+                    />
+                ) : (
+                    <div
+                        role="img"
+                        aria-label={delegate.name}
+                        className="size-11 rounded-full flex items-center justify-center font-heading font-bold text-[13px]"
+                        style={{
+                            backgroundColor: "var(--bg-surface-secondary)",
+                            border: "2px solid var(--border-color)",
+                            color: "var(--text-secondary)",
+                        }}
+                    >
+                        {buildInitials(delegate.name)}
+                    </div>
+                )}
                 <span
                     className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500"
                     style={{ boxShadow: "0 0 0 2.5px var(--bg-surface)" }}

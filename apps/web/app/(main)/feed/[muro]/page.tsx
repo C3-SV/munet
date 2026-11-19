@@ -71,13 +71,22 @@ const Feed = () => {
             }
         };
 
+        // Al cambiar de contexto no se conservan publicaciones del anterior.
         setActiveWall(null);
+        setPosts([]);
         void loadPosts();
 
         return () => {
             cancelled = true;
         };
     }, [eventId, muroParam, token]);
+
+    // Ids de encuestas del muro: poll_votes no tiene wall_id, así que se escucha cada una.
+    const pollIdsKey = posts
+        .map((post) => post.poll?.id)
+        .filter((id): id is string => Boolean(id))
+        .sort()
+        .join(",");
 
     useEffect(() => {
         // Realtime: sincroniza cambios en posts/polls/votos del muro actual.
@@ -87,7 +96,11 @@ const Feed = () => {
 
         const realtimeClient = supabaseBrowser;
         let cancelled = false;
+        let hasJoined = false;
+        // Autoriza el socket con la sesión activa antes de suscribirse.
+        realtimeClient.realtime.setAuth(token);
         const channel = realtimeClient.channel(`feed-posts:${activeWall.id}`);
+        const pollIds = pollIdsKey ? pollIdsKey.split(",") : [];
 
         const refreshPosts = async () => {
             try {
@@ -107,6 +120,22 @@ const Feed = () => {
                 }
             }
         };
+
+        // Un filtro por encuesta: evita reconsultar por votos de otros eventos o muros.
+        pollIds.forEach((pollId) => {
+            channel.on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "poll_votes",
+                    filter: `poll_id=eq.${pollId}`,
+                },
+                () => {
+                    void refreshPosts();
+                },
+            );
+        });
 
         channel
             .on(
@@ -133,24 +162,18 @@ const Feed = () => {
                     void refreshPosts();
                 },
             )
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "poll_votes",
-                },
-                () => {
-                    void refreshPosts();
-                },
-            )
-            .subscribe();
+            .subscribe((status) => {
+                // Relee al reconectar para recuperar cambios perdidos sin socket.
+                if (status !== "SUBSCRIBED") return;
+                if (hasJoined) void refreshPosts();
+                hasJoined = true;
+            });
 
         return () => {
             cancelled = true;
             void realtimeClient.removeChannel(channel);
         };
-    }, [activeWall?.id, eventId, isForbidden, muroParam, token]);
+    }, [activeWall?.id, eventId, isForbidden, muroParam, pollIdsKey, token]);
 
     useEffect(() => {
         // Carga catalogo de comites del evento para filtro del muro general.

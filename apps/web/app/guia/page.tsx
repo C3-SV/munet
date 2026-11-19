@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { MunEsenLogo } from "../../components/layout/MunEsenLogo";
 
 const sections = [
     { id: "primeros-pasos", number: "01", label: "Primeros pasos" },
@@ -220,11 +222,10 @@ export default function GuidePage() {
                 <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                     <div className="flex items-center gap-3">
                         <img src="/logo-munet.png" alt="" className="h-8 w-auto" />
+                        <MunEsenLogo className="h-8 w-auto" />
                         <p className="text-xs text-[var(--text-secondary)]">Una plataforma para conectar cada delegación.</p>
                     </div>
-                    <a href="https://c3.com.sv" target="_blank" rel="noreferrer" className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
-                        Desarrollado por C3 <span aria-hidden="true">↗</span>
-                    </a>
+                    <BrandAttribution />
                 </div>
             </footer>
         </main>

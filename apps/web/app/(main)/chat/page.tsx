@@ -6,10 +6,21 @@ import { ChatHeader } from "../../../components/chat/ChatHeader";
 import { ChatItem } from "../../../components/chat/ChatItem";
 import { ChatSearch } from "../../../components/chat/ChatSearch";
 import {
+    buildRecipientSearchKey,
+    directoryEntryToRecipient,
+    excludeOwnRecipient,
+    RECIPIENT_DIRECTORY_LIMIT,
+    resolveRecipientSearchMode,
+    resolveRecipientSearchView,
+    type RecipientSearchResult,
+} from "../../../lib/api/chat-recipient-search";
+import {
     createConversation,
     getConversations,
     searchParticipants,
 } from "../../../lib/api/chat";
+import { listParticipantDirectory } from "../../../lib/api/directory";
+import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
 import { supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
@@ -22,14 +33,29 @@ const Chats = () => {
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
     const [searchTerm, setSearchTerm] = useState("");
+    // Selección y catálogo llevan el evento al que pertenecen: otro evento los invalida sin efectos adicionales.
+    const [committeeSelection, setCommitteeSelection] = useState({ eventId: "", committeeId: "" });
+    const [committeeCatalog, setCommitteeCatalog] = useState<{
+        eventId: string;
+        items: EventCommittee[];
+    }>({ eventId: "", items: [] });
+    // Resultado de la última búsqueda, etiquetado con su clave; si no coincide con el contexto actual, se ignora.
+    const [recipientResult, setRecipientResult] = useState<RecipientSearchResult | null>(null);
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-    const [participants, setParticipants] = useState<ChatParticipant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isAutoOpeningConversation, setIsAutoOpeningConversation] = useState(false);
     const [lastOpenedTargetKey, setLastOpenedTargetKey] = useState<string | null>(null);
     const autoOpenInProgressRef = useRef(false);
+
+    const committeeId =
+        eventId && committeeSelection.eventId === eventId ? committeeSelection.committeeId : "";
+    const committees =
+        eventId && committeeCatalog.eventId === eventId ? committeeCatalog.items : [];
+    const recipientMode = resolveRecipientSearchMode({ query: searchTerm, committeeId });
+    const recipientKey = buildRecipientSearchKey({ eventId, query: searchTerm, committeeId });
+    const recipientView = resolveRecipientSearchView(recipientKey, recipientResult);
+    const recipients = excludeOwnRecipient(recipientView.participants, activeMembershipId);
 
     const targetMembershipIdFromQuery = searchParams.get("with")?.trim() ?? "";
     const targetConversationKey =
@@ -196,38 +222,95 @@ const Chats = () => {
     }, [eventId, refreshConversations, token]);
 
     useEffect(() => {
-        // Busqueda con debounce de participantes para iniciar chats nuevos.
+        // Catálogo de comités del evento para el filtro del buscador de destinatarios.
         if (!token || !eventId) {
             return;
         }
 
         let cancelled = false;
+
+        const loadCommittees = async () => {
+            try {
+                const items = await getEventCommittees({ token, eventId });
+
+                if (!cancelled) {
+                    setCommitteeCatalog({ eventId, items });
+                }
+            } catch {
+                // Sin catálogo el filtro queda en "Todos los comités"; la búsqueda sigue disponible.
+                if (!cancelled) {
+                    setCommitteeCatalog({ eventId, items: [] });
+                }
+            }
+        };
+
+        void loadCommittees();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
+
+    useEffect(() => {
+        // Busqueda con debounce de destinatarios: directorio si hay comité, búsqueda DM si solo hay texto.
+        if (!token || !eventId || !recipientKey) {
+            return;
+        }
+
+        const trimmedQuery = searchTerm.trim();
+        let cancelled = false;
+
+        const loadRecipients = async (): Promise<
+            Pick<RecipientSearchResult, "participants" | "hasMore">
+        > => {
+            if (recipientMode === "directory") {
+                const response = await listParticipantDirectory(
+                    { token, eventId },
+                    {
+                        q: trimmedQuery,
+                        committeeId,
+                        page: 1,
+                        limit: RECIPIENT_DIRECTORY_LIMIT,
+                    },
+                );
+
+                return {
+                    participants: response.participants.map(directoryEntryToRecipient),
+                    hasMore: response.hasMore,
+                };
+            }
+
+            const participants = await searchParticipants(trimmedQuery, { token, eventId });
+
+            return { participants, hasMore: false };
+        };
+
         const timeout = window.setTimeout(() => {
             const runSearch = async () => {
-                if (!searchTerm.trim()) {
-                    setParticipants([]);
-                    return;
-                }
-
                 try {
-                    setIsSearching(true);
-                    const data = await searchParticipants(searchTerm, { token, eventId });
+                    const found = await loadRecipients();
 
                     if (!cancelled) {
-                        setParticipants(data);
-                        setError(null);
+                        setRecipientResult({
+                            key: recipientKey,
+                            status: "ready",
+                            participants: found.participants,
+                            hasMore: found.hasMore,
+                            error: null,
+                        });
                     }
                 } catch (searchError) {
                     if (!cancelled) {
-                        setError(
-                            searchError instanceof Error
-                                ? searchError.message
-                                : "No se pudieron buscar participantes.",
-                        );
-                    }
-                } finally {
-                    if (!cancelled) {
-                        setIsSearching(false);
+                        setRecipientResult({
+                            key: recipientKey,
+                            status: "error",
+                            participants: [],
+                            hasMore: false,
+                            error:
+                                searchError instanceof Error
+                                    ? searchError.message
+                                    : "No se pudieron buscar participantes.",
+                        });
                     }
                 }
             };
@@ -236,10 +319,15 @@ const Chats = () => {
         }, 250);
 
         return () => {
+            // Al cambiar evento, comité o texto la petición anterior no escribe ningún estado.
             cancelled = true;
             window.clearTimeout(timeout);
         };
-    }, [eventId, searchTerm, token]);
+    }, [committeeId, eventId, recipientKey, recipientMode, searchTerm, token]);
+
+    const handleCommitteeChange = (value: string) => {
+        setCommitteeSelection({ eventId: eventId ?? "", committeeId: value });
+    };
 
     const handleSelectParticipant = async (participant: ChatParticipant) => {
         // Al seleccionar participante se crea/reutiliza conversacion y se navega al room.
@@ -265,7 +353,7 @@ const Chats = () => {
     };
 
     const visibleConversations = useMemo(() => conversations, [conversations]);
-    const isSearchMode = Boolean(searchTerm.trim());
+    const isSearchMode = recipientMode !== "idle";
 
     return (
         <div className="p-4 sm:p-6 lg:p-10">
@@ -284,6 +372,9 @@ const Chats = () => {
                         <ChatSearch
                             searchTerm={searchTerm}
                             onSearchChange={setSearchTerm}
+                            committees={committees}
+                            committeeId={committeeId}
+                            onCommitteeChange={handleCommitteeChange}
                         />
 
                         <p
@@ -291,7 +382,7 @@ const Chats = () => {
                             style={{ color: "var(--text-muted)" }}
                         >
                             {isSearchMode
-                                ? `${participants.length} resultado${participants.length !== 1 ? "s" : ""}`
+                                ? `${recipients.length} resultado${recipients.length !== 1 ? "s" : ""}`
                                 : `${visibleConversations.length} conversacion${visibleConversations.length !== 1 ? "es" : ""}`}
                         </p>
                     </div>
@@ -315,18 +406,32 @@ const Chats = () => {
                         ) : isAutoOpeningConversation ? (
                             <EmptyChatState text="Abriendo conversacion..." />
                         ) : isSearchMode ? (
-                            isSearching ? (
+                            recipientView.status === "loading" ? (
                                 <EmptyChatState text="Buscando participantes..." />
-                            ) : participants.length > 0 ? (
-                                participants.map((participant) => (
-                                    <ChatItem
-                                        key={participant.id}
-                                        delegate={participant}
-                                        onSelect={() => void handleSelectParticipant(participant)}
-                                    />
-                                ))
+                            ) : recipientView.status === "error" ? (
+                                <EmptyChatState
+                                    text={recipientView.error ?? "No se pudieron buscar participantes."}
+                                />
+                            ) : recipients.length > 0 ? (
+                                <>
+                                    {recipients.map((participant) => (
+                                        <ChatItem
+                                            key={participant.id}
+                                            delegate={participant}
+                                            onSelect={() => void handleSelectParticipant(participant)}
+                                        />
+                                    ))}
+                                    {recipientView.hasMore && (
+                                        <p
+                                            className="text-center text-xs font-body px-4 py-3"
+                                            style={{ color: "var(--text-muted)" }}
+                                        >
+                                            Hay más participantes. Refina la búsqueda o el comité para verlos.
+                                        </p>
+                                    )}
+                                </>
                             ) : (
-                                <EmptyChatState text="No se encontraron participantes con ese nombre." />
+                                <EmptyChatState text="No se encontraron participantes con esos criterios." />
                             )
                         ) : visibleConversations.length > 0 ? (
                             visibleConversations.map((conversation) => (

@@ -43,22 +43,13 @@ export const Footer = () => {
                         style={{ color: "var(--text-muted)" }}
                     >
                         <Link
-                            href="#"
+                            href="/guia"
                             className="transition-colors"
                             style={{ color: "var(--text-muted)" }}
                             onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
                             onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
                         >
-                            Soporte técnico
-                        </Link>
-                        <Link
-                            href="#"
-                            className="transition-colors"
-                            style={{ color: "var(--text-muted)" }}
-                            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-accent)")}
-                            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-muted)")}
-                        >
-                            Términos de uso
+                            Guía de uso
                         </Link>
                     </div>
                 </div>
