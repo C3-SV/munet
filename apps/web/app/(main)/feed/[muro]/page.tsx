@@ -71,7 +71,9 @@ const Feed = () => {
             }
         };
 
+        // Al cambiar de contexto no se conservan publicaciones del anterior.
         setActiveWall(null);
+        setPosts([]);
         void loadPosts();
 
         return () => {
@@ -87,6 +89,9 @@ const Feed = () => {
 
         const realtimeClient = supabaseBrowser;
         let cancelled = false;
+        let hasJoined = false;
+        // Autoriza el socket con la sesión activa antes de suscribirse.
+        realtimeClient.realtime.setAuth(token);
         const channel = realtimeClient.channel(`feed-posts:${activeWall.id}`);
 
         const refreshPosts = async () => {
@@ -144,7 +149,12 @@ const Feed = () => {
                     void refreshPosts();
                 },
             )
-            .subscribe();
+            .subscribe((status) => {
+                // Relee al reconectar para recuperar cambios perdidos sin socket.
+                if (status !== "SUBSCRIBED") return;
+                if (hasJoined) void refreshPosts();
+                hasJoined = true;
+            });
 
         return () => {
             cancelled = true;

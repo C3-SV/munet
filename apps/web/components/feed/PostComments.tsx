@@ -92,12 +92,15 @@ export const PostComments = ({
 
     useEffect(() => {
         // Realtime de comentarios por `post_id`.
-        if (!realtimeEnabled || !supabaseBrowser) {
+        if (!realtimeEnabled || !supabaseBrowser || !token) {
             return;
         }
 
         const realtimeClient = supabaseBrowser;
         let cancelled = false;
+        let hasJoined = false;
+        // Autoriza el socket con la sesión activa antes de suscribirse.
+        realtimeClient.realtime.setAuth(token);
         const channel = realtimeClient.channel(`post-comments:${postId}`);
 
         const refreshComments = async () => {
@@ -121,7 +124,12 @@ export const PostComments = ({
                     void refreshComments();
                 },
             )
-            .subscribe();
+            .subscribe((status) => {
+                // Relee al reconectar para recuperar cambios perdidos sin socket.
+                if (status !== "SUBSCRIBED") return;
+                if (hasJoined) void refreshComments();
+                hasJoined = true;
+            });
 
         return () => {
             cancelled = true;

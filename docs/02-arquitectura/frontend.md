@@ -46,7 +46,7 @@ El panel admin reutiliza la estética del sitio participante: sidebar fija en es
 
 ## Realtime
 
-Feed, comentarios y chat se suscriben a cambios para volver a consultar la API. Chat invoca `realtime.setAuth(token)` de forma explícita. El alcance efectivo de las suscripciones queda por comprobar en un entorno aislado.
+Feed, comentarios y chat se suscriben a cambios para volver a consultar la API. Feed y comentarios invocan `realtime.setAuth(token)` antes de suscribirse; chat lo hace igual en su propia vista. Al unirse por primera vez el canal no relee; al reconectarse (`SUBSCRIBED` posterior) sí vuelve a consultar la API. Al cambiar de evento o muro, el feed descarta las publicaciones anteriores. El alcance efectivo de las suscripciones queda por comprobar en un entorno aislado.
 
 ## Hallazgos
 
