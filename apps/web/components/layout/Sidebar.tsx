@@ -394,6 +394,32 @@ export const Sidebar = () => {
                                 Mensajes Directos
                             </Link>
                         </li>
+
+                        <li>
+                            <Link
+                                href="/directory"
+                                className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
+                                style={{
+                                    backgroundColor: pathname?.startsWith("/directory")
+                                        ? "var(--sidebar-active-bg)"
+                                        : "transparent",
+                                    color: pathname?.startsWith("/directory")
+                                        ? "var(--sidebar-active-text)"
+                                        : "var(--text-primary)",
+                                }}
+                            >
+                                <img
+                                    src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/address-book.svg"
+                                    className="size-5 transition-opacity"
+                                    style={{
+                                        opacity: pathname?.startsWith("/directory") ? 1 : 0.5,
+                                        filter: isDark ? "invert(1)" : "none",
+                                    }}
+                                    alt=""
+                                />
+                                Directorio
+                            </Link>
+                        </li>
                     </ul>
                 </nav>
 
