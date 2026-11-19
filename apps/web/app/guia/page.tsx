@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { MunEsenLogo } from "../../components/layout/MunEsenLogo";
 
 const sections = [
     { id: "primeros-pasos", number: "01", label: "Primeros pasos" },
@@ -221,6 +222,7 @@ export default function GuidePage() {
                 <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                     <div className="flex items-center gap-3">
                         <img src="/logo-munet.png" alt="" className="h-8 w-auto" />
+                        <MunEsenLogo className="h-8 w-auto" />
                         <p className="text-xs text-[var(--text-secondary)]">Una plataforma para conectar cada delegación.</p>
                     </div>
                     <BrandAttribution />
