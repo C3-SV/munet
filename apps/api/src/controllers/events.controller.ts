@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { loadWallsByEvent, mapWallForMembership } from '../services/walls.service';
+import { listParticipantDirectory, parseParticipantDirectoryQuery } from '../services/participant-directory.service';
 import { isAdminRole } from '../utils/rbac.utils';
 
 // Resuelve la membership del usuario para el evento solicitado.
@@ -89,5 +90,35 @@ export const listEventCommittees = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'No se pudieron cargar los comites' });
+  }
+};
+
+// GET /events/:eventId/participants -> directorio paginado (W02).
+// Solo para membresias activas del evento de la ruta. Nunca devuelve codigo de
+// participante, correo ni datos de administracion.
+export const listEventParticipants = async (req: Request, res: Response) => {
+  try {
+    const eventId = String(req.params.eventId);
+    const membership = resolveMembershipForEvent(req, eventId);
+
+    if (!membership || membership.accountStatus !== 'ACTIVE') {
+      return res.status(403).json({ error: 'No perteneces a este evento' });
+    }
+
+    const headerEventId = req.header('x-event-id');
+    if (headerEventId !== undefined && headerEventId.trim() !== eventId) {
+      return res.status(400).json({ error: 'x-event-id no coincide con el evento de la ruta' });
+    }
+
+    const parsed = parseParticipantDirectoryQuery(req.query);
+    if (!parsed.ok) {
+      return res.status(400).json({ error: parsed.error });
+    }
+
+    const result = await listParticipantDirectory({ eventId, query: parsed.value });
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudieron cargar los participantes' });
   }
 };

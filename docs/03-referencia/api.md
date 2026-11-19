@@ -12,6 +12,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `GET /auth/context` | JWT | Usuario y membresías activas. |
 | `GET /events/:eventId/walls` | Membresía activa del evento | Metadatos y banderas de acceso/publicación. |
 | `GET /events/:eventId/committees` | Membresía activa del evento | Comités del evento. |
+| `GET /events/:eventId/participants?q=&committee_id=&page=&limit=` | JWT y membresía activa del evento; `x-event-id`, si se envía, debe coincidir | Directorio paginado: `{ participants, page, limit, hasMore }`. Filas con `membershipId`, nombres, `alias`, `committee` (`{id, name}` o `null`) y `delegationCode`. `page` ≥ 1 (por defecto 1); `limit` 1–100 (por defecto 20); `committee_id` debe ser un comité no borrado del mismo evento. Búsqueda sin distinguir tildes ni mayúsculas. Sin `participant_code` ni correo. 400 en parámetros inválidos, 403 sin membresía activa, 500 genérico si falla la base. Filtra en memoria por lotes de 500; el coste se mide en Q03. |
 
 ## Publicaciones y comentarios
 
