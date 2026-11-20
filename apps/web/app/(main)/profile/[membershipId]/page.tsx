@@ -166,7 +166,7 @@ const PublicProfilePage = () => {
             setError(
                 openChatError instanceof Error
                     ? openChatError.message
-                    : "No se pudo abrir la conversacion.",
+                    : "No se pudo abrir la conversación.",
             );
         } finally {
             setIsOpeningChat(false);
@@ -190,7 +190,7 @@ const PublicProfilePage = () => {
         }
 
         if (file.size > MAX_AVATAR_BYTES) {
-            setAvatarError("La imagen debe pesar maximo 5MB.");
+            setAvatarError("La imagen debe pesar máximo 5MB.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
@@ -323,7 +323,7 @@ const PublicProfilePage = () => {
                                     </p>
                                 )}
                                 <p
-                                    className="text-[11px] font-extrabold uppercase tracking-widest mt-1"
+                                    className="text-xs font-semibold mt-1"
                                     style={{ color: "var(--text-secondary)" }}
                                 >
                                     {profile.role}
@@ -345,8 +345,8 @@ const PublicProfilePage = () => {
 
                         <div className="p-6 sm:p-8 space-y-4">
                             <div>
-                                <p className="text-xs font-bold font-heading uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                                    Delegacion
+                                <p className="text-xs font-bold font-heading" style={{ color: "var(--text-secondary)" }}>
+                                    Delegación
                                 </p>
                                 <p className="text-sm font-body mt-1" style={{ color: "var(--text-primary)" }}>
                                     {profile.delegationName ?? "No especificada"}
@@ -354,8 +354,8 @@ const PublicProfilePage = () => {
                             </div>
 
                             <div>
-                                <p className="text-xs font-bold font-heading uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                                    Institucion
+                                <p className="text-xs font-bold font-heading" style={{ color: "var(--text-secondary)" }}>
+                                    Institución
                                 </p>
                                 <p className="text-sm font-body mt-1" style={{ color: "var(--text-primary)" }}>
                                     {profile.institutionName ?? "No especificada"}
@@ -363,7 +363,7 @@ const PublicProfilePage = () => {
                             </div>
 
                             <div>
-                                <p className="text-xs font-bold font-heading uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                                <p className="text-xs font-bold font-heading" style={{ color: "var(--text-secondary)" }}>
                                     Biografía
                                 </p>
                                 <p className="text-sm font-body mt-1 whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>
@@ -444,14 +444,14 @@ const PublicProfilePage = () => {
                                     }}
                                 >
                                     <h2
-                                        className="text-sm font-heading font-bold uppercase tracking-wide"
+                                        className="text-sm font-heading font-bold"
                                         style={{ color: "var(--text-primary)" }}
                                     >
-                                        Edicion administrativa
+                                        Edición administrativa
                                     </h2>
 
                                     <div className="space-y-2">
-                                        <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                        <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                             Foto de perfil
                                         </label>
                                         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -516,19 +516,19 @@ const PublicProfilePage = () => {
                                             }}
                                         >
                                             <p className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
-                                                {avatarFile ? avatarFile.name : "Ningun archivo seleccionado"}
+                                                {avatarFile ? avatarFile.name : "Ningún archivo seleccionado"}
                                             </p>
                                             <p className="text-xs font-body mt-0.5" style={{ color: "var(--text-muted)" }}>
                                                 {avatarFile
                                                     ? `${(avatarFile.size / (1024 * 1024)).toFixed(2)} MB`
-                                                    : "Formatos: JPG, PNG o WEBP | Maximo 5MB"}
+                                                    : "Formatos: JPG, PNG o WEBP | Máximo 5MB"}
                                             </p>
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Nombre
                                             </label>
                                             <input
@@ -541,7 +541,7 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Apellido
                                             </label>
                                             <input
@@ -554,7 +554,7 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Nombre mostrado
                                             </label>
                                             <input
@@ -567,7 +567,7 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Alias
                                             </label>
                                             <input
@@ -582,7 +582,7 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Comité
                                             </label>
                                             <select
@@ -601,8 +601,8 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                                Delegacion
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                                                Delegación
                                             </label>
                                             <input
                                                 type="text"
@@ -614,8 +614,8 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                                Institucion
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                                                Institución
                                             </label>
                                             <input
                                                 type="text"
@@ -627,7 +627,7 @@ const PublicProfilePage = () => {
                                         </div>
 
                                         <div className="space-y-2 sm:col-span-2">
-                                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                                 Rol
                                             </label>
                                             <input
@@ -641,7 +641,7 @@ const PublicProfilePage = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                        <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                             Biografía
                                         </label>
                                         <textarea

@@ -62,7 +62,7 @@ export async function authContextRequest(token: string): Promise<{
 
     if (!res.ok) {
         throw new AuthRequestError(
-            data.error || "No se pudo refrescar el contexto de sesion",
+            data.error || "No se pudo refrescar el contexto de sesión",
             res.status,
         );
     }

@@ -22,9 +22,9 @@ export const BrandAttribution = ({
             rel="noopener noreferrer"
             aria-label="Desarrollado por C3 — abre c3.com.sv en una pestaña nueva"
             className={`inline-flex items-center gap-2 rounded-md transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 ${className}`}
-            style={{ color: "var(--text-muted)" }}
+            style={{ color: "var(--text-secondary)" }}
         >
-            <span className="text-[10px] sm:text-xs font-body font-medium whitespace-nowrap">
+            <span className="text-xs font-body font-medium whitespace-nowrap">
                 Desarrollado por C3
             </span>
             <img

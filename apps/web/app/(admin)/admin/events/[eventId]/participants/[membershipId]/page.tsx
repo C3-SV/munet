@@ -594,7 +594,7 @@ export default function ParticipantDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Código
@@ -608,7 +608,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Estado
@@ -621,7 +621,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Creado

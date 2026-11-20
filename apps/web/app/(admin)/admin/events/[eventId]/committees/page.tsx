@@ -245,7 +245,7 @@ export default function CommitteesPage() {
                                             <th
                                                 key={column || index}
                                                 className={[
-                                                    "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
+                                                    "px-6 py-3 text-xs font-bold uppercase tracking-widest font-heading",
                                                     index === 1 ? "hidden md:table-cell" : "",
                                                     index === 2 ? "hidden sm:table-cell text-center" : "",
                                                     index === 4 ? "text-right" : "",

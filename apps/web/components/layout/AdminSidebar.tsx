@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { formatRoleLabel } from "../../lib/role-label";
 import { useTheme } from "../../lib/theme-context";
 import { useAuthStore } from "../../stores/auth.store";
 import {
@@ -213,13 +214,7 @@ export const AdminSidebar = () => {
                         style={{ backgroundColor: "var(--text-accent)", opacity: 0.8 }}
                     />
                     <p
-                        className="mt-4 text-[10px] font-extrabold uppercase tracking-widest font-heading"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        Panel de Control
-                    </p>
-                    <p
-                        className="mt-1 text-sm font-bold font-heading truncate"
+                        className="mt-4 text-sm font-bold font-heading truncate"
                         style={{ color: "var(--text-primary)" }}
                         title={activeEventName}
                     >
@@ -228,14 +223,14 @@ export const AdminSidebar = () => {
                     <div className="mt-3 flex flex-col gap-1.5">
                         <Link
                             href="/select-event"
-                            className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
+                            className="text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-accent)" }}
                         >
                             Cambiar evento
                         </Link>
                         <Link
                             href="/feed"
-                            className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
+                            className="text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-secondary)" }}
                         >
                             ← Volver al Feed
@@ -291,10 +286,10 @@ export const AdminSidebar = () => {
                                 {activeMembership?.participantCode ?? "Administrador"}
                             </span>
                             <span
-                                className="text-[10px] font-extrabold uppercase tracking-widest"
+                                className="text-xs font-bold"
                                 style={{ color: "var(--text-accent)" }}
                             >
-                                {activeMembership?.role ?? "ADMIN"}
+                                {formatRoleLabel(activeMembership?.role ?? "ADMIN")}
                             </span>
                         </div>
                     </Link>

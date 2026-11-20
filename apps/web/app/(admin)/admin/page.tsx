@@ -58,11 +58,7 @@ const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
 };
 
 export default function AdminDashboard() {
-    const memberships = useAuthStore((state) => state.memberships);
-    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const activeEventId = useAuthStore((state) => state.activeEventId);
-    const activeMembership = memberships.find((membership) => membership.id === activeMembershipId);
-    const eventName = activeMembership?.eventName ?? "Evento";
 
     const cards: AdminCard[] = [
         {
@@ -96,15 +92,9 @@ export default function AdminDashboard() {
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
             <div className="border-b pb-6" style={{ borderColor: "var(--border-color)" }}>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading" style={{ color: "var(--text-primary)" }}>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight font-heading" style={{ color: "var(--text-primary)" }}>
                     Panel de Administración
                 </h1>
-                <p className="mt-3 text-base leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    Bienvenido al centro de control para el evento{" "}
-                    <strong className="font-bold" style={{ color: "var(--text-accent)" }}>
-                        {eventName}
-                    </strong>.
-                </p>
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

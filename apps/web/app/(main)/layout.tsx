@@ -66,7 +66,7 @@ export default function MainLayout({
         return (
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>
-                    Cargando sesion...
+                    Cargando sesión...
                 </span>
             </div>
         );

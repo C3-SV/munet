@@ -115,7 +115,7 @@ const ParticipantRow = ({
 
         <td className="px-6 py-4 hidden sm:table-cell">
             <span
-                className="text-xs font-semibold font-heading uppercase tracking-wide"
+                className="text-xs font-semibold font-heading"
                 style={{ color: "var(--text-secondary)" }}
             >
                 {participant.role}
@@ -484,7 +484,7 @@ export default function EventParticipantsPage() {
                                         <th
                                             key={column}
                                             className={[
-                                                "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
+                                                "px-6 py-3 text-xs font-bold uppercase tracking-widest font-heading",
                                                 index === 2
                                                     ? "hidden md:table-cell"
                                                     : "",

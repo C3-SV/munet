@@ -6,6 +6,7 @@ import LogoutButton from "../../../components/auth/LogOutButton";
 import { Button } from "../../../components/ui/Button";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
 import { buildPersonLabel } from "../../../lib/person-label";
+import { formatRoleLabel } from "../../../lib/role-label";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import type { MyProfile } from "../../../types/common";
 
@@ -117,7 +118,7 @@ const ProfilePage = () => {
         }
 
         if (file.size > MAX_AVATAR_BYTES) {
-            setAvatarError("La imagen debe pesar maximo 5MB.");
+            setAvatarError("La imagen debe pesar máximo 5MB.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
@@ -174,9 +175,6 @@ const ProfilePage = () => {
                     <h1 className="text-3xl sm:text-4xl font-bold font-heading tracking-tight" style={{ color: "var(--text-accent)" }}>
                         Mi perfil
                     </h1>
-                    <p className="font-body mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                        Información pública y credenciales del evento actual.
-                    </p>
                 </header>
 
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
@@ -202,11 +200,15 @@ const ProfilePage = () => {
                                 </p>
                             )}
                             <p className="text-xs font-semibold font-heading mt-1" style={{ color: "var(--text-secondary)" }}>
-                                {profileData.delegationName ?? "Delegacion"}
+                                {profileData.delegationName ?? "Delegación"}
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                     |
                                 </span>
                                 {profileData.committee?.name ?? "Sin comité"}
+                                <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
+                                    |
+                                </span>
+                                {formatRoleLabel(profileData.role)}
                                 {profileData.delegationCode && (
                                     <>
                                         <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
@@ -222,7 +224,7 @@ const ProfilePage = () => {
                     <div className="p-6 sm:p-8 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="space-y-2 sm:col-span-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Foto de perfil
                                 </label>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -263,18 +265,18 @@ const ProfilePage = () => {
                                     }}
                                 >
                                     <p className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
-                                        {avatarFile ? avatarFile.name : "Ningun archivo seleccionado"}
+                                        {avatarFile ? avatarFile.name : "Ningún archivo seleccionado"}
                                     </p>
                                     <p className="text-xs font-body mt-0.5" style={{ color: "var(--text-muted)" }}>
                                         {avatarFile
                                             ? `${(avatarFile.size / (1024 * 1024)).toFixed(2)} MB`
-                                            : "Formatos: JPG, PNG o WEBP · Maximo 5MB"}
+                                            : "Formatos: JPG, PNG o WEBP · Máximo 5MB"}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Nombre mostrado
                                 </label>
                                 <input
@@ -287,7 +289,7 @@ const ProfilePage = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Alias
                                 </label>
                                 <input
@@ -305,7 +307,7 @@ const ProfilePage = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Correo
                                 </label>
                                 <input
@@ -316,36 +318,10 @@ const ProfilePage = () => {
                                     style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
                                 />
                             </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                    Rol
-                                </label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={profileData.role}
-                                    className="w-full p-3 rounded-xl font-body text-sm outline-none cursor-not-allowed"
-                                    style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                    Comité
-                                </label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={profileData.committee?.name ?? "Sin comité"}
-                                    className="w-full p-3 rounded-xl font-body text-sm outline-none cursor-not-allowed"
-                                    style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
-                                />
-                            </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                 Biografía
                             </label>
                             <textarea

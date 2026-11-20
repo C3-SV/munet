@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { formatRoleLabel } from "../../lib/role-label";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -79,9 +80,6 @@ const SelectEventPage = () => {
                     >
                         Selecciona tu evento
                     </h1>
-                    <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                        Elige el evento con el que quieres trabajar en esta sesión.
-                    </p>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -96,25 +94,14 @@ const SelectEventPage = () => {
                                 borderRadius: "var(--radius-lg)",
                             }}
                         >
-                            <p
-                                className="text-xs font-semibold font-heading"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                {membership.eventStatus}
-                            </p>
                             <h2
-                                className="mt-1 text-xl font-bold font-heading"
+                                className="text-xl font-bold font-heading"
                                 style={{ color: "var(--text-primary)" }}
                             >
                                 {membership.eventName}
                             </h2>
-                            <p className="mt-3 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                Rol: {membership.role}
-                            </p>
-                            <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                {membership.committeeName
-                                    ? `Comité: ${membership.committeeName}`
-                                    : "Comité: No asignado"}
+                            <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                                {formatRoleLabel(membership.role)}
                             </p>
                         </button>
                     ))}
@@ -129,7 +116,7 @@ const SelectEventPage = () => {
                         }}
                     >
                         <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                            No hay membresias activas para este usuario.
+                            No hay membresías activas para este usuario.
                         </p>
                     </div>
                 )}
@@ -147,12 +134,6 @@ const SelectEventPage = () => {
                         Cerrar sesión
                     </button>
                 </div>
-
-                {memberships.some((membership) => isAdminRole(membership.role)) && (
-                    <p className="mt-3 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                        Como administrador debes seleccionar explícitamente el evento al iniciar sesión.
-                    </p>
-                )}
             </div>
             <div className="mt-10 flex justify-center">
                 <BrandAttribution />

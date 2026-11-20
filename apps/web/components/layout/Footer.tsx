@@ -31,9 +31,9 @@ export const Footer = () => {
                     />
                     <span
                         className="text-xs font-body font-medium"
-                        style={{ color: "var(--text-muted)" }}
+                        style={{ color: "var(--text-secondary)" }}
                     >
-                        (c) {new Date().getFullYear()} MUN ESEN. Plataforma oficial.
+                        © {new Date().getFullYear()} MUN ESEN
                     </span>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">

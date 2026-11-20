@@ -135,12 +135,6 @@ const Directory = () => {
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
-                    <span
-                        className="text-xs font-bold font-heading"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        Participantes del evento
-                    </span>
                     <h1
                         className="text-3xl sm:text-4xl font-bold font-heading mt-1 tracking-tight"
                         style={{ color: "var(--text-accent)" }}

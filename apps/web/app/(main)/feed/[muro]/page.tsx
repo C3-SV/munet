@@ -277,7 +277,7 @@ const Feed = () => {
     }) => {
         // Publica y actualiza estado local optimistamente con el post retornado.
         if (!token || !eventId) {
-            throw new Error("No hay sesion activa");
+            throw new Error("No hay sesión activa");
         }
 
         try {
