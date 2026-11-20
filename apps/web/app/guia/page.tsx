@@ -117,8 +117,11 @@ export default function GuidePage() {
                                 <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
                                     <li><span className="mr-2 text-[var(--text-accent)]">↗</span>En General o en el muro de tu comité, escribe una publicación y selecciona <strong className="text-[var(--text-primary)]">Publicar</strong>.</li>
                                     <li><span className="mr-2 text-[var(--text-accent)]">↗</span>En <strong className="text-[var(--text-primary)]">Encuesta</strong>, añade de 2 a 10 opciones y publícala. Puedes cambiar tu voto mientras siga abierta.</li>
-                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Abre <strong className="text-[var(--text-primary)]">Comentarios</strong> para comentar o responder a un comentario.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Pulsa el botón de comentarios bajo la publicación: muestra cuántos van y abre la conversación para comentar o responder.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Usa <strong className="text-[var(--text-primary)]">Recientes</strong> o <strong className="text-[var(--text-primary)]">Antiguos</strong> para ordenar el muro y la búsqueda para encontrar una publicación. En General, filtra por comité con las etiquetas.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Cada publicación y mensaje muestra la fecha y la hora en que se envió.</li>
                                 </ul>
+                                <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">El botón <strong className="text-[var(--text-primary)]">Adjuntar</strong> del editor ya permite elegir una imagen JPG o PNG (hasta 5 MB) o un PDF (hasta 20 MB), pero por ahora el archivo no se guarda: la publicación sale solo con el texto.</p>
                                 <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">Los avisos oficiales los publica la administración. Los participantes no pueden publicar ni comentar en ese muro.</p>
                             </TopicCard>
                             <TopicCard title="Tu perfil">
@@ -168,8 +171,8 @@ export default function GuidePage() {
                         <div className="mt-8 space-y-4">
                             <TopicCard title="Eventos">
                                 {steps([
-                                    { title: "Abre el panel", text: "Selecciona un evento que ya administras y entra a Eventos y Comités. La opción Cambiar evento también aparece en el panel." },
-                                    { title: "Consulta tus eventos", text: "En Eventos revisa la lista. Pulsa Nuevo evento para abrir el formulario de creación." },
+                                    { title: "Abre el panel", text: "Selecciona un evento que ya administras y entra a Eventos. La opción Cambiar evento también aparece en el panel." },
+                                    { title: "Consulta tus eventos", text: "En Eventos revisa la lista. Cada fila tiene tres iconos: Participantes, Comités y Configurar. Pulsa Nuevo evento para abrir el formulario de creación." },
                                     { title: "Completa los datos", text: "Añade nombre y slug. Si quieres, incluye descripción y fechas. Pulsa Crear evento y edita los datos disponibles desde su ficha." },
                                 ])}
                                 <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">Si el evento no aparece en tu lista o no abre sus muros, coordina con la organización general de MUNET antes de incorporar participantes.</p>
@@ -177,9 +180,9 @@ export default function GuidePage() {
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <TopicCard title="Comités y sus muros">
                                     {steps([
-                                        { title: "Abre Comités", text: "Desde el evento seleccionado, entra en Comités y elige Nuevo comité." },
+                                        { title: "Abre Comités", text: "Usa Comités en la navegación de la izquierda, o el panel de inicio, y elige Nuevo comité." },
                                         { title: "Registra el comité", text: "Escribe el nombre y el código. Puedes añadir descripción y orden." },
-                                        { title: "Edita si hace falta", text: "En el listado, pulsa Editar para actualizar los datos disponibles. Al crear un comité, MUNET también crea su muro." },
+                                        { title: "Edita si hace falta", text: "En el listado, pulsa el icono de lápiz de la fila para actualizar los datos disponibles. Al crear un comité, MUNET también crea su muro." },
                                     ])}
                                 </TopicCard>
                                 <TopicCard title="Registra participantes">
