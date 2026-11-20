@@ -108,5 +108,5 @@ Deuda abierta, pendiente de aceptación formal del dueño. Mientras no se acepte
 - Recorrido manual autenticado en claro y oscuro, 390 y 1440 px: login, selección de evento, feed (Avisos, General y un comité), publicar, comentar, votar, chat entre dos sesiones, perfil y administración. Requiere datos ficticios en un entorno aislado.
 - Detector sobre rutas autenticadas (vista de selección con sesión, muro, perfil). Solo se midieron `/login`, `/guia` y `/select-event` sin sesión.
 - `/impeccable critique` sobre el muro, para comparar contra el puntaje de 20/40.
-- Puntos 1 a 6 de Review Focus del plan: fechas nulas o inválidas, medianoche, persona sin comité, acordeón de muros, texto sin scroll horizontal y contraste 4.5:1 en modo oscuro.
+- Puntos 1 a 6 de Review Focus del plan: evidencia solo a nivel de pruebas unitarias y de código (ronda 3); sin verificación en navegador. Pendiente verlos en 390 y 1440 px, sobre todo el desbordamiento de texto (punto 5) y el acordeón de muros (punto 4).
 - `line-length` en `/guia` a 1440 px: párrafos de unos 110 caracteres dentro de tarjetas. Advertencia del detector, no está en la lista de la especificación.

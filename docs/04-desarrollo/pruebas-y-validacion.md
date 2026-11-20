@@ -100,3 +100,30 @@ Pasos no ejecutados, con su motivo:
 El diferimiento de estos pasos queda registrado como deuda en `docs/07-auditoria/pendientes.md`, marcado como pendiente de aceptación formal del dueño.
 
 Comprobaciones de la ronda: `git status --short` y `git diff --check` sobre los archivos tocados.
+
+## Ronda 3 de corrección de la Tarea 13 (20 de noviembre de 2026)
+
+Sobre la base `1701da9`, con cambios solo en documentación. No se modificó código de `apps/web` ni `apps/api`, ni migraciones ni dependencias.
+
+Hallazgo T13-R0-1: los pasos 4 y 5 de la Tarea 13 siguen sin ejecutarse, y no hay aceptación formal del dueño del diferimiento. El paso 3 quedó medido en la ronda 2. Esta ronda añade evidencia a nivel de pruebas unitarias y de código para los puntos 1 a 6 de Review Focus del plan. Ninguno está verificado en navegador.
+
+Comandos ejecutados:
+
+- `node --test apps/web/lib/*.test.mjs apps/web/lib/api/*.test.mjs`: 48 pruebas correctas, cero fallos.
+- `git diff --check`: sin salida.
+- Contraste: cálculo WCAG 2.x sobre los tokens de `apps/web/app/globals.css`.
+
+| Punto de Review Focus | Evidencia | Límite |
+|---|---|---|
+| 1. Fecha `null`, vacía o inválida | `lib/format-datetime.test.mjs`: `formatDateTime` y `formatTime` devuelven `—` para `null`, `""` y `"no-fecha"`. | No se ha visto en un post o mensaje real. |
+| 2. Medianoche y zona horaria | Mismo archivo, zona `America/El_Salvador`: `isSameLocalDay` separa 23:50 del 18 y 01:00 del 19 (05:50Z y 07:00Z), y `formatTime` da `00:00` a medianoche. | Sin prueba en la interfaz. |
+| 3. Persona sin comité, sin alias, alias igual al nombre, nombre largo | `lib/person-label.test.mjs`: sin comité usa el rol o no tiene línea secundaria, sin texto `SIN ASIGNAR`; alias vacío o igual al nombre queda en `null`; nombre de 80 caracteres sin espacios se devuelve íntegro. | El recorte visual de la tarjeta depende de CSS y no se ha visto en navegador. |
+| 4. Acordeón de muros con uno o cero comités | `lib/wall-nav.test.mjs`: con un solo comité accesible, `mine` lo recibe y `showCommitteeGroup` es `false`; con dos o más, el grupo aparece. `components/layout/Sidebar.tsx:407` renderiza el grupo solo con `showCommitteeGroup`. | El render del menú no se ha visto en navegador. |
+| 5. Saltos de línea y palabras largas sin scroll horizontal | Código: `PostCard.tsx:226` y `ChatMessage.tsx:147` usan `whiteSpace: pre-wrap` con `overflowWrap: anywhere`; `PostComments.tsx:437` hace lo mismo en comentarios. El campo de escritura de comentarios (`PostComments.tsx:506`) usa `whitespace-pre-wrap` sin `overflowWrap`. | No se ha comprobado el desplazamiento horizontal en 390 y 1440 px. |
+| 6. Contraste 4.5:1 en modo oscuro | Botón primario (`--btn-primary-fg` `#ffffff` sobre `--btn-primary-bg` `#2f6fd0`): 4.88:1. Burbuja propia (`--bubble-me-text` `#e6edf3` sobre `--bubble-me-bg` `#1f4788`): 7.68:1. | Los estados `hover` (`opacity-90`) y `focus` no se han medido. El estado deshabilitado no está sujeto al mínimo. |
+
+Pendiente, sin cambios en esta ronda:
+
+- Pasos 4 y 5 de la Tarea 13 y `/impeccable critique` sobre el muro: requieren sesión autenticada y datos ficticios en un entorno aislado. No hay autorización para crear cuentas (ver ronda 2).
+- Verificación visual en navegador de los puntos 3 a 6, en claro y oscuro, a 390 y 1440 px.
+- T13-R0-1 sigue abierto hasta que el dueño acepte formalmente el diferimiento registrado en `docs/07-auditoria/pendientes.md`.
