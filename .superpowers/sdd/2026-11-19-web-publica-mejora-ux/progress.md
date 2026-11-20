@@ -186,3 +186,4 @@ Task 12: minor (deferred): T12-R0-10 apps/web/app/(admin)/admin/events/[eventId]
 Task 12: complete (commits 2baa8d9..f53eb8e, review clean)
 Task 13: fix round 1/5 (6 addressed, 1 open; commits 3c8feb6..cbc5724)
 Task 13: fix round 2/5 (0 addressed, 1 open; commits cbc5724..1701da9)
+Task 13: fix round 3/5 (0 addressed, 1 open; commits 1701da9..5e54108)
