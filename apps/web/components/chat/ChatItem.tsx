@@ -9,6 +9,7 @@ interface ChatItemProps {
     href?: string;
     onSelect?: () => void;
     lastMessage?: string | null;
+    lastMessageIsMine?: boolean;
     unreadCount?: number;
 }
 
@@ -17,6 +18,7 @@ export const ChatItem = ({
     href,
     onSelect,
     lastMessage,
+    lastMessageIsMine = false,
     unreadCount,
 }: ChatItemProps) => {
     // Contenido comun para modo `Link` (inbox) y modo `button` (busqueda).
@@ -25,6 +27,8 @@ export const ChatItem = ({
         <>
             <div className="relative shrink-0">
                 {delegate.avatar ? (
+                    // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={delegate.avatar}
                         alt={delegate.name}
@@ -45,10 +49,6 @@ export const ChatItem = ({
                         {buildInitials(delegate.name)}
                     </div>
                 )}
-                <span
-                    className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500"
-                    style={{ boxShadow: "0 0 0 2.5px var(--bg-surface)" }}
-                />
             </div>
 
             <div className="flex-1 min-w-0">
@@ -65,7 +65,7 @@ export const ChatItem = ({
                         )}
                     </h4>
                     <span
-                        className="text-[11px] shrink-0 font-medium"
+                        className="text-xs shrink-0 font-medium"
                         style={{ color: "var(--text-muted)" }}
                     >
                         {delegate.lastActive}
@@ -76,7 +76,14 @@ export const ChatItem = ({
                         className="text-[13px] truncate font-body"
                         style={{ color: "var(--text-secondary)" }}
                     >
-                        {lastMessage || (
+                        {lastMessage ? (
+                            <>
+                                {lastMessageIsMine && (
+                                    <span className="font-semibold">Tú: </span>
+                                )}
+                                {lastMessage}
+                            </>
+                        ) : (
                             <span className="italic" style={{ color: "var(--text-muted)" }}>
                                 {delegate.role} - {delegate.committee}
                             </span>
@@ -84,8 +91,11 @@ export const ChatItem = ({
                     </p>
                     {unreadCount && unreadCount > 0 ? (
                         <span
-                            className="shrink-0 flex items-center justify-center size-5 rounded-full text-[11px] font-bold text-white"
-                            style={{ backgroundColor: "var(--bubble-me-bg)" }}
+                            className="shrink-0 flex items-center justify-center size-5 rounded-full text-xs font-bold"
+                            style={{
+                                backgroundColor: "var(--bubble-me-bg)",
+                                color: "var(--text-on-accent)",
+                            }}
                         >
                             {unreadCount}
                         </span>

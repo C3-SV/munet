@@ -6,6 +6,7 @@ import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
+import { groupMessages } from "../../../../lib/chat-groups";
 import {
     createConversation,
     deleteConversationMessage,
@@ -13,11 +14,22 @@ import {
     getConversations,
     sendConversationMessage,
 } from "../../../../lib/api/chat";
-import { formatDayLabel, formatTime, isSameLocalDay } from "../../../../lib/format-datetime";
+import { formatDayLabel, formatTime } from "../../../../lib/format-datetime";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
 import type { Delegate } from "../../../../types/common";
+
+// Distancia en píxeles al final para considerar que el usuario sigue la conversación.
+const NEAR_BOTTOM_PX = 120;
+
+const preferredScrollBehavior = (): ScrollBehavior => {
+    try {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    } catch {
+        return "smooth";
+    }
+};
 
 const ChatRoomPage = () => {
     const params = useParams();
@@ -28,7 +40,11 @@ const ChatRoomPage = () => {
     const eventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
-    const bottomRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const nearBottomRef = useRef(true);
+    const initialScrollDoneRef = useRef(false);
+    const knownMessageIdsRef = useRef<Set<string>>(new Set());
+    const [showNewMessagesChip, setShowNewMessagesChip] = useState(false);
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
@@ -56,6 +72,24 @@ const ChatRoomPage = () => {
                       lastActive: "desconocido",
                   },
         [conversation, conversationId],
+    );
+
+    // Bloques por día y por autor consecutivo (ver lib/chat-groups.ts).
+    const messageGroups = useMemo(
+        () =>
+            groupMessages(
+                messages.map((message) => ({
+                    id: message.id,
+                    senderId: message.senderId,
+                    createdAt: message.createdAt,
+                })),
+            ),
+        [messages],
+    );
+
+    const messagesById = useMemo(
+        () => new Map(messages.map((message) => [message.id, message])),
+        [messages],
     );
 
     const refreshConversation = useCallback(async () => {
@@ -146,7 +180,7 @@ const ChatRoomPage = () => {
                     setError(
                         loadError instanceof Error
                             ? loadError.message
-                            : "No se pudo cargar la conversacion.",
+                            : "No se pudo cargar la conversación.",
                     );
                 }
             } finally {
@@ -207,10 +241,61 @@ const ChatRoomPage = () => {
         };
     }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
+    const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+        const element = scrollRef.current;
+        if (!element) {
+            return;
+        }
+
+        element.scrollTo({ top: element.scrollHeight, behavior });
+        nearBottomRef.current = true;
+        setShowNewMessagesChip(false);
+    }, []);
+
+    const handleScroll = () => {
+        const element = scrollRef.current;
+        if (!element) {
+            return;
+        }
+
+        const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+        nearBottomRef.current = distance < NEAR_BOTTOM_PX;
+        if (nearBottomRef.current) {
+            setShowNewMessagesChip(false);
+        }
+    };
+
     useEffect(() => {
-        // Mantiene scroll al final cuando cambia el historial visible.
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        // Carga inicial: baja al final sin animación. Después, solo sigue la conversación
+        // si el usuario está cerca del final o si el mensaje es suyo; si no, ofrece un chip.
+        if (isLoading) {
+            return;
+        }
+
+        const previousIds = knownMessageIdsRef.current;
+        const incoming = messages.filter((message) => !previousIds.has(message.id));
+        knownMessageIdsRef.current = new Set(messages.map((message) => message.id));
+
+        if (!initialScrollDoneRef.current) {
+            initialScrollDoneRef.current = true;
+            scrollToBottom("auto");
+            return;
+        }
+
+        if (incoming.length === 0) {
+            return;
+        }
+
+        const hasOwnIncoming = incoming.some(
+            (message) => message.senderId === activeMembershipId,
+        );
+
+        if (hasOwnIncoming || nearBottomRef.current) {
+            scrollToBottom(preferredScrollBehavior());
+        } else {
+            setShowNewMessagesChip(true);
+        }
+    }, [activeMembershipId, isLoading, messages, scrollToBottom]);
 
     const handleSendMessage = async (text: string) => {
         // Envia mensaje y agrega resultado local para respuesta inmediata.
@@ -290,7 +375,7 @@ const ChatRoomPage = () => {
 
     return (
         <div
-            className="flex flex-col h-full"
+            className="flex flex-col flex-1 min-h-0"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
             <ChatRoomHeader delegate={delegate} />
@@ -308,62 +393,90 @@ const ChatRoomPage = () => {
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
-                <div className="max-w-3xl mx-auto">
-                    {isLoading ? (
-                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
-                            Cargando mensajes...
-                        </p>
-                    ) : messages.length > 0 ? (
-                        messages.map((message, index) => (
-                            <React.Fragment key={message.id}>
-                                {(index === 0 ||
-                                    !isSameLocalDay(
-                                        messages[index - 1]?.createdAt ?? "",
-                                        message.createdAt,
-                                    )) && (
-                                    <div className="flex items-center gap-3 my-6">
-                                        <div
-                                            className="flex-1 h-px"
-                                            style={{ backgroundColor: "var(--border-color)" }}
-                                        />
-                                        <span
-                                            className="text-xs font-semibold px-3 py-1 rounded-full font-heading"
-                                            style={{
-                                                color: "var(--text-muted)",
-                                                backgroundColor: "var(--bg-surface-secondary)",
-                                                border: "1px solid var(--border-color)",
-                                            }}
-                                        >
-                                            {formatDayLabel(message.createdAt)}
-                                        </span>
-                                        <div
-                                            className="flex-1 h-px"
-                                            style={{ backgroundColor: "var(--border-color)" }}
-                                        />
-                                    </div>
-                                )}
-                                <ChatMessage
-                                    message={message}
-                                    isMe={message.senderId === activeMembershipId}
-                                    isNew={newMessageIds.has(message.id)}
-                                    onDelete={
-                                        message.senderId === activeMembershipId
-                                            ? requestDeleteMessage
-                                            : undefined
-                                    }
-                                    isDeleting={deletingMessageIds.has(message.id)}
-                                />
-                            </React.Fragment>
-                        ))
-                    ) : (
-                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
-                            Todavia no hay mensajes. Escribe el primero.
-                        </p>
-                    )}
+            <div className="relative flex-1 min-h-0">
+                <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="h-full overflow-y-auto px-4 py-6 md:px-8"
+                >
+                    <div className="max-w-3xl mx-auto">
+                        {isLoading ? (
+                            <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                                Cargando mensajes...
+                            </p>
+                        ) : messages.length > 0 ? (
+                            messageGroups.map((group, groupIndex) => (
+                                <React.Fragment key={`day-${groupIndex}`}>
+                                    {group.dayLabel && (
+                                        <div className="flex items-center gap-3 my-6">
+                                            <div
+                                                className="flex-1 h-px"
+                                                style={{ backgroundColor: "var(--border-color)" }}
+                                            />
+                                            <span
+                                                className="text-xs font-semibold px-3 py-1 rounded-full font-heading"
+                                                style={{
+                                                    color: "var(--text-muted)",
+                                                    backgroundColor: "var(--bg-surface-secondary)",
+                                                    border: "1px solid var(--border-color)",
+                                                }}
+                                            >
+                                                {group.dayLabel}
+                                            </span>
+                                            <div
+                                                className="flex-1 h-px"
+                                                style={{ backgroundColor: "var(--border-color)" }}
+                                            />
+                                        </div>
+                                    )}
+                                    {group.runs.map((run) =>
+                                        run.messageIds.map((messageId, indexInRun) => {
+                                            const message = messagesById.get(messageId);
+                                            if (!message) {
+                                                return null;
+                                            }
 
-                    <div ref={bottomRef} />
+                                            const isMe = message.senderId === activeMembershipId;
+
+                                            return (
+                                                <ChatMessage
+                                                    key={message.id}
+                                                    message={message}
+                                                    isMe={isMe}
+                                                    isNew={newMessageIds.has(message.id)}
+                                                    isLastInRun={indexInRun === run.messageIds.length - 1}
+                                                    onDelete={isMe ? requestDeleteMessage : undefined}
+                                                    isDeleting={deletingMessageIds.has(message.id)}
+                                                />
+                                            );
+                                        }),
+                                    )}
+                                </React.Fragment>
+                            ))
+                        ) : (
+                            <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                                Todavía no hay mensajes. Escribe el primero.
+                            </p>
+                        )}
+                    </div>
                 </div>
+
+                {showNewMessagesChip && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+                        <button
+                            type="button"
+                            onClick={() => scrollToBottom(preferredScrollBehavior())}
+                            className="pointer-events-auto motion-fade-in min-h-11 px-4 rounded-full text-sm font-semibold font-body"
+                            style={{
+                                backgroundColor: "var(--bubble-me-bg)",
+                                color: "var(--text-on-accent)",
+                                boxShadow: "var(--shadow-sm)",
+                            }}
+                        >
+                            Mensajes nuevos
+                        </button>
+                    </div>
+                )}
             </div>
 
             <ChatInput onSend={handleSendMessage} disabled={isLoading} />

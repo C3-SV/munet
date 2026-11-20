@@ -1,7 +1,6 @@
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
-import { BrandAttribution } from "../layout/BrandAttribution";
 import { buildPersonLabel } from "../../lib/person-label";
 import { IconChevronLeft } from "../ui/icons";
 
@@ -22,7 +21,7 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
         >
             <Link
                 href="/chat"
-                className="p-2 -ml-1 rounded-lg transition-all shrink-0"
+                className="flex items-center justify-center size-11 -ml-2 rounded-lg transition-all shrink-0"
                 style={{ color: "var(--text-secondary)" }}
                 onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = "var(--bg-hover)";
@@ -40,6 +39,8 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="relative shrink-0">
                     {delegate.avatar?.trim() ? (
+                        // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={delegate.avatar}
                             alt={delegate.name}
@@ -83,7 +84,6 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
                     </div>
                 </div>
             </div>
-            <BrandAttribution compact className="shrink-0 gap-1.5" />
         </div>
     );
 };

@@ -6,10 +6,30 @@ interface ChatInputProps {
     disabled?: boolean;
 }
 
+const SEND_HINT = "Enter para enviar; Shift+Enter para nueva línea";
+
+// En dispositivos táctiles Enter inserta salto de línea y solo el botón envía.
+const usePrefersCoarsePointer = () => {
+    const [isCoarse, setIsCoarse] = useState(false);
+
+    useEffect(() => {
+        try {
+            if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+                setIsCoarse(window.matchMedia("(pointer: coarse)").matches);
+            }
+        } catch {
+            // Sin soporte de matchMedia se usa el comportamiento de escritorio.
+        }
+    }, []);
+
+    return isCoarse;
+};
+
 export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
     const [text, setText] = useState("");
     const [isSending, setIsSending] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isCoarsePointer = usePrefersCoarsePointer();
 
     const handleSend = async () => {
         // Evita envios vacios/duplicados y limpia input tras exito.
@@ -23,6 +43,8 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
             setText("");
         } finally {
             setIsSending(false);
+            // Mantiene el foco en el campo para seguir escribiendo (teclado abierto en móvil).
+            textareaRef.current?.focus();
         }
     };
 
@@ -68,7 +90,9 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
                 <textarea
                     ref={textareaRef}
                     value={text}
-                    disabled={disabled || isSending}
+                    disabled={disabled}
+                    readOnly={isSending}
+                    aria-label="Escribe un mensaje"
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Escribe un mensaje..."
                     className="flex-1 bg-transparent resize-none outline-none text-[15px] py-2 placeholder:font-normal disabled:opacity-70"
@@ -80,7 +104,7 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
                         maxHeight: "128px",
                     }}
                     onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
+                        if (e.key === "Enter" && !e.shiftKey && !isCoarsePointer) {
                             e.preventDefault();
                             void handleSend();
                         }
@@ -88,28 +112,23 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
                 />
 
                 <button
+                    type="button"
                     onClick={() => void handleSend()}
                     disabled={!canSend}
-                    className="shrink-0 flex items-center justify-center size-10 rounded-xl transition-all"
+                    className="shrink-0 flex items-center justify-center size-11 md:size-10 rounded-xl transition-all"
                     style={{
                         backgroundColor: canSend
                             ? "var(--bubble-me-bg)"
                             : "var(--bg-surface-secondary)",
-                        color: canSend ? "white" : "var(--text-muted)",
+                        color: canSend ? "var(--text-on-accent)" : "var(--text-muted)",
                         cursor: canSend ? "pointer" : "not-allowed",
                     }}
                     aria-label="Enviar mensaje"
+                    title={isCoarsePointer ? undefined : SEND_HINT}
                 >
                     <IconSend size={18} />
                 </button>
             </div>
-
-            <p
-                className="text-center text-[11px] mt-2"
-                style={{ color: "var(--text-muted)", fontFamily: "var(--font-body)" }}
-            >
-                Enter para enviar - Shift+Enter para nueva linea
-            </p>
         </div>
     );
 };
