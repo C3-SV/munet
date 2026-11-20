@@ -21,7 +21,17 @@ export interface Post {
     deletedByActorType?: "AUTHOR" | "ADMIN" | null;
     canDelete?: boolean;
     poll?: PollData | null;
+    // Cero o un adjunto por publicación. La API todavía no lo devuelve.
+    attachment?: PostAttachment | null;
     timestamp: number;
+}
+
+export interface PostAttachment {
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    url: string;
 }
 
 export interface PollOption {

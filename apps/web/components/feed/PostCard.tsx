@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { closeFeedPoll, deleteFeedPost, voteOnFeedPoll } from "../../lib/api/feed";
+import { formatFileSize, isImageAttachment } from "../../lib/attachments";
 import { formatDateTime } from "../../lib/format-datetime";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
 import { Button } from "../ui/Button";
 import { Card, type CardVariant } from "../ui/Card";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { IconFile } from "../ui/icons";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { Post } from "../../types/common";
 
@@ -229,6 +231,33 @@ export const PostCard = ({
                 >
                     {post.content}
                 </p>
+            )}
+
+            {post.attachment && !post.isDeleted && (
+                <a
+                    href={post.attachment.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 no-underline hover:bg-[var(--bg-surface-secondary)]"
+                    style={{ border: "1px solid var(--border-color)" }}
+                    aria-label={`Abrir adjunto ${post.attachment.name} en una pestaña nueva`}
+                >
+                    <span style={{ color: "var(--text-accent)" }}>
+                        <IconFile size={22} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span
+                            className="block truncate text-sm font-semibold font-heading"
+                            style={{ color: "var(--text-primary)" }}
+                        >
+                            {post.attachment.name}
+                        </span>
+                        <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                            {isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} ·{" "}
+                            {formatFileSize(post.attachment.size)}
+                        </span>
+                    </span>
+                </a>
             )}
 
             {post.postType === "POLL" && post.poll && (

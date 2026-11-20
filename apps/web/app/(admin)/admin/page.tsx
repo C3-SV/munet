@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useAuthStore } from "../../../stores/auth.store";
-import { IconCalendar, IconDirectory } from "../../../components/ui/icons";
+import { IconCalendar, IconCommittees, IconDirectory } from "../../../components/ui/icons";
 
 type AdminCard = {
     title: string;
@@ -46,10 +46,18 @@ export default function AdminDashboard() {
     // Asignaciones y Moderación no tienen funciones todavía: no se listan aquí.
     const cards: AdminCard[] = [
         {
-            title: "Eventos y Comités",
-            description: "Configura eventos, crea comités y gestiona sus muros correspondientes.",
+            title: "Eventos",
+            description: "Crea y configura los eventos y abre sus fechas, participantes y comités.",
             href: "/admin/events",
             icon: <IconCalendar size={24} />,
+        },
+        {
+            title: "Comités",
+            description: "Crea comités, edita sus datos y gestiona sus muros en el evento activo.",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/committees`
+                : "/admin/events",
+            icon: <IconCommittees size={24} />,
         },
         {
             title: "Participantes",
@@ -72,7 +80,7 @@ export default function AdminDashboard() {
                 </h1>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {cards.map((card) => (
                     <AdminDashboardCard key={card.title} card={card} />
                 ))}
