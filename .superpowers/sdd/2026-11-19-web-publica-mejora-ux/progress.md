@@ -185,3 +185,4 @@ Task 12: minor (deferred): T12-R0-9 apps/web/app/(admin)/admin/events/page.tsx:9
 Task 12: minor (deferred): T12-R0-10 apps/web/app/(admin)/admin/events/[eventId]/participants/[membershipId]/page.tsx:245 La construccion de roleOptions se repite casi igual en la pagina de detalle (linea 245) y en la lista de participantes (participants/page.tsx:185). Ambas combinan PARTICIPANT_ROLES con formatRoleLabel y la opcion de valor vacio.
 Task 12: complete (commits 2baa8d9..f53eb8e, review clean)
 Task 13: fix round 1/5 (6 addressed, 1 open; commits 3c8feb6..cbc5724)
+Task 13: fix round 2/5 (0 addressed, 1 open; commits cbc5724..1701da9)
