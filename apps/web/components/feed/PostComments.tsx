@@ -5,6 +5,7 @@ import { createPostComment, deletePostComment, getPostComments } from "../../lib
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
 import { Button } from "../ui/Button";
+import { IconChat, IconChevronDown } from "../ui/icons";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { PostComment } from "../../types/common";
@@ -35,19 +36,53 @@ export const PostComments = ({
     defaultOpen = false,
 }: PostCommentsProps) => {
     const [open, setOpen] = useState(defaultOpen);
+    const [count, setCount] = useState<number | null>(null);
     const panelId = useId();
+
+    useEffect(() => {
+        // Contador del disparador: una carga ligera al montar; el panel abierto lo mantiene al día.
+        let cancelled = false;
+
+        getPostComments(postId, { token, eventId })
+            .then((data) => {
+                if (!cancelled) {
+                    setCount(data.filter((comment) => !comment.isDeleted).length);
+                }
+            })
+            .catch(() => {
+                // Sin contador no se bloquea nada: el botón sigue abriendo el panel.
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, postId, token]);
 
     return (
         <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--border-color)" }}>
-            <Button
-                variant="ghost"
-                size="sm"
+            <button
+                type="button"
                 aria-expanded={open}
                 aria-controls={open ? panelId : undefined}
                 onClick={() => setOpen((current) => !current)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-color)] px-3 text-sm font-heading font-semibold text-[var(--text-accent)] hover:bg-[var(--bg-surface-secondary)] md:min-h-9"
             >
-                {open ? "Ocultar comentarios" : "Comentarios"}
-            </Button>
+                <IconChat size={18} />
+                <span>
+                    {count === null
+                        ? "Comentarios"
+                        : count === 0
+                          ? "Comentar"
+                          : `${count} ${count === 1 ? "comentario" : "comentarios"}`}
+                </span>
+                <IconChevronDown
+                    size={16}
+                    style={{
+                        transform: open ? "rotate(180deg)" : "none",
+                        transition: "transform 160ms ease-out",
+                    }}
+                />
+            </button>
 
             {open && (
                 <CommentsPanel
@@ -57,13 +92,17 @@ export const PostComments = ({
                     eventId={eventId}
                     disabled={disabled}
                     showAuthorCommittee={showAuthorCommittee}
+                    onCountChange={setCount}
                 />
             )}
         </div>
     );
 };
 
-type CommentsPanelProps = Omit<PostCommentsProps, "defaultOpen"> & { id: string };
+type CommentsPanelProps = Omit<PostCommentsProps, "defaultOpen"> & {
+    id: string;
+    onCountChange: (count: number) => void;
+};
 
 const CommentsPanel = ({
     id,
@@ -72,6 +111,7 @@ const CommentsPanel = ({
     eventId,
     disabled = false,
     showAuthorCommittee = true,
+    onCountChange,
 }: CommentsPanelProps) => {
     const [comments, setComments] = useState<PostComment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,6 +124,13 @@ const CommentsPanel = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        // Mantiene el contador del disparador sincronizado con la lista visible, ya cargada.
+        if (!loading) {
+            onCountChange(comments.filter((comment) => !comment.isDeleted).length);
+        }
+    }, [comments, loading, onCountChange]);
     // Botones "⋯" por comentario: el foco vuelve a ellos al cerrar el diálogo de borrado.
     const menuButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 

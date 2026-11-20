@@ -274,6 +274,8 @@ const Feed = () => {
         content: string;
         postType: "TEXT" | "POLL";
         pollOptions?: string[];
+        // Adjunto elegido en el editor. `publishFeedPost` aún no lo envía: falta soporte de API y Storage.
+        attachment?: File;
     }) => {
         // Publica y actualiza estado local optimistamente con el post retornado.
         if (!token || !eventId) {
@@ -364,7 +366,7 @@ const Feed = () => {
               ? `Comité · código ${activeWall.committeeCode}`
               : null;
     // Avisos usan tarjeta oficial; el resto del foro usa publicaciones planas.
-    const cardVariant = activeWall?.kind === "announcements" ? "official" : "flat";
+    const cardVariant = activeWall?.kind === "announcements" ? "official" : "default";
     const canCommentInWall = activeWall
         ? activeWall.kind === "announcements"
             ? activeWall.canPublish
@@ -518,7 +520,7 @@ const Feed = () => {
                             showCommitteeFilter={Boolean(showCommitteeFilter)}
                         />
 
-                        <div className={cardVariant === "flat" ? "" : "space-y-4"}>
+                        <div className="space-y-4">
                             {isLoading ? (
                                 <div role="status" className="space-y-4">
                                     <span className="sr-only">Cargando publicaciones</span>

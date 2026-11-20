@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import { BrandAttribution } from "../../../components/layout/BrandAttribution";
+import { MunEsenLogo } from "../../../components/layout/MunEsenLogo";
 import { Button } from "../../../components/ui/Button";
 import {
     IconAlertCircle,
@@ -241,6 +242,9 @@ const Login = () => {
                     width={954} height={299} unoptimized
                 />
                 <div className="mt-4 h-1.5 w-full rounded-full" style={{ backgroundColor: "var(--text-accent)" }}></div>
+                <div className="mt-5 flex justify-center">
+                    <MunEsenLogo className="h-14 w-auto rounded-lg" />
+                </div>
             </div>
 
             <div className="mx-auto w-full sm:max-w-lg">
