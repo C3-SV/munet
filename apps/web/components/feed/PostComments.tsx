@@ -5,6 +5,7 @@ import { createPostComment, deletePostComment, getPostComments } from "../../lib
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
 import { Button } from "../ui/Button";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { PostComment } from "../../types/common";
 
@@ -30,6 +31,7 @@ export const PostComments = ({
     const [replyTo, setReplyTo] = useState<PostComment | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [pendingDeleteComment, setPendingDeleteComment] = useState<PostComment | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
@@ -165,17 +167,17 @@ export const PostComments = ({
         }
     };
 
-    const handleDeleteComment = async (comment: PostComment) => {
-        // Soft delete de comentario con mensaje de confirmacion.
+    const requestDeleteComment = (comment: PostComment) => {
+        // Soft delete de comentario: pide confirmacion antes de llamar a la API.
         if (!comment.canDelete || comment.isDeleted || deletingCommentId) {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Este comentario se marcara como eliminado y ya no podra leerse su contenido. Deseas continuar?",
-        );
+        setPendingDeleteComment(comment);
+    };
 
-        if (!confirmed) {
+    const handleDeleteComment = async (comment: PostComment) => {
+        if (!comment.canDelete || comment.isDeleted || deletingCommentId) {
             return;
         }
 
@@ -264,7 +266,7 @@ export const PostComments = ({
                                         {comment.canDelete && (
                                             <button
                                                 type="button"
-                                                onClick={() => void handleDeleteComment(comment)}
+                                                onClick={() => requestDeleteComment(comment)}
                                                 disabled={comment.isDeleted || deletingCommentId === comment.id}
                                                 className="text-xs font-semibold font-heading"
                                                 style={{
@@ -367,6 +369,22 @@ export const PostComments = ({
                     </p>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={pendingDeleteComment !== null}
+                title="¿Eliminar este comentario?"
+                description="El contenido dejará de leerse. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                tone="danger"
+                onCancel={() => setPendingDeleteComment(null)}
+                onConfirm={() => {
+                    const comment = pendingDeleteComment;
+                    setPendingDeleteComment(null);
+                    if (comment) {
+                        void handleDeleteComment(comment);
+                    }
+                }}
+            />
         </div>
     );
 };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { ModalDialog } from "../../../components/ui/ConfirmDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
@@ -42,6 +43,7 @@ const Login = () => {
 
     // Estados del modal de activación
     const [showActivationModal, setShowActivationModal] = useState(false);
+    const activationTitleId = useId();
     const [activationStep, setActivationStep] = useState(1);
     const [activationCode, setActivationCode] = useState("");
     const [oneTimePassword, setOneTimePassword] = useState("");
@@ -422,12 +424,15 @@ const Login = () => {
 
             {/* --- MODAL DE ACTIVACIÓN --- */}
             {showActivationModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div 
-                        className="w-full max-w-md rounded-2xl p-6 sm:p-8 relative shadow-2xl"
-                        style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)" }}
-                    >
+                <ModalDialog
+                    titleId={activationTitleId}
+                    onClose={resetActivationModal}
+                    closeOnBackdrop={false}
+                    className="p-6 sm:p-8"
+                >
                         <button
+                            type="button"
+                            aria-label="Cerrar"
                             onClick={resetActivationModal}
                             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
                         >
@@ -436,7 +441,7 @@ const Login = () => {
                             </svg>
                         </button>
 
-                        <h3 className="text-xl sm:text-2xl font-bold font-heading mb-6" style={{ color: "var(--text-accent)" }}>
+                        <h3 id={activationTitleId} className="text-xl sm:text-2xl font-bold font-heading mb-6" style={{ color: "var(--text-accent)" }}>
                             Activar Cuenta
                         </h3>
 
@@ -603,8 +608,7 @@ const Login = () => {
                                 </Button>
                             </form>
                         )}
-                    </div>
-                </div>
+                </ModalDialog>
             )}
             <div className="mt-8 flex justify-center">
                 <BrandAttribution />

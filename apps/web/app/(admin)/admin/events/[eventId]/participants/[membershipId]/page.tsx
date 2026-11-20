@@ -451,10 +451,10 @@ export default function ParticipantDetailPage() {
             key={lifecycleAction}
             title={
                 lifecycleAction === "suspend"
-                    ? "Suspender cuenta"
+                    ? "¿Suspender esta cuenta?"
                     : lifecycleAction === "reactivate"
-                      ? "Reactivar cuenta"
-                      : "Restablecer contraseña"
+                      ? "¿Reactivar esta cuenta?"
+                      : "¿Restablecer la contraseña?"
             }
             description={
                 lifecycleAction === "suspend"
@@ -470,7 +470,7 @@ export default function ParticipantDetailPage() {
                       ? "Reactivar cuenta"
                       : "Restablecer contraseña"
             }
-            variant={lifecycleAction === "suspend" ? "danger" : "primary"}
+            variant={lifecycleAction === "reactivate" ? "primary" : "danger"}
             requireReason={lifecycleAction !== "reset-password"}
             reasonLabel={
                 lifecycleAction === "suspend"

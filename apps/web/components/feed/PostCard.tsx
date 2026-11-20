@@ -4,6 +4,7 @@ import { formatDateTime } from "../../lib/format-datetime";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
 import { Card } from "../ui/Card";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { Post } from "../../types/common";
 
@@ -31,18 +32,19 @@ export const PostCard = ({
     const [isClosingPoll, setIsClosingPoll] = useState(false);
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<"delete-post" | "close-poll" | null>(null);
 
-    const handleDeletePost = async () => {
-        // Soft delete con confirmacion previa; backend decide permiso final.
+    const requestDeletePost = () => {
+        // Soft delete: pide confirmacion antes de llamar a la API; backend decide permiso final.
         if (!post.canDelete || post.isDeleted || isDeleting) {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Esta publicacion se marcara como eliminada y ya no podra leerse su contenido. Deseas continuar?",
-        );
+        setConfirmAction("delete-post");
+    };
 
-        if (!confirmed) {
+    const handleDeletePost = async () => {
+        if (!post.canDelete || post.isDeleted || isDeleting) {
             return;
         }
 
@@ -76,17 +78,17 @@ export const PostCard = ({
         }
     };
 
-    const handleClosePoll = async () => {
+    const requestClosePoll = () => {
         // Cierre manual de encuesta; solo disponible para el autor.
         if (!post.poll || !post.poll.canClose || post.isDeleted || isClosingPoll) {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Al cerrar la encuesta ya no se podra votar ni cambiar votos. Deseas continuar?",
-        );
+        setConfirmAction("close-poll");
+    };
 
-        if (!confirmed) {
+    const handleClosePoll = async () => {
+        if (!post.poll || !post.poll.canClose || post.isDeleted || isClosingPoll) {
             return;
         }
 
@@ -161,11 +163,11 @@ export const PostCard = ({
                     {post.canDelete && (
                         <button
                             type="button"
-                            onClick={handleDeletePost}
+                            onClick={requestDeletePost}
                             disabled={post.isDeleted || isDeleting}
                             className="text-xs font-semibold font-heading"
                             style={{
-                                color: post.isDeleted ? "var(--text-muted)" : "#b91c1c",
+                                color: post.isDeleted ? "var(--text-muted)" : "var(--danger)",
                                 cursor: post.isDeleted || isDeleting ? "not-allowed" : "pointer",
                                 opacity: post.isDeleted || isDeleting ? 0.6 : 1,
                             }}
@@ -204,7 +206,7 @@ export const PostCard = ({
                         {post.poll.canClose && (
                             <button
                                 type="button"
-                                onClick={() => void handleClosePoll()}
+                                onClick={requestClosePoll}
                                 disabled={isClosingPoll}
                                 className="text-xs font-semibold font-heading"
                                 style={{
@@ -274,7 +276,7 @@ export const PostCard = ({
             )}
 
             {error && (
-                <p className="mt-3 text-xs font-body" style={{ color: "#b91c1c" }}>
+                <p className="mt-3 text-xs font-body" style={{ color: "var(--danger)" }}>
                     {error}
                 </p>
             )}
@@ -285,6 +287,31 @@ export const PostCard = ({
                 eventId={eventId}
                 disabled={!canComment || Boolean(post.isDeleted)}
                 showAuthorCommittee={showAuthorCommittee}
+            />
+
+            <ConfirmDialog
+                open={confirmAction === "delete-post"}
+                title="¿Eliminar esta publicación?"
+                description="El contenido dejará de leerse. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleDeletePost();
+                }}
+            />
+            <ConfirmDialog
+                open={confirmAction === "close-poll"}
+                title="¿Cerrar esta encuesta?"
+                description="Ya no se podrá votar ni cambiar votos."
+                confirmLabel="Cerrar encuesta"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleClosePoll();
+                }}
             />
         </Card>
     );

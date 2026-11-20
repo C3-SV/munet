@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
+import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
 import {
     createConversation,
     deleteConversationMessage,
@@ -32,6 +33,7 @@ const ChatRoomPage = () => {
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
     const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+    const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -238,17 +240,18 @@ const ChatRoomPage = () => {
         }
     };
 
-    const handleDeleteMessage = async (messageId: string) => {
-        // Elimina mensaje propio con confirmacion y refresco posterior.
+    const requestDeleteMessage = (messageId: string) => {
+        // Elimina mensaje propio: pide confirmacion antes de llamar a la API.
         if (!token || !eventId || !conversationId) {
             return;
         }
 
-        const shouldDelete = window.confirm(
-            "Este mensaje dejara de verse en la conversacion, pero quedara registrado en auditoria. Deseas eliminarlo?",
-        );
+        setPendingDeleteMessageId(messageId);
+    };
 
-        if (!shouldDelete) {
+    const handleDeleteMessage = async (messageId: string) => {
+        // Elimina mensaje propio y refresca la conversacion.
+        if (!token || !eventId || !conversationId) {
             return;
         }
 
@@ -295,9 +298,9 @@ const ChatRoomPage = () => {
                 <div
                     className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm font-body"
                     style={{
-                        backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                        border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                        color: "#991b1b",
+                        backgroundColor: "color-mix(in srgb, var(--danger) 8%, var(--bg-surface))",
+                        border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+                        color: "var(--danger)",
                     }}
                 >
                     {error}
@@ -345,7 +348,7 @@ const ChatRoomPage = () => {
                                     isNew={newMessageIds.has(message.id)}
                                     onDelete={
                                         message.senderId === activeMembershipId
-                                            ? handleDeleteMessage
+                                            ? requestDeleteMessage
                                             : undefined
                                     }
                                     isDeleting={deletingMessageIds.has(message.id)}
@@ -363,6 +366,22 @@ const ChatRoomPage = () => {
             </div>
 
             <ChatInput onSend={handleSendMessage} disabled={isLoading} />
+
+            <ConfirmDialog
+                open={pendingDeleteMessageId !== null}
+                title="¿Eliminar este mensaje?"
+                description="Dejará de verse en la conversación, aunque quedará registrado en auditoría. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                tone="danger"
+                onCancel={() => setPendingDeleteMessageId(null)}
+                onConfirm={() => {
+                    const messageId = pendingDeleteMessageId;
+                    setPendingDeleteMessageId(null);
+                    if (messageId) {
+                        void handleDeleteMessage(messageId);
+                    }
+                }}
+            />
         </div>
     );
 };
