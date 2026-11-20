@@ -28,6 +28,11 @@ export type AuditActionType =
   | 'REACTIVATE_ACCOUNT'
   | 'RESET_PASSWORD'
   | 'CHANGE_COMMITTEE'
+  | 'CHANGE_ROLE'
+  | 'PIN_POST'
+  | 'UNPIN_POST'
+  | 'MODERATE_DELETE_POST'
+  | 'MODERATE_DELETE_COMMENT'
   | 'IMPORT_PARTICIPANTS';
 
 export type AuditEntityType =
@@ -53,6 +58,8 @@ export const logAudit = async (params: {
   actorUserId?: string;
   actorMembershipId?: string;
   actorRole?: string;
+  targetMembershipId?: string;
+  targetUserId?: string;
   actionType: AuditActionType;
   entityType: AuditEntityType;
   entityId: string;
@@ -66,6 +73,8 @@ export const logAudit = async (params: {
       actor_user_id: params.membership?.userId ?? params.actorUserId ?? null,
       actor_membership_id: params.membership?.id ?? params.actorMembershipId ?? null,
       actor_role: params.membership?.role ?? params.actorRole ?? null,
+      target_membership_id: params.targetMembershipId ?? null,
+      target_user_id: params.targetUserId ?? null,
       action_type: params.actionType,
       entity_type: params.entityType,
       entity_id: params.entityId,

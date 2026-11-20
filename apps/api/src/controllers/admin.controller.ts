@@ -76,6 +76,8 @@ export const createAccount = async (
       eventId: event_id,
       membership: req.auth?.currentMembership,
       actorUserId: actorUserId ?? undefined,
+      targetMembershipId: result.membership.id,
+      targetUserId: typeof result.user.id === 'string' ? result.user.id : undefined,
       actionType: 'CREATE_ACCOUNT',
       entityType: 'ACCOUNT',
       entityId: result.membership.id,
@@ -111,6 +113,24 @@ export const createEvent = async (
   req: Request<{}, {}, CreateEventBody>,
   res: Response
 ) => {
+  let createdEventId: string | undefined;
+  // El borrado fisico libera el slug. Se intentan todos los pasos aunque uno
+  // falle, porque la API no dispone de una transaccion entre estas consultas.
+  const rollback = async () => {
+    let succeeded = true;
+    for (const table of ['walls', 'event_memberships', 'events']) {
+      try {
+        const { error } = await supabaseAdmin.from(table).delete()
+          .eq(table === 'events' ? 'id' : 'event_id', createdEventId!);
+        if (error) throw error;
+      } catch (error) {
+        succeeded = false;
+        console.error(`Error revirtiendo ${table} del evento:`, error);
+      }
+    }
+    return succeeded;
+  };
+  const rollbackMessage = 'No se pudo completar ni revertir el evento. Se requiere revision del administrador.';
   try {
     const validationError = validateCatalogBody(req.body, 'event', false);
     if (validationError) return res.status(400).json({ error: validationError });
@@ -158,6 +178,8 @@ export const createEvent = async (
       return res.status(400).json({ error: error.message });
     }
 
+    createdEventId = event.id;
+
     // 4. dar acceso administrativo al creador sobre el evento que acaba de
     // crear: con la autorizacion acotada por evento (ADR-004/P-01), sin esto
     // quedaria sin poder administrar su propio evento. Si falla, se revierte
@@ -168,7 +190,7 @@ export const createEvent = async (
         event_id: event.id,
         user_id: actorUserId,
         participant_code: `ADM-${randomBytes(4).toString('hex')}`,
-        role: 'ADMIN',
+        role: 'ADMIN_TECH',
         account_status: 'ACTIVE',
         status_changed_at: new Date().toISOString(),
         created_by_user_id: actorUserId,
@@ -176,27 +198,32 @@ export const createEvent = async (
       });
 
     if (membershipError) {
-      const { error: rollbackError } = await supabaseAdmin
-        .from('events')
-        .update({ deleted_at: new Date().toISOString(), updated_by_user_id: actorUserId })
-        .eq('id', event.id);
-
-      if (rollbackError) {
-        console.error('Error revirtiendo evento sin membership admin:', rollbackError);
-        return res.status(500).json({
-          error: 'No se pudo otorgar acceso administrativo ni revertir el evento. Se requiere revision del administrador.'
-        });
-      }
+      if (!await rollback()) return res.status(500).json({ error: rollbackMessage });
 
       return res.status(400).json({
         error: `No se pudo otorgar acceso administrativo sobre el evento: ${membershipError.message}`
       });
     }
 
+    const { error: wallsError } = await supabaseAdmin
+      .from('walls')
+      .insert([
+        { event_id: event.id, name: 'General', wall_type: 'GENERAL', committee_id: null, status: 'ACTIVE' },
+        { event_id: event.id, name: 'Avisos', wall_type: 'ANNOUNCEMENTS', committee_id: null, status: 'ACTIVE' },
+      ]);
+
+    if (wallsError) {
+      if (!await rollback()) return res.status(500).json({ error: rollbackMessage });
+      return res.status(400).json({ error: `No se pudieron crear los muros del evento: ${wallsError.message}` });
+    }
+
+    // Desde aqui el alta esta completa; la auditoria no debe deshacerla.
+    createdEventId = undefined;
+
     await logAudit({
       eventId: event.id,
+      membership: req.auth?.currentMembership,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
       actionType: 'CREATE_EVENT',
       entityType: 'EVENT',
       entityId: event.id,
@@ -211,6 +238,7 @@ export const createEvent = async (
 
   } catch (error) {
     console.error(error);
+    if (createdEventId && !await rollback()) return res.status(500).json({ error: rollbackMessage });
     return res.status(500).json({ error: 'Error interno' });
   }
 };
@@ -375,7 +403,7 @@ export const updateEvent = async (
     await logAudit({
       eventId,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
       actionType: 'UPDATE_EVENT',
       entityType: 'EVENT',
       entityId: eventId,
@@ -491,7 +519,9 @@ export const createMembership = async (
     await logAudit({
       eventId: event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
+      targetMembershipId: membership.id,
+      targetUserId: user_id,
       actionType: 'CREATE_MEMBERSHIP',
       entityType: 'MEMBERSHIP',
       entityId: membership.id,
@@ -652,7 +682,7 @@ export const createCommittee = async (
     await logAudit({
       eventId: event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
       actionType: 'CREATE_COMMITTEE',
       entityType: 'COMMITTEE',
       entityId: committee.id,
@@ -888,7 +918,7 @@ export const updateCommittee = async (
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
       actionType: 'UPDATE_COMMITTEE',
       entityType: 'COMMITTEE',
       entityId: committeeId,
@@ -952,7 +982,7 @@ export const deleteCommittee = async (
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
       actionType: 'DELETE_COMMITTEE',
       entityType: 'COMMITTEE',
       entityId: committeeId,
@@ -1134,6 +1164,13 @@ export const updateParticipant = async (
       return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
+    if (hasOwn(payload, 'role')) {
+      if (typeof payload.role !== 'string' || !['PARTICIPANT', 'MODERATOR', 'ADMIN_MUN', 'ADMIN_TECH'].includes(payload.role)) {
+        return res.status(400).json({ error: 'role debe ser un valor valido del enum de membresias' });
+      }
+      if (isAdminRole(payload.role)) return res.status(403).json({ error: 'No se pueden asignar roles administrativos por esta via' });
+    }
+
     if (hasOwn(payload, 'alias') && payload.alias !== null && (typeof payload.alias !== 'string' || payload.alias.trim().length > 60)) {
       return res.status(400).json({ error: 'alias debe ser texto de hasta 60 caracteres o null' });
     }
@@ -1141,7 +1178,7 @@ export const updateParticipant = async (
 
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from('event_memberships')
-      .select('id, event_id')
+      .select('id, event_id, user_id, role')
       .eq('id', membershipId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -1149,6 +1186,11 @@ export const updateParticipant = async (
     if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
     if (!existing) {
       return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+
+    // Evita eludir la proteccion de la ruta dedicada usando la edicion general.
+    if (hasOwn(payload, 'role') && isAdminRole(existing.role)) {
+      return res.status(403).json({ error: 'No se puede cambiar el rol de una membership administrativa' });
     }
 
     if (hasOwn(payload, 'committee_id') && payload.committee_id) {
@@ -1210,7 +1252,9 @@ export const updateParticipant = async (
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
+      targetMembershipId: membershipId,
+      targetUserId: existing.user_id,
       actionType: 'UPDATE_PARTICIPANT',
       entityType: 'MEMBERSHIP',
       entityId: membershipId,
@@ -1244,7 +1288,7 @@ export const suspendParticipant = async (
 
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from('event_memberships')
-      .select('id, event_id, account_status')
+      .select('id, event_id, user_id, account_status')
       .eq('id', membershipId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -1275,7 +1319,9 @@ export const suspendParticipant = async (
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
+      targetMembershipId: membershipId,
+      targetUserId: existing.user_id,
       actionType: 'SUSPEND_ACCOUNT',
       entityType: 'ACCOUNT',
       entityId: membershipId,
@@ -1307,7 +1353,7 @@ export const reactivateParticipant = async (
 
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from('event_memberships')
-      .select('id, event_id, account_status')
+      .select('id, event_id, user_id, account_status')
       .eq('id', membershipId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -1338,7 +1384,9 @@ export const reactivateParticipant = async (
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
+      targetMembershipId: membershipId,
+      targetUserId: existing.user_id,
       actionType: 'REACTIVATE_ACCOUNT',
       entityType: 'ACCOUNT',
       entityId: membershipId,
@@ -1422,7 +1470,9 @@ export const resetParticipantPassword = async (
     await logAudit({
       eventId: membership.event_id,
       actorUserId: actorUserId ?? undefined,
-      actorRole: undefined,
+      membership: req.auth?.currentMembership,
+      targetMembershipId: membershipId,
+      targetUserId: membership.user_id,
       actionType: 'RESET_PASSWORD',
       entityType: 'ACCOUNT',
       entityId: membershipId,

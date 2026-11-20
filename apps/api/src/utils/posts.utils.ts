@@ -83,6 +83,8 @@ export const mapPost = (post: PostRow) => {
     timestamp: new Date(post.created_at).getTime(),
     committeeTags,
     isDeleted,
+    isPinned: post.is_pinned,
+    pinnedAt: post.pinned_at,
     deletedByActorType: post.deleted_by_membership_id,
     poll: null,
     user: {

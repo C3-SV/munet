@@ -4,7 +4,7 @@ import {
   getMembershipsByUserId,
   getUserBySupabaseAuthId,
 } from '../services/auth-context.service';
-import { isAdminRole } from '../utils/rbac.utils';
+import { canModerateRole, isAdminRole, isSuperAdminRole } from '../utils/rbac.utils';
 
 // Extrae y valida formato "Bearer <token>" del header Authorization.
 const readBearerToken = (authorizationHeader?: string | null) => {
@@ -125,6 +125,20 @@ export const eventIdFromQuery: EventIdResolver = (req) => {
   return typeof value === 'string' ? value : null;
 };
 
+const eventIdFromModerationResource = async (table: 'walls' | 'posts' | 'post_comments', id: unknown) => {
+  if (typeof id !== 'string' || !id.trim()) return null;
+  let query = supabaseAdmin.from(table).select('event_id').eq('id', id);
+  // Posts y comentarios borrados siguen siendo accesibles para consultar su historial.
+  if (table === 'walls') query = query.is('deleted_at', null);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data?.event_id ?? null;
+};
+
+export const eventIdFromWall: EventIdResolver = (req) => eventIdFromModerationResource('walls', req.query.wall_id);
+export const eventIdFromPost: EventIdResolver = (req) => eventIdFromModerationResource('posts', req.params.postId);
+export const eventIdFromComment: EventIdResolver = (req) => eventIdFromModerationResource('post_comments', req.params.commentId);
+
 // Resuelve el event_id a partir del comite en la ruta (p.ej. PATCH/DELETE
 // /admin/committees/:committeeId), que no trae el evento directamente.
 export const eventIdFromCommittee: EventIdResolver = async (req) => {
@@ -163,8 +177,9 @@ export const eventIdFromMembership: EventIdResolver = async (req) => {
 // activa pertenezca especificamente al evento resuelto por `resolveEventId`.
 // Resuelve P-01/ADR-004 para las rutas que ya operan sobre un evento
 // existente; la unica excepcion legitima sin evento objetivo es la creacion
-// de un evento nuevo, que sigue usando requireAdmin.
-export const requireEventAdmin = (
+// de un evento nuevo, que exige requireSuperAdmin.
+const requireEventPermission = (
+  acceptsRole: (role: string) => boolean,
   resolveEventId: EventIdResolver,
   options?: { missingStatus?: number; missingMessage?: string }
 ) => {
@@ -183,7 +198,7 @@ export const requireEventAdmin = (
       const membership = memberships.find(
         (m) =>
           m.eventId === eventId &&
-          isAdminRole(m.role) &&
+          acceptsRole(m.role) &&
           m.accountStatus === 'ACTIVE'
       );
 
@@ -200,6 +215,27 @@ export const requireEventAdmin = (
       return res.status(500).json({ error: 'No se pudo validar la autorizacion' });
     }
   };
+};
+
+export const requireEventAdmin = (
+  resolveEventId: EventIdResolver,
+  options?: { missingStatus?: number; missingMessage?: string }
+) => requireEventPermission(isAdminRole, resolveEventId, options);
+
+// Comparte la resolucion de evento para impedir moderacion entre eventos.
+export const requireEventModerator = (
+  resolveEventId: EventIdResolver,
+  options?: { missingStatus?: number; missingMessage?: string }
+) => requireEventPermission(canModerateRole, resolveEventId, options);
+
+// Crear eventos requiere superadmin y conserva la membership que autorizo el alta.
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
+  const membership = req.auth?.memberships.find(
+    (m) => isSuperAdminRole(m.role) && m.accountStatus === 'ACTIVE'
+  );
+  if (!membership) return res.status(403).json({ error: 'No autorizado' });
+  req.auth!.currentMembership = membership;
+  return next();
 };
 
 // Middleware de autorización por roles explícitos.
@@ -221,7 +257,7 @@ export const requireRole = (...roles: string[]) => {
 
 // Middleware de autorización global: exige al menos una membership activa con rol admin.
 // A diferencia de requireRole, no depende de req.auth.currentMembership ni de event_id,
-// por eso sirve para rutas admin sin evento en contexto (ej. crear evento nuevo).
+// por eso sirve para listar los eventos administrados sin evento en contexto.
 export const requireAdmin = (
   req: Request,
   res: Response,
