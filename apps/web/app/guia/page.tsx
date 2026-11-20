@@ -172,6 +172,7 @@ export default function GuidePage() {
                                     { title: "Consulta tus eventos", text: "En Eventos revisa la lista. Pulsa Nuevo evento para abrir el formulario de creación." },
                                     { title: "Completa los datos", text: "Añade nombre y slug. Si quieres, incluye descripción y fechas. Pulsa Crear evento y edita los datos disponibles desde su ficha." },
                                 ])}
+                                <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">Si el evento no aparece en tu lista o no abre sus muros, coordina con la organización general de MUNET antes de incorporar participantes.</p>
                             </TopicCard>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <TopicCard title="Comités y sus muros">
@@ -198,10 +199,10 @@ export default function GuidePage() {
                                         <li><strong className="text-[var(--text-primary)]">Suspender cuenta:</strong> pulsa Suspender cuenta e introduce el motivo.</li>
                                         <li><strong className="text-[var(--text-primary)]">Reactivar cuenta:</strong> pulsa Reactivar cuenta e introduce el motivo. Después, la persona puede volver a entrar.</li>
                                     </ul>
+                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Si se suspende una cuenta antes de que su titular la active, consulta con la organización general antes de reactivarla.</p>
                                 </TopicCard>
                                 <TopicCard title="Publica avisos y gestiona contenido">
                                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Abre el muro <strong className="text-[var(--text-primary)]">Avisos</strong> del evento para publicar y comentar como administración. En los muros donde tengas acceso, usa el control del post o comentario para retirar contenido cuando corresponda.</p>
-                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Para cambios de comité, usa la ficha individual de cada participante.</p>
                                 </TopicCard>
                             </div>
                         </div>

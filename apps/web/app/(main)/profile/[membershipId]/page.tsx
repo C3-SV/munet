@@ -183,7 +183,7 @@ const PublicProfilePage = () => {
         }
 
         if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-            setAvatarError("Solo se permiten imagenes JPG, PNG o WEBP.");
+            setAvatarError("Solo se permiten imágenes JPG, PNG o WEBP.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
