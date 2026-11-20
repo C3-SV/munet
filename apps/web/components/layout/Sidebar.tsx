@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -296,12 +297,12 @@ export const Sidebar = () => {
                             <IconMenu size={22} />
                         </button>
                         <Link href="/feed" className="shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                                 src="/logo-munet.png"
                                 alt="MUNET"
                                 className="h-8 w-auto hover:opacity-80 transition-opacity"
                                 style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                                width={954} height={299} unoptimized
                             />
                         </Link>
                     </div>
@@ -344,12 +345,12 @@ export const Sidebar = () => {
                 <div className="flex flex-col mt-8 md:mt-10 shrink-0">
                     <div className="flex items-center justify-between">
                         <Link href="/feed" className="shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                                 alt="MUNET"
                                 src="/logo-munet.png"
                                 className="h-9 w-auto hover:opacity-80 transition-opacity"
                                 style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                                width={954} height={299} unoptimized
                             />
                         </Link>
                         <button
@@ -498,7 +499,7 @@ export const Sidebar = () => {
                         style={{ color: "var(--text-primary)" }}
                     >
                         {profile?.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
+                            // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
                             <img
                                 src={profile.avatar}
                                 alt=""

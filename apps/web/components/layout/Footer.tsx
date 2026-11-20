@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Image from "next/image";
 import React from "react";
 import Link from "next/link";
 import { useTheme } from "../../lib/theme-context";
@@ -20,7 +21,7 @@ export const Footer = () => {
         >
             <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
-                    <img
+                    <Image
                         src="/logo-munet.png"
                         alt="MUNET"
                         className="h-5"
@@ -28,6 +29,7 @@ export const Footer = () => {
                             opacity: isDark ? 0.72 : 0.6,
                             filter: isDark ? "brightness(0) invert(1)" : "none",
                         }}
+                        width={954} height={299} unoptimized
                     />
                     <span
                         className="text-xs font-body font-medium"

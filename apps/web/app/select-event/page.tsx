@@ -128,7 +128,7 @@ const SelectEventPage = () => {
                             logout();
                             router.replace("/login");
                         }}
-                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-all"
+                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-[opacity,transform,background-color,border-color,color]"
                         style={{ color: "var(--danger)" }}
                     >
                         Cerrar sesión

@@ -156,7 +156,7 @@ const Directory = () => {
                             aria-label="Buscar participantes"
                             value={searchInput}
                             onChange={(event) => setSearchInput(event.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl font-body text-sm outline-none transition-all"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl font-body text-sm outline-none transition-[opacity,transform,background-color,border-color,color]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
                                 border: "1px solid var(--border-color)",
@@ -181,7 +181,7 @@ const Directory = () => {
                             setCommitteeId(event.target.value);
                             setPage(1);
                         }}
-                        className="w-full sm:w-64 px-4 py-3 rounded-xl font-body text-sm outline-none transition-all"
+                        className="w-full sm:w-64 px-4 py-3 rounded-xl font-body text-sm outline-none transition-[opacity,transform,background-color,border-color,color]"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",
@@ -288,7 +288,7 @@ const Directory = () => {
                         type="button"
                         onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
                         disabled={page <= 1 || isLoading}
-                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-all disabled:opacity-40"
+                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-[opacity,transform,background-color,border-color,color] disabled:opacity-40"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",
@@ -304,7 +304,7 @@ const Directory = () => {
                         type="button"
                         onClick={() => setPage((currentPage) => currentPage + 1)}
                         disabled={!directory?.hasMore || isLoading}
-                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-all disabled:opacity-40"
+                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-[opacity,transform,background-color,border-color,color] disabled:opacity-40"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",

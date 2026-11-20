@@ -28,7 +28,7 @@ export const ChatItem = ({
             <div className="relative shrink-0">
                 {delegate.avatar ? (
                     // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
-                    // eslint-disable-next-line @next/next/no-img-element
+                    // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
                     <img
                         src={delegate.avatar}
                         alt={delegate.name}
@@ -106,7 +106,7 @@ export const ChatItem = ({
     );
 
     const className =
-        "flex w-full items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group text-left";
+        "flex w-full items-center gap-3 p-3 rounded-xl transition-[opacity,transform,background-color,border-color,color] cursor-pointer group text-left";
     const hoverProps = {
         onMouseEnter: (e: React.MouseEvent<HTMLElement>) =>
             (e.currentTarget.style.backgroundColor = "var(--bg-hover)"),

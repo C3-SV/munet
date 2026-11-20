@@ -180,7 +180,7 @@ const ProfilePage = () => {
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
                     <div className="p-6 sm:p-8 flex items-center gap-6" style={{ borderBottom: "1px solid var(--border-color)" }}>
                         {/* Avatar externo de la API: sin next/image porque el host no está en remotePatterns. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config */}
                         <img
                             src={profileData.profile.avatar}
                             alt="Avatar"
@@ -327,7 +327,7 @@ const ProfilePage = () => {
                             <textarea
                                 value={bio}
                                 onChange={(e) => setBio(e.target.value)}
-                                className="w-full min-h-25 p-4 rounded-xl font-body text-[15px] outline-none transition-all resize-none"
+                                className="w-full min-h-25 p-4 rounded-xl font-body text-[15px] outline-none transition-[opacity,transform,background-color,border-color,color] resize-none"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",

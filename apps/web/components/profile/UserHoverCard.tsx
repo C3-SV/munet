@@ -91,7 +91,7 @@ export const UserHoverCard = ({
             {children}
 
             <div
-                className="absolute left-0 top-full z-30 w-64 rounded-xl p-4 transition-all duration-150"
+                className="absolute left-0 top-full z-30 w-64 rounded-xl p-4 transition-[opacity,transform,background-color,border-color,color] duration-150"
                 style={{
                     marginTop: "6px",
                     opacity: isOpen ? 1 : 0,

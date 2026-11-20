@@ -301,6 +301,7 @@ const PublicProfilePage = () => {
                             className="p-6 sm:p-8 flex items-center gap-6"
                             style={{ borderBottom: "1px solid var(--border-color)" }}
                         >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config */}
                             <img
                                 src={profile.profile.avatar}
                                 alt={profile.profile.displayName}
@@ -459,7 +460,7 @@ const PublicProfilePage = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="px-3 py-2.5 rounded-xl font-heading font-bold text-sm transition-all"
+                                                    className="px-3 py-2.5 rounded-xl font-heading font-bold text-sm transition-[opacity,transform,background-color,border-color,color]"
                                                     style={{
                                                         backgroundColor: "var(--bg-surface)",
                                                         border: "1px solid var(--border-color)",
@@ -472,7 +473,7 @@ const PublicProfilePage = () => {
                                                     type="button"
                                                     onClick={() => void handleUploadAvatar()}
                                                     disabled={!avatarFile || uploadingAvatar}
-                                                    className="px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
+                                                    className="px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-[opacity,transform,background-color,border-color,color]"
                                                     style={{
                                                         backgroundColor:
                                                             !avatarFile || uploadingAvatar
@@ -496,7 +497,7 @@ const PublicProfilePage = () => {
                                                 </button>
                                             </div>
                                             {avatarError && (
-                                                <p className="text-xs font-body sm:text-right" style={{ color: "#b91c1c" }}>
+                                                <p className="text-xs font-body sm:text-right" style={{ color: "var(--danger)" }}>
                                                     {avatarError}
                                                 </p>
                                             )}
@@ -657,7 +658,7 @@ const PublicProfilePage = () => {
                                     </div>
 
                                     {editError && (
-                                        <p className="text-sm font-body" style={{ color: "#b91c1c" }}>
+                                        <p className="text-sm font-body" style={{ color: "var(--danger)" }}>
                                             {editError}
                                         </p>
                                     )}

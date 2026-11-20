@@ -31,7 +31,7 @@ export const ChatSearch = ({
                     value={searchTerm}
                     onChange={(e) => onSearchChange(e.target.value)}
                     placeholder="Buscar por nombre o comité..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-body outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-body outline-none transition-[opacity,transform,background-color,border-color,color]"
                     style={{
                         backgroundColor: "var(--bg-surface-secondary)",
                         border: "1px solid var(--border-color)",
@@ -52,7 +52,7 @@ export const ChatSearch = ({
                 value={committeeId}
                 aria-label="Filtrar destinatarios por comité"
                 onChange={(e) => onCommitteeChange(e.target.value)}
-                className="w-full sm:w-56 px-3 py-2.5 rounded-xl text-sm font-body outline-none transition-all"
+                className="w-full sm:w-56 px-3 py-2.5 rounded-xl text-sm font-body outline-none transition-[opacity,transform,background-color,border-color,color]"
                 style={{
                     backgroundColor: "var(--bg-surface-secondary)",
                     border: "1px solid var(--border-color)",

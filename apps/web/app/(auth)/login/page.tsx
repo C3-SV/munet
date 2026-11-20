@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useId, useState } from "react";
 import { ModalDialog } from "../../../components/ui/ConfirmDialog";
 import Link from "next/link";
@@ -233,12 +234,11 @@ const Login = () => {
             style={{ backgroundColor: "var(--bg-base)" }}
         >
             <div className="mx-auto w-full max-w-70 sm:max-w-xs mb-8">
-                {/* Logo local de public/: se conserva <img> para mantener su tamaño CSS actual. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                     alt="MUNET"
                     src="/logo-munet.png"
                     className="mx-auto h-20 sm:h-24 w-auto"
+                    width={954} height={299} unoptimized
                 />
                 <div className="mt-4 h-1.5 w-full rounded-full" style={{ backgroundColor: "var(--text-accent)" }}></div>
             </div>
@@ -281,7 +281,7 @@ const Login = () => {
                                 required
                                 value={participantCode}
                                 onChange={(e) => setParticipantCode(e.target.value)}
-                                className="font-body block w-full rounded-xl px-4 py-3 sm:py-3.5 text-base outline-none transition-all"
+                                className="font-body block w-full rounded-xl px-4 py-3 sm:py-3.5 text-base outline-none transition-[opacity,transform,background-color,border-color,color]"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",
@@ -316,7 +316,7 @@ const Login = () => {
                                     autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="font-body block w-full rounded-xl pl-4 pr-12 py-3 sm:py-3.5 text-base outline-none transition-all"
+                                    className="font-body block w-full rounded-xl pl-4 pr-12 py-3 sm:py-3.5 text-base outline-none transition-[opacity,transform,background-color,border-color,color]"
                                     style={{
                                         backgroundColor: "var(--bg-input)",
                                         border: "1px solid var(--input-border)",
@@ -457,7 +457,7 @@ const Login = () => {
                                         required
                                         value={activationCode}
                                         onChange={(e) => setActivationCode(e.target.value)}
-                                        className="w-full rounded-xl px-4 py-3 outline-none border transition-all"
+                                        className="w-full rounded-xl px-4 py-3 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                         style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                     />
                                 </div>
@@ -506,7 +506,7 @@ const Login = () => {
                                             required
                                             value={oneTimePassword}
                                             onChange={(e) => setOneTimePassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button
@@ -533,7 +533,7 @@ const Login = () => {
                                             minLength={6}
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button
@@ -560,7 +560,7 @@ const Login = () => {
                                             minLength={6}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button

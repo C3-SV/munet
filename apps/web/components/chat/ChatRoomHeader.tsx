@@ -21,7 +21,7 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
         >
             <Link
                 href="/chat"
-                className="flex items-center justify-center size-11 -ml-2 rounded-lg transition-all shrink-0"
+                className="flex items-center justify-center size-11 -ml-2 rounded-lg transition-[opacity,transform,background-color,border-color,color] shrink-0"
                 style={{ color: "var(--text-secondary)" }}
                 onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = "var(--bg-hover)";
@@ -40,7 +40,7 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
                 <div className="relative shrink-0">
                     {delegate.avatar?.trim() ? (
                         // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
-                        // eslint-disable-next-line @next/next/no-img-element
+                        // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
                         <img
                             src={delegate.avatar}
                             alt={delegate.name}

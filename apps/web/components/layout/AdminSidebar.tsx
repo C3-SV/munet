@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -122,12 +123,12 @@ export const AdminSidebar = () => {
             >
                 <Link href="/admin" className="shrink-0">
                     {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                         alt="MUNET Admin"
                         src="/logo-munet.png"
                         className="h-8 w-auto hover:opacity-80 transition-opacity"
                         style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                        width={954} height={299} unoptimized
                     />
                 </Link>
                 <div className="flex items-center gap-2">
@@ -182,12 +183,12 @@ export const AdminSidebar = () => {
                     <div className="flex items-center justify-between">
                         <Link href="/admin" className="shrink-0">
                             {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                                 alt="MUNET Admin"
                                 src="/logo-munet.png"
                                 className="h-9 w-auto hover:opacity-80 transition-opacity"
                                 style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                                width={954} height={299} unoptimized
                             />
                         </Link>
                         <button

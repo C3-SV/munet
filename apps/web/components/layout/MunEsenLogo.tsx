@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTheme } from "../../lib/theme-context";
 
 interface MunEsenLogoProps {
@@ -11,5 +12,6 @@ export const MunEsenLogo = ({ className = "h-10 w-auto" }: MunEsenLogoProps) => 
     const { theme } = useTheme();
     const src = theme === "dark" ? "/mun-esen-oscuro.jpg" : "/mun-esen-claro.jpg";
 
-    return <img src={src} alt="MUN ESEN" className={className} loading="lazy" />;
+    const dims = theme === "dark" ? { width: 447, height: 447 } : { width: 297, height: 299 };
+    return <Image src={src} alt="MUN ESEN" className={className} loading="lazy" unoptimized {...dims} />;
 };

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
 import { Button } from "../../components/ui/Button";
@@ -51,8 +52,7 @@ export default function GuidePage() {
             <header className="border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
                     <Link href="/guia" aria-label="MUNET, guía de uso" className="inline-flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/logo-munet.png" alt="MUNET" className="h-10 w-auto" />
+                        <Image src="/logo-munet.png" alt="MUNET" className="h-10 w-auto" width={954} height={299} unoptimized />
                         <span className="hidden border-l border-[var(--border-color)] pl-3 text-sm font-semibold text-[var(--text-secondary)] sm:block">Guía de uso</span>
                     </Link>
                     <Link href="/login" className="rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-accent)] transition-colors hover:bg-[var(--bg-hover)]">

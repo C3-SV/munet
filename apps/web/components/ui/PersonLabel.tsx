@@ -40,7 +40,7 @@ export const PersonLabel = ({
             {showAvatar &&
                 (avatar ? (
                     // Avatares externos de la API: sin next/image porque el host no está en remotePatterns.
-                    // eslint-disable-next-line @next/next/no-img-element
+                    // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
                     <img
                         src={avatar}
                         alt=""

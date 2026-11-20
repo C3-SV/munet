@@ -44,9 +44,9 @@ Sobre la base `cab6daa` de la rama `rework-visual`, sin migraciones, sin cambios
 - `npm test -w api` terminó con 129 pruebas correctas, cero fallos.
 - `npm run check-types -w web` terminó con código 0.
 - `npx eslint .` dentro de `apps/web` terminó con 0 errores y 4 advertencias (`@next/next/no-img-element`), por debajo de la línea base de 32.
-- `npm run lint -w web` y `npm run lint` terminan con código 1 por las 4 advertencias restantes, porque el script usa `--max-warnings 0`. Queda pendiente.
+- `npm run lint -w web` y `npm run lint` terminaban con código 1 por las 4 advertencias restantes, porque el script usa `--max-warnings 0`. Resuelto en la ronda 1 (ver abajo).
 - `impeccable detect --json app components` encontró un hallazgo `side-tab` en `components/ui/Card.tsx:29`. No está entre los antipatrones que exige la especificación.
-- Búsquedas por texto en `app`, `components` y `lib`: cero coincidencias de `font-black`, `font-extrabold`, `text-[10px]` y `text-[11px]`. Dos coincidencias de `#b91c1c` en `app/(main)/profile/[membershipId]/page.tsx` (líneas 499 y 660) incumplen la regla de cero hexadecimales de estado en `.tsx`. Quedan pendientes.
+- Búsquedas por texto en `app`, `components` y `lib`: cero coincidencias de `font-black`, `font-extrabold`, `text-[10px]` y `text-[11px]`. Dos coincidencias de `#b91c1c` en `app/(main)/profile/[membershipId]/page.tsx` (líneas 499 y 660) incumplían la regla de cero hexadecimales de estado en `.tsx`. Resuelto en la ronda 1.
 
 No se verificó en esta entrega, porque requiere sesión con Supabase o un navegador con datos ficticios:
 
@@ -55,3 +55,19 @@ No se verificó en esta entrega, porque requiere sesión con Supabase o un naveg
 - La crítica con `/impeccable critique` sobre el muro, por lo que el puntaje de 20/40 no se ha vuelto a medir.
 
 Registrar comando o pasos, datos de prueba, resultado y limitaciones. Para cambios documentales, verificar enlaces y referencias, ejecutar `git diff --check` y revisar `git status --short`.
+
+## Ronda 1 de corrección de la Tarea 13 (20 de noviembre de 2026)
+
+Sobre el commit `3c8feb6`, con cambios solo en `apps/web` y sin cambios en `apps/api`, migraciones ni dependencias:
+
+- Lint: los logos estáticos de `public/` (`/logo-munet.png`, `c3-logo-*.png`, `mun-esen-*.jpg`) pasan de `<img>` a `next/image` con `unoptimized`, que sirve el mismo archivo sin optimización nueva. Los avatares de URL dinámica conservan `<img>` con una justificación en el `eslint-disable-next-line`: `next/image` exigiría configurar hosts remotos en `next.config`, cambio fuera de esta ronda.
+- Color: `#b91c1c` en `app/(main)/profile/[membershipId]/page.tsx` pasa a `var(--danger)`. En modo oscuro el rojo de peligro pasa a `#f87171`, igual que en el resto de la interfaz.
+- Transiciones: los 20 usos de `transition-all` pasan a `transition-[opacity,transform,background-color,border-color,color]`, con la duración por defecto de Tailwind (150 ms). Las propiedades fuera de esa lista, como sombra o ancho, cambian ahora sin animación.
+- Comandos, con la salida final:
+  - `npm run lint -w web` (incluye `eslint --max-warnings 0`): código 0, sin advertencias.
+  - `npm run check-types -w web`: código 0, tipos de rutas generados.
+  - `node --test apps/web/lib/*.test.mjs apps/web/lib/api/*.test.mjs`: 48 pruebas correctas, cero fallos.
+  - `npm test -w api`: 129 pruebas correctas, cero fallos.
+  - `impeccable detect --json app components`: un único hallazgo `side-tab` en `components/ui/Card.tsx:29`, ya registrado arriba.
+
+Pendiente, sin ejecutar: los pasos 3 a 5 de la Tarea 13 (detector sobre `/login`, `/guia` y `/select-event` a 390×844 y 1440×900; recorrido manual en claro y oscuro; `/impeccable critique` sobre el muro). Requieren navegador y una sesión con datos ficticios. Los puntos 1 a 6 de Review Focus del plan no tienen evidencia. Siguen abiertos hasta que el dueño acepte formalmente su diferimiento y se registren como deuda en `docs/07-auditoria/pendientes.md`.
