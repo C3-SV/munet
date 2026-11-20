@@ -145,3 +145,18 @@ Decisión pendiente del dueño, una de dos opciones:
 Hasta que se resuelva una de las dos, la Tarea 13 no se considera cerrada.
 
 Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre los archivos tocados.
+
+## Ronda 5 de corrección de la Tarea 13 (20 de noviembre de 2026)
+
+Sobre la base `d29437b`, con cambios solo en documentación. No se modificó código de `apps/web` ni `apps/api`, ni migraciones ni dependencias, por lo que `check-types` y `eslint` no aplican a esta ronda. Como control, `node --test apps/web/lib/*.test.mjs apps/web/lib/api/*.test.mjs` terminó con 48 pruebas correctas, cero fallos.
+
+Hallazgo T13-R0-1: sin cambios de evidencia. Los pasos 4 y 5 siguen sin ejecutarse; el paso 3 conserva la medición de la ronda 2.
+
+- Pasos 4 y 5: requieren una sesión autenticada con Supabase y datos ficticios. La base real está marcada como de producción (Q03), y crear cuentas exige autorización expresa del dueño. Esta ronda no la recibió, así que no se crearon cuentas ni se usó la base.
+- Aceptación del diferimiento: no se registra en esta ronda. Corresponde al dueño confirmarla en «Verificación diferida de la Tarea 13» de `docs/07-auditoria/pendientes.md`.
+
+Decisión de esta ronda (Ruling): el hallazgo no se marca como cerrado, porque cerrarlo sin evidencia o sin aceptación del dueño sería registrar una verificación que no ocurrió. Costo si es incorrecto: la Tarea 13 sigue abierta una ronda más; si el dueño considera que el commit de esta ronda equivale a aceptación, el diferimiento quedaría sin confirmación escrita.
+
+Pendiente de decisión del dueño: una de las dos opciones de la ronda 4 (autorizar el entorno aislado o aceptar el diferimiento en `pendientes.md`).
+
+Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre el archivo tocado.
