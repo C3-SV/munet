@@ -19,6 +19,53 @@ const FOCUSABLE_SELECTOR = [
 const getFocusable = (container: HTMLElement) =>
     Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
 
+// Safari (macOS e iOS) no enfoca un botón al pulsarlo con ratón o táctil, así que
+// document.activeElement no basta para recordar el disparador. Guardamos el último
+// control pulsado durante un instante corto antes de que se abra el diálogo.
+const TRIGGER_SELECTOR = [
+    "button",
+    "a[href]",
+    "input",
+    "select",
+    "textarea",
+    "[role='button']",
+    "[tabindex]:not([tabindex='-1'])",
+].join(",");
+const POINTER_TRIGGER_TTL_MS = 1000;
+let lastPointerTrigger: { element: HTMLElement; at: number } | null = null;
+
+if (typeof document !== "undefined") {
+    document.addEventListener(
+        "pointerdown",
+        (event) => {
+            const target =
+                event.target instanceof Element
+                    ? event.target.closest<HTMLElement>(TRIGGER_SELECTOR)
+                    : null;
+            lastPointerTrigger = target ? { element: target, at: Date.now() } : null;
+        },
+        true,
+    );
+}
+
+const captureTrigger = (): HTMLElement | null => {
+    if (typeof document === "undefined") {
+        return null;
+    }
+
+    const active = document.activeElement;
+
+    if (active instanceof HTMLElement && active !== document.body) {
+        return active;
+    }
+
+    if (lastPointerTrigger && Date.now() - lastPointerTrigger.at < POINTER_TRIGGER_TTL_MS) {
+        return lastPointerTrigger.element;
+    }
+
+    return null;
+};
+
 type ModalDialogProps = {
     titleId: string;
     descriptionId?: string;
@@ -39,11 +86,7 @@ export const ModalDialog = ({
 }: ModalDialogProps) => {
     const panelRef = useRef<HTMLDivElement>(null);
     // Se captura en el primer render, antes de que el foco entre en el diálogo.
-    const [triggerElement] = useState<HTMLElement | null>(() =>
-        typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-            ? document.activeElement
-            : null,
-    );
+    const [triggerElement] = useState<HTMLElement | null>(captureTrigger);
 
     // Bloquea el scroll del fondo mientras el diálogo está montado.
     useEffect(() => {
