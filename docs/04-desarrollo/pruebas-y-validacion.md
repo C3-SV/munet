@@ -71,3 +71,32 @@ Sobre el commit `3c8feb6`, con cambios solo en `apps/web` y sin cambios en `apps
   - `impeccable detect --json app components`: un único hallazgo `side-tab` en `components/ui/Card.tsx:29`, ya registrado arriba.
 
 Pendiente, sin ejecutar: los pasos 3 a 5 de la Tarea 13 (detector sobre `/login`, `/guia` y `/select-event` a 390×844 y 1440×900; recorrido manual en claro y oscuro; `/impeccable critique` sobre el muro). Requieren navegador y una sesión con datos ficticios. Los puntos 1 a 6 de Review Focus del plan no tienen evidencia. Siguen abiertos hasta que el dueño acepte formalmente su diferimiento y se registren como deuda en `docs/07-auditoria/pendientes.md`.
+
+## Ronda 2 de corrección de la Tarea 13 (20 de noviembre de 2026)
+
+Sobre la base `cbc5724`, con cambios solo en documentación. No se modificó código de `apps/web` ni `apps/api`, ni migraciones ni dependencias, por lo que no se repitieron las pruebas de código de la ronda 1.
+
+Paso 3 del plan (detector), ejecutado contra el servidor de desarrollo ya en marcha en `http://localhost:3000`, sin sesión iniciada:
+
+```
+impeccable detect --json --viewport 390x844 http://localhost:3000/<ruta>
+impeccable detect --json --viewport 1440x900 http://localhost:3000/<ruta>
+```
+
+| Ruta | 390×844 | 1440×900 |
+|---|---|---|
+| `/login` | sin hallazgos | sin hallazgos |
+| `/select-event` | sin hallazgos | sin hallazgos |
+| `/guia` | `overused-font` (advertencia, aceptada por la especificación) y 12 `straggler` (advertencias informativas) | `overused-font` (advertencia), `line-length` (advertencia: unos 110 caracteres en párrafos de tarjeta) y 6 `straggler` (informativas) |
+
+Ninguna de las reglas que el paso 3 exige ausentes (`low-contrast`, `undersized-ui-text`, `hero-eyebrow-chip`, `numbered-section-labels`, `bounce-easing`) aparece en las cuatro mediciones. `/select-event` sin sesión solo muestra su estado de entrada; su vista autenticada no fue medida. El `line-length` de `/guia` a 1440 px no pertenece a la lista de la especificación y queda registrado en `docs/07-auditoria/pendientes.md` sin corregirse en esta ronda.
+
+Pasos no ejecutados, con su motivo:
+
+- Paso 4 (recorrido manual en claro y oscuro): requiere una sesión autenticada y datos ficticios en un entorno aislado. En esta ronda no se crearon cuentas ni se usó una base de prueba, y no hay autorización para hacerlo.
+- Paso 5 (`/impeccable critique` sobre el muro): el muro está detrás de autenticación, así que no hay página que evaluar. El puntaje 20/40 sigue sin medirse.
+- Puntos 1 a 6 de Review Focus del plan: sin evidencia en navegador. Siguen abiertos.
+
+El diferimiento de estos pasos queda registrado como deuda en `docs/07-auditoria/pendientes.md`, marcado como pendiente de aceptación formal del dueño.
+
+Comprobaciones de la ronda: `git status --short` y `git diff --check` sobre los archivos tocados.
