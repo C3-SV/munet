@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useAuthStore } from "../../../stores/auth.store";
-import { IconCalendar, IconDirectory, IconShield, IconUserCheck } from "../../../components/ui/icons";
+import { IconCalendar, IconDirectory } from "../../../components/ui/icons";
 
 type AdminCard = {
     title: string;
@@ -12,54 +12,38 @@ type AdminCard = {
     icon: ReactNode;
 };
 
-const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
-    const [isHovered, setIsHovered] = useState(false);
-
-    return (
-        <Link
-            href={card.href}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            className="block p-6 sm:p-8 rounded-2xl transition-all duration-200"
-            style={{
-                backgroundColor: "var(--bg-surface)",
-                border: isHovered
-                    ? "1px solid var(--text-accent)"
-                    : "1px solid var(--border-color)",
-                boxShadow: isHovered
-                    ? "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
-                    : "var(--shadow-sm)",
-            }}
-        >
-            <div className="flex items-center gap-4 mb-4">
-                <div
-                    className="p-3 rounded-xl transition-colors duration-200"
-                    style={{
-                        backgroundColor: isHovered
-                            ? "color-mix(in srgb, var(--text-accent) 15%, transparent)"
-                            : "color-mix(in srgb, var(--border-color) 40%, transparent)",
-                        color: isHovered ? "var(--text-accent)" : "var(--text-secondary)",
-                    }}
-                >
-                    {card.icon}
-                </div>
-                <h2
-                    className="text-xl font-bold font-heading transition-colors duration-200"
-                    style={{ color: isHovered ? "var(--text-accent)" : "var(--text-primary)" }}
-                >
-                    {card.title}
-                </h2>
+// Tarjeta de sección del panel. Al pasar el puntero solo cambia el borde y el color
+// del título: sin escala ni sombra animada.
+const AdminDashboardCard = ({ card }: { card: AdminCard }) => (
+    <Link
+        href={card.href}
+        className="group block rounded-2xl border border-[var(--border-color)] p-6 hover:border-[var(--text-accent)] sm:p-8"
+        style={{
+            backgroundColor: "var(--bg-surface)",
+            boxShadow: "var(--shadow-sm)",
+        }}
+    >
+        <div className="mb-4 flex items-center gap-4">
+            <div
+                className="rounded-xl p-3 text-[var(--text-secondary)] group-hover:text-[var(--text-accent)]"
+                style={{ backgroundColor: "color-mix(in srgb, var(--border-color) 40%, transparent)" }}
+            >
+                {card.icon}
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {card.description}
-            </p>
-        </Link>
-    );
-};
+            <h2 className="font-heading text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--text-accent)]">
+                {card.title}
+            </h2>
+        </div>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {card.description}
+        </p>
+    </Link>
+);
 
 export default function AdminDashboard() {
     const activeEventId = useAuthStore((state) => state.activeEventId);
 
+    // Asignaciones y Moderación no tienen funciones todavía: no se listan aquí.
     const cards: AdminCard[] = [
         {
             title: "Eventos y Comités",
@@ -75,24 +59,15 @@ export default function AdminDashboard() {
                 : "/admin/events",
             icon: <IconDirectory size={24} />,
         },
-        {
-            title: "Asignaciones",
-            description: "Asigna participantes a comités, gestiona moderadores y suspende/reactiva cuentas.",
-            href: "/admin/assignments",
-            icon: <IconUserCheck size={24} />,
-        },
-        {
-            title: "Moderación",
-            description: "Supervisa muros, elimina contenido inapropiado y gestiona conversaciones.",
-            href: "/admin/moderation",
-            icon: <IconShield size={24} />,
-        },
     ];
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="mx-auto max-w-5xl space-y-8">
             <div className="border-b pb-6" style={{ borderColor: "var(--border-color)" }}>
-                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight font-heading" style={{ color: "var(--text-primary)" }}>
+                <h1
+                    className="font-heading text-3xl font-bold tracking-tight sm:text-4xl"
+                    style={{ color: "var(--text-primary)" }}
+                >
                     Panel de Administración
                 </h1>
             </div>

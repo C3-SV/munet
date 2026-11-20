@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
-import { AdminFormInput } from "../../../../../../components/admin/AdminFormInput";
 import { AdminFormSelect } from "../../../../../../components/admin/AdminFormSelect";
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
+import { RowActions } from "../../../../../../components/admin/RowActions";
 import {
     getEvent,
     listCommittees,
@@ -21,8 +20,9 @@ import {
     type AdminParticipantPagination,
     type ParticipantAccountStatus,
 } from "../../../../../../lib/api/participants";
+import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../lib/role-label";
 import { useAuthStore } from "../../../../../../stores/auth.store";
-import { IconAlertTriangle, IconDirectory, IconFilter, IconPlus, IconRefresh, IconSearch } from "../../../../../../components/ui/icons";
+import { IconAlertTriangle, IconDirectory, IconPlus, IconRefresh, IconSearch } from "../../../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -70,7 +70,7 @@ const ParticipantRow = ({
     eventId: string;
 }) => (
     <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
+        className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
         <td className="px-6 py-4">
@@ -118,7 +118,7 @@ const ParticipantRow = ({
                 className="text-xs font-semibold font-heading"
                 style={{ color: "var(--text-secondary)" }}
             >
-                {participant.role}
+                {formatRoleLabel(participant.role)}
             </span>
         </td>
 
@@ -127,15 +127,13 @@ const ParticipantRow = ({
         </td>
 
         <td className="px-6 py-4">
-            <div className="flex justify-end">
-                <Link
-                    href={`/admin/events/${eventId}/participants/${participant.id}`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
-                >
-                    Gestionar
-                </Link>
-            </div>
+            <RowActions
+                primary={{
+                    label: "Gestionar",
+                    href: `/admin/events/${eventId}/participants/${participant.id}`,
+                }}
+                menuLabel={`Más acciones para ${getParticipantName(participant)}`}
+            />
         </td>
     </tr>
 );
@@ -143,7 +141,7 @@ const ParticipantRow = ({
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -172,8 +170,6 @@ export default function EventParticipantsPage() {
         useState<AdminParticipantPagination | null>(null);
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState<ParticipantFilters>(EMPTY_FILTERS);
-    const [appliedFilters, setAppliedFilters] =
-        useState<ParticipantFilters>(EMPTY_FILTERS);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
@@ -183,15 +179,13 @@ export default function EventParticipantsPage() {
         [committees],
     );
 
-    const hasSelectedFilters = Boolean(
-        filters.committeeId || filters.role.trim() || filters.status,
-    );
+    // Los filtros se aplican al elegir una opción: no hay botón de envío.
+    const hasFilters = Boolean(filters.committeeId || filters.role || filters.status);
 
-    const hasAppliedFilters = Boolean(
-        appliedFilters.committeeId ||
-            appliedFilters.role.trim() ||
-            appliedFilters.status,
-    );
+    const roleOptions = [
+        { value: "", label: "Todos los roles" },
+        ...PARTICIPANT_ROLES.map((role) => ({ value: role, label: formatRoleLabel(role) })),
+    ];
 
     const committeeOptions = [
         { value: "", label: "Todos los comités" },
@@ -259,9 +253,9 @@ export default function EventParticipantsPage() {
             eventId,
             page,
             limit: PAGE_SIZE,
-            committeeId: appliedFilters.committeeId || undefined,
-            role: appliedFilters.role || undefined,
-            status: appliedFilters.status || undefined,
+            committeeId: filters.committeeId || undefined,
+            role: filters.role || undefined,
+            status: filters.status || undefined,
         })
             .then((data) => {
                 if (!cancelled) {
@@ -287,24 +281,18 @@ export default function EventParticipantsPage() {
         return () => {
             cancelled = true;
         };
-    }, [appliedFilters, eventId, page, reloadKey, token]);
+    }, [filters, eventId, page, reloadKey, token]);
 
     const updateFilter = <K extends keyof ParticipantFilters>(
         field: K,
         value: ParticipantFilters[K],
     ) => {
         setFilters((previous) => ({ ...previous, [field]: value }));
-    };
-
-    const handleApplyFilters = (event: React.FormEvent) => {
-        event.preventDefault();
         setPage(1);
-        setAppliedFilters({ ...filters });
     };
 
     const handleClearFilters = () => {
         setFilters(EMPTY_FILTERS);
-        setAppliedFilters(EMPTY_FILTERS);
         setPage(1);
     };
 
@@ -315,7 +303,6 @@ export default function EventParticipantsPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <AdminPageHeader
                 title="Participantes"
-                description={`Participantes registrados en ${eventName}.`}
                 breadcrumb={[
                     { label: "Panel", href: "/admin" },
                     { label: "Eventos", href: "/admin/events" },
@@ -332,8 +319,9 @@ export default function EventParticipantsPage() {
                 }
             />
 
-            <form
-                onSubmit={handleApplyFilters}
+            <div
+                role="search"
+                aria-label="Filtrar participantes"
                 className="rounded-2xl p-4 sm:p-5 space-y-4"
                 style={{
                     backgroundColor: "var(--bg-surface)",
@@ -352,17 +340,14 @@ export default function EventParticipantsPage() {
                         options={committeeOptions}
                         disabled={committees.length === 0}
                     />
-                    <AdminFormInput
+                    <AdminFormSelect
                         id="participant-filter-role"
                         label="Rol"
-                        placeholder="Ej: DELEGADO"
                         value={filters.role}
                         onChange={(event) =>
-                            updateFilter(
-                                "role",
-                                event.target.value.toUpperCase(),
-                            )
+                            updateFilter("role", event.target.value)
                         }
+                        options={roleOptions}
                     />
                     <AdminFormSelect
                         id="participant-filter-status"
@@ -378,8 +363,8 @@ export default function EventParticipantsPage() {
                     />
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-3">
-                    {(hasSelectedFilters || hasAppliedFilters) && (
+                {hasFilters && (
+                    <div className="flex justify-end">
                         <AdminButton
                             type="button"
                             variant="secondary"
@@ -388,15 +373,9 @@ export default function EventParticipantsPage() {
                         >
                             Limpiar filtros
                         </AdminButton>
-                    )}
-                    <AdminButton
-                        type="submit"
-                        icon={<IconFilter size={16} />}
-                    >
-                        Filtrar
-                    </AdminButton>
-                </div>
-            </form>
+                    </div>
+                )}
+            </div>
 
             <div
                 className="rounded-2xl overflow-hidden"
@@ -428,22 +407,22 @@ export default function EventParticipantsPage() {
                 {!loading && !error && participants.length === 0 && (
                     <AdminEmptyState
                         icon={
-                            hasAppliedFilters
+                            hasFilters
                                 ? <IconSearch size={32} />
                                 : <IconDirectory size={32} />
                         }
                         title={
-                            hasAppliedFilters
+                            hasFilters
                                 ? "Sin resultados"
                                 : "No hay participantes registrados"
                         }
                         description={
-                            hasAppliedFilters
+                            hasFilters
                                 ? "No se encontraron participantes con los filtros seleccionados."
                                 : "Registra el primer participante para este evento."
                         }
                         action={
-                            hasAppliedFilters ? (
+                            hasFilters ? (
                                 <AdminButton
                                     variant="secondary"
                                     onClick={handleClearFilters}
@@ -484,7 +463,7 @@ export default function EventParticipantsPage() {
                                         <th
                                             key={column}
                                             className={[
-                                                "px-6 py-3 text-xs font-bold uppercase tracking-widest font-heading",
+                                                "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
                                                 index === 2
                                                     ? "hidden md:table-cell"
                                                     : "",

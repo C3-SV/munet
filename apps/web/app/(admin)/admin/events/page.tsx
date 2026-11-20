@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../components/admin/AdminStatusBadge";
+import { RowActions } from "../../../../components/admin/RowActions";
 import {
     listEvents,
     type AdminEvent,
@@ -55,7 +55,7 @@ const EventDates = ({
 
 const EventRow = ({ event }: { event: AdminEvent }) => (
     <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
+        className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
         <td className="px-6 py-4">
@@ -84,29 +84,15 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
         </td>
 
         <td className="px-6 py-4">
-            <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                <Link
-                    href={`/admin/events/${event.id}/participants`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Participantes
-                </Link>
-                <Link
-                    href={`/admin/events/${event.id}/committees`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Comités
-                </Link>
-                <Link
-                    href={`/admin/events/${event.id}`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
-                >
-                    Configurar
-                </Link>
-            </div>
+            <RowActions
+                primary={{ label: "Abrir", href: `/admin/events/${event.id}` }}
+                menuLabel={`Más acciones para ${event.name}`}
+                items={[
+                    { label: "Participantes", href: `/admin/events/${event.id}/participants` },
+                    { label: "Comités", href: `/admin/events/${event.id}/committees` },
+                    { label: "Configurar", href: `/admin/events/${event.id}` },
+                ]}
+            />
         </td>
     </tr>
 );
@@ -114,7 +100,7 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -179,7 +165,6 @@ export default function AdminEventsPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <AdminPageHeader
                 title="Eventos"
-                description="Crea, configura y administra los eventos del MUN."
                 breadcrumb={[{ label: "Panel", href: "/admin" }, { label: "Eventos" }]}
                 action={
                     <AdminButton
@@ -243,7 +228,7 @@ export default function AdminEventsPage() {
                                         <th
                                             key={column || index}
                                             className={[
-                                                "px-6 py-3 text-xs font-bold uppercase tracking-widest font-heading",
+                                                "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
                                                 index === 1 ? "hidden md:table-cell" : "",
                                                 index === 3 ? "text-right" : "",
                                             ].join(" ")}

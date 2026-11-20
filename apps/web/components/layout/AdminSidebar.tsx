@@ -12,9 +12,7 @@ import {
     IconDashboard,
     IconDirectory,
     IconMenu,
-    IconShield,
     IconTheme,
-    IconUserCheck,
 } from "../ui/icons";
 
 type AdminNavItem = {
@@ -32,7 +30,7 @@ const AdminNavLink = ({ item }: { item: AdminNavItem }) => {
             href={item.href}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all duration-150"
+            className="group flex min-h-11 items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading"
             style={{
                 backgroundColor: item.current
                     ? "var(--sidebar-active-bg)"
@@ -111,18 +109,6 @@ export const AdminSidebar = () => {
             icon: <IconDirectory size={20} />,
             current: isParticipantsRoute,
         },
-        {
-            name: "Asignaciones",
-            href: "/admin/assignments",
-            icon: <IconUserCheck size={20} />,
-            current: pathname?.startsWith("/admin/assignments") ?? false,
-        },
-        {
-            name: "Moderación",
-            href: "/admin/moderation",
-            icon: <IconShield size={20} />,
-            current: pathname?.startsWith("/admin/moderation") ?? false,
-        },
     ];
 
     return (
@@ -135,6 +121,8 @@ export const AdminSidebar = () => {
                 }}
             >
                 <Link href="/admin" className="shrink-0">
+                    {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         alt="MUNET Admin"
                         src="/logo-munet.png"
@@ -145,7 +133,7 @@ export const AdminSidebar = () => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={toggleTheme}
-                        className="px-3 py-2 rounded-lg transition-all text-xs font-heading font-semibold"
+                        className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-xs font-heading font-semibold"
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "1px solid var(--border-color)",
@@ -157,7 +145,7 @@ export const AdminSidebar = () => {
                     </button>
                     <button
                         onClick={() => setIsMobileMenuOpen(true)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-all"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg"
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "1px solid var(--border-color)",
@@ -193,6 +181,8 @@ export const AdminSidebar = () => {
                 <div className="flex flex-col mt-8 md:mt-10 shrink-0">
                     <div className="flex items-center justify-between">
                         <Link href="/admin" className="shrink-0">
+                            {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 alt="MUNET Admin"
                                 src="/logo-munet.png"
@@ -202,7 +192,7 @@ export const AdminSidebar = () => {
                         </Link>
                         <button
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-all"
+                            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-md"
                             style={{ color: "var(--text-secondary)" }}
                             aria-label="Cerrar menú"
                         >
@@ -223,14 +213,14 @@ export const AdminSidebar = () => {
                     <div className="mt-3 flex flex-col gap-1.5">
                         <Link
                             href="/select-event"
-                            className="text-xs font-bold font-heading hover:opacity-80 transition-opacity"
+                            className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-accent)" }}
                         >
                             Cambiar evento
                         </Link>
                         <Link
                             href="/feed"
-                            className="text-xs font-bold font-heading hover:opacity-80 transition-opacity"
+                            className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-secondary)" }}
                         >
                             ← Volver al Feed
@@ -257,7 +247,7 @@ export const AdminSidebar = () => {
                 >
                     <button
                         onClick={toggleTheme}
-                        className="flex w-full items-center gap-x-3 rounded-xl p-3 mb-2 text-sm font-medium font-heading transition-all hover:bg-[var(--bg-hover)]"
+                        className="mb-2 flex min-h-11 w-full items-center gap-x-3 rounded-xl p-3 text-sm font-medium font-heading hover:bg-[var(--bg-hover)]"
                         style={{ color: "var(--text-secondary)" }}
                     >
                         <span
@@ -275,7 +265,7 @@ export const AdminSidebar = () => {
 
                     <Link
                         href="/profile"
-                        className="flex w-full items-center gap-x-3 rounded-2xl p-3 text-left transition-all hover:bg-[var(--bg-hover)]"
+                        className="flex min-h-11 w-full items-center gap-x-3 rounded-2xl p-3 text-left hover:bg-[var(--bg-hover)]"
                         style={{ color: "var(--text-primary)" }}
                     >
                         <div className="flex flex-1 flex-col min-w-0">
@@ -296,8 +286,8 @@ export const AdminSidebar = () => {
 
                     <button
                         onClick={handleLogout}
-                        className="mt-1 w-full rounded-xl p-2.5 text-xs font-semibold font-heading transition-all hover:bg-[var(--bg-hover)]"
-                        style={{ color: "#ef4444" }}
+                        className="mt-1 min-h-11 w-full rounded-xl p-2.5 text-xs font-semibold font-heading hover:bg-[var(--bg-hover)]"
+                        style={{ color: "var(--danger)" }}
                     >
                         Cerrar sesión
                     </button>

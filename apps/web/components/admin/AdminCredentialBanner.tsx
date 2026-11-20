@@ -58,14 +58,14 @@ export const AdminCredentialBanner = ({
             aria-label={title}
             className="rounded-2xl p-5 space-y-3"
             style={{
-                backgroundColor: "color-mix(in srgb, #f59e0b 8%, var(--bg-surface))",
-                border: "1px solid color-mix(in srgb, #f59e0b 35%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--warning) 8%, var(--bg-surface))",
+                border: "1px solid color-mix(in srgb, var(--warning) 35%, transparent)",
             }}
         >
             <div className="space-y-1">
                 <p
                     className="text-sm font-bold font-heading"
-                    style={{ color: "#b45309" }}
+                    style={{ color: "var(--warning)" }}
                 >
                     {title}
                 </p>
@@ -103,7 +103,7 @@ export const AdminCredentialBanner = ({
             </div>
 
             {copyError && (
-                <p className="text-xs font-medium" style={{ color: "#ef4444" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--danger)" }}>
                     No se pudo copiar automáticamente. Selecciona la contraseña y
                     cópiala manualmente.
                 </p>

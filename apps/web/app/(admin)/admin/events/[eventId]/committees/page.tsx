@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
+import { RowActions } from "../../../../../../components/admin/RowActions";
 import {
     getEvent,
     listCommittees,
@@ -24,7 +24,7 @@ const CommitteeRow = ({
     eventId: string;
 }) => (
     <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
+        className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
         <td className="px-6 py-4">
@@ -71,15 +71,13 @@ const CommitteeRow = ({
         </td>
 
         <td className="px-6 py-4">
-            <div className="flex justify-end">
-                <Link
-                    href={`/admin/events/${eventId}/committees/${committee.id}/edit`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
-                >
-                    Editar
-                </Link>
-            </div>
+            <RowActions
+                primary={{
+                    label: "Editar",
+                    href: `/admin/events/${eventId}/committees/${committee.id}/edit`,
+                }}
+                menuLabel={`Más acciones para ${committee.name}`}
+            />
         </td>
     </tr>
 );
@@ -163,7 +161,6 @@ export default function CommitteesPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <AdminPageHeader
                 title="Comités"
-                description={`Comités registrados en ${eventName}.`}
                 breadcrumb={[
                     { label: "Panel", href: "/admin" },
                     { label: "Eventos", href: "/admin/events" },
@@ -191,7 +188,7 @@ export default function CommitteesPage() {
                 {loading && (
                     <div className="flex items-center justify-center py-20">
                         <span
-                            className="animate-spin rounded-full border-2 border-t-transparent"
+                            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
                             style={{
                                 width: 32,
                                 height: 32,
@@ -245,7 +242,7 @@ export default function CommitteesPage() {
                                             <th
                                                 key={column || index}
                                                 className={[
-                                                    "px-6 py-3 text-xs font-bold uppercase tracking-widest font-heading",
+                                                    "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
                                                     index === 1 ? "hidden md:table-cell" : "",
                                                     index === 2 ? "hidden sm:table-cell text-center" : "",
                                                     index === 4 ? "text-right" : "",
