@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { IconChevronDown, IconFilter, IconSearch, IconSort } from "../ui/icons";
 
 interface FeedFiltersProps {
     searchQuery: string;
@@ -58,23 +59,14 @@ export const FeedFilters = ({
     return (
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
             <div className="relative flex-1">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <IconSearch
+                    size={16}
                     className="absolute left-3.5 top-1/2 -translate-y-1/2"
                     style={{ color: "var(--text-muted)" }}
-                >
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
+                />
                 <input
                     type="text"
+                    aria-label="Buscar posts"
                     placeholder="Buscar posts..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
@@ -105,31 +97,19 @@ export const FeedFilters = ({
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--bg-surface)")}
                     >
                         <div className="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-secondary)" }}>
-                                <line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/>
-                            </svg>
+                            <IconSort size={15} style={{ color: "var(--text-secondary)" }} />
                             <span>
                                 {sortOrder === "recent" ? "Recientes" : "Antiguos"}
                             </span>
                         </div>
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        <IconChevronDown
+                            size={14}
                             style={{
-                                opacity: 0.4,
+                                color: "var(--text-muted)",
                                 transform: isSortOpen ? "rotate(180deg)" : "rotate(0deg)",
                                 transition: "transform 0.2s",
                             }}
-                        >
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
+                        />
                     </button>
 
                     {isSortOpen && (
@@ -171,9 +151,7 @@ export const FeedFilters = ({
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--bg-surface)")}
                         >
                             <div className="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                                </svg>
+                                <IconFilter size={15} />
                                 <span className="hidden sm:inline">Comités</span>
                                 <span className="sm:hidden">Filtros</span>
                                 {selectedCommittees.length > 0 && (
@@ -185,24 +163,14 @@ export const FeedFilters = ({
                                     </span>
                                 )}
                             </div>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                            <IconChevronDown
+                                size={14}
                                 style={{
-                                    opacity: 0.4,
+                                    color: "var(--text-muted)",
                                     transform: isCommitteeFilterOpen ? "rotate(180deg)" : "rotate(0deg)",
                                     transition: "transform 0.2s",
                                 }}
-                            >
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
+                            />
                         </button>
 
                         {isCommitteeFilterOpen && (

@@ -14,6 +14,7 @@ import { AdminFormInput } from "../../../../../../../components/admin/AdminFormI
 import { AdminFormTextarea } from "../../../../../../../components/admin/AdminFormTextarea";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
+import { IconCheck } from "../../../../../../../components/ui/icons";
 
 // Convierte el nombre a un código de comité en mayúsculas (ej. "Consejo de Seguridad" → "CS").
 const toCode = (value: string) =>
@@ -292,7 +293,7 @@ export default function NewCommitteePage() {
                         type="submit"
                         loading={loading}
                         disabled={success}
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                        icon={<IconCheck size={16} />}
                     >
                         {loading ? "Creando comité..." : "Crear comité"}
                     </AdminButton>

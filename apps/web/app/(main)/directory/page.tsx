@@ -8,6 +8,7 @@ import {
 } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
 import { PersonLabel } from "../../../components/ui/PersonLabel";
+import { IconSearch } from "../../../components/ui/icons";
 import { useAuthStore } from "../../../stores/auth.store";
 
 const PAGE_SIZE = 20;
@@ -150,22 +151,11 @@ const Directory = () => {
 
                 <div className="flex flex-col sm:flex-row gap-3 mb-8">
                     <div className="relative flex-1">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        <IconSearch
+                            size={16}
                             className="absolute left-3.5 top-1/2 -translate-y-1/2"
                             style={{ color: "var(--text-muted)" }}
-                        >
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
+                        />
                         <input
                             type="search"
                             placeholder="Buscar por nombre, alias o delegación..."

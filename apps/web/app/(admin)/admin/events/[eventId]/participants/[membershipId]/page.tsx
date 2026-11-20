@@ -28,6 +28,7 @@ import {
     type UpdateParticipantBody,
 } from "../../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCheck, IconKey, IconRefresh, IconUserCheck, IconUserOff } from "../../../../../../../components/ui/icons";
 
 const ROLE_SUGGESTIONS = [
     "DELEGADO",
@@ -562,7 +563,7 @@ export default function ParticipantDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el participante"
                         description={loadError}
                         action={
@@ -571,7 +572,7 @@ export default function ParticipantDetailPage() {
                                 onClick={() =>
                                     setReloadKey((value) => value + 1)
                                 }
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -811,7 +812,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="submit"
                                 loading={saving}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                                icon={<IconCheck size={16} />}
                             >
                                 {saving
                                     ? "Guardando..."
@@ -848,7 +849,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="button"
                                 variant="secondary"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/key.svg"
+                                icon={<IconKey size={16} />}
                                 onClick={() =>
                                     openLifecycleAction("reset-password")
                                 }
@@ -860,7 +861,7 @@ export default function ParticipantDetailPage() {
                             {isSuspended ? (
                                 <AdminButton
                                     type="button"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg"
+                                    icon={<IconUserCheck size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("reactivate")
                                     }
@@ -872,7 +873,7 @@ export default function ParticipantDetailPage() {
                                 <AdminButton
                                     type="button"
                                     variant="danger"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-off.svg"
+                                    icon={<IconUserOff size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("suspend")
                                     }

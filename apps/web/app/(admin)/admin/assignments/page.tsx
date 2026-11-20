@@ -1,5 +1,6 @@
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
+import { IconUserCheck } from "../../../../components/ui/icons";
 
 // Seccion futura del panel: asignacion a comites y estado de cuentas.
 export default function AdminAssignmentsPage() {
@@ -23,7 +24,7 @@ export default function AdminAssignmentsPage() {
                 }}
             >
                 <AdminEmptyState
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg"
+                    icon={<IconUserCheck size={32} />}
                     title="Sección en construcción"
                     description="La asignación de participantes a comités y la suspensión o reactivación de cuentas estarán disponibles en una próxima entrega."
                 />

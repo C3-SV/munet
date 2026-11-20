@@ -20,6 +20,7 @@ import {
     type CreateAccountBody,
 } from "../../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { IconCheck, IconPlus } from "../../../../../../../components/ui/icons";
 
 const ROLE_SUGGESTIONS = [
     "DELEGADO",
@@ -288,7 +289,7 @@ export default function NewParticipantPage() {
                             type="button"
                             variant="secondary"
                             onClick={handleCreateAnother}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            icon={<IconPlus size={16} />}
                         >
                             Registrar otro
                         </AdminButton>
@@ -470,7 +471,7 @@ export default function NewParticipantPage() {
                         <AdminButton
                             type="submit"
                             loading={loading}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {loading ? "Creando cuenta..." : "Crear participante"}
                         </AdminButton>

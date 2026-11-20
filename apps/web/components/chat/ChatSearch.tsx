@@ -1,5 +1,6 @@
 import React from "react";
 import type { EventCommittee } from "../../lib/api/events";
+import { IconSearch } from "../ui/icons";
 
 interface ChatSearchProps {
     searchTerm: string;
@@ -19,23 +20,14 @@ export const ChatSearch = ({
     return (
         <div className="mb-3 flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <IconSearch
+                    size={16}
                     className="absolute left-3.5 top-1/2 -translate-y-1/2"
                     style={{ color: "var(--text-muted)" }}
-                >
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
+                />
                 <input
                     type="text"
+                    aria-label="Buscar por nombre o comité"
                     value={searchTerm}
                     onChange={(e) => onSearchChange(e.target.value)}
                     placeholder="Buscar por nombre o comité..."

@@ -22,6 +22,7 @@ import {
     type ParticipantAccountStatus,
 } from "../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../stores/auth.store";
+import { IconAlertTriangle, IconDirectory, IconFilter, IconPlus, IconRefresh, IconSearch } from "../../../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -324,7 +325,7 @@ export default function EventParticipantsPage() {
                 action={
                     <AdminButton
                         href={`/admin/events/${eventId}/participants/new`}
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                        icon={<IconPlus size={16} />}
                     >
                         Nuevo participante
                     </AdminButton>
@@ -383,14 +384,14 @@ export default function EventParticipantsPage() {
                             type="button"
                             variant="secondary"
                             onClick={handleClearFilters}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                            icon={<IconRefresh size={16} />}
                         >
                             Limpiar filtros
                         </AdminButton>
                     )}
                     <AdminButton
                         type="submit"
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/filter.svg"
+                        icon={<IconFilter size={16} />}
                     >
                         Filtrar
                     </AdminButton>
@@ -409,14 +410,14 @@ export default function EventParticipantsPage() {
 
                 {!loading && error && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="Error al cargar participantes"
                         description={error}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -428,8 +429,8 @@ export default function EventParticipantsPage() {
                     <AdminEmptyState
                         icon={
                             hasAppliedFilters
-                                ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/search.svg"
-                                : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
+                                ? <IconSearch size={32} />
+                                : <IconDirectory size={32} />
                         }
                         title={
                             hasAppliedFilters
@@ -446,14 +447,14 @@ export default function EventParticipantsPage() {
                                 <AdminButton
                                     variant="secondary"
                                     onClick={handleClearFilters}
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                    icon={<IconRefresh size={16} />}
                                 >
                                     Limpiar filtros
                                 </AdminButton>
                             ) : (
                                 <AdminButton
                                     href={`/admin/events/${eventId}/participants/new`}
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                                    icon={<IconPlus size={16} />}
                                 >
                                     Registrar participante
                                 </AdminButton>

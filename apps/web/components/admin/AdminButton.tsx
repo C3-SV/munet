@@ -10,7 +10,7 @@ type AdminButtonVariant = "primary" | "secondary" | "danger";
 type AdminButtonBaseProps = {
     variant?: AdminButtonVariant;
     loading?: boolean;
-    icon?: string; // URL de ícono Tabler
+    icon?: ReactNode; // Icono inline de components/ui/icons (hereda currentColor)
     children?: ReactNode;
     className?: string;
 };
@@ -36,21 +36,12 @@ export const AdminButton = ({
     children,
     ...props
 }: AdminButtonProps) => {
-    // Iconos blancos sobre relleno primario o peligro; el resto sigue el tema.
-    const iconFilter = variant === "secondary" ? "var(--theme-icon-filter)" : "invert(1)";
-
-    const leadingIcon = icon ? (
-        // Icono remoto de Tabler (URL externa): sin next/image porque el host no está en remotePatterns.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={icon} alt="" className="size-4" style={{ filter: iconFilter }} />
-    ) : undefined;
-
     return (
         <Button
             {...(props as ButtonProps)}
             variant={VARIANT_MAP[variant]}
             loading={loading}
-            leadingIcon={leadingIcon}
+            leadingIcon={icon}
         >
             {children}
         </Button>

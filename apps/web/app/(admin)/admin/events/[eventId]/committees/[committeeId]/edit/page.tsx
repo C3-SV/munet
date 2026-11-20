@@ -17,6 +17,7 @@ import {
 } from "../../../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCheck, IconRefresh } from "../../../../../../../../components/ui/icons";
 
 type FormState = {
     name: string;
@@ -274,14 +275,14 @@ export default function EditCommitteePage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el comité"
                         description={loadError}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -385,7 +386,7 @@ export default function EditCommitteePage() {
                         <AdminButton
                             type="submit"
                             loading={saving}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {saving ? "Guardando..." : "Guardar cambios"}
                         </AdminButton>

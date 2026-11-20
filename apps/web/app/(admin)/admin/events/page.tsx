@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/api/admin";
 import { ApiError } from "../../../../lib/api/client";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { IconAlertTriangle, IconCalendar, IconPlus, IconRefresh } from "../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -183,7 +184,7 @@ export default function AdminEventsPage() {
                 action={
                     <AdminButton
                         href="/admin/events/new"
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                        icon={<IconPlus size={16} />}
                     >
                         Nuevo evento
                     </AdminButton>
@@ -202,14 +203,14 @@ export default function AdminEventsPage() {
 
                 {!loading && error && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="Error al cargar eventos"
                         description={error}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -219,13 +220,13 @@ export default function AdminEventsPage() {
 
                 {!loading && !error && events.length === 0 && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg"
+                        icon={<IconCalendar size={32} />}
                         title="No hay eventos registrados"
                         description="Crea el primer evento para empezar a configurar comités y participantes."
                         action={
                             <AdminButton
                                 href="/admin/events/new"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                                icon={<IconPlus size={16} />}
                             >
                                 Crear primer evento
                             </AdminButton>

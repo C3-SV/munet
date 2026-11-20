@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuthStore } from "../../../stores/auth.store";
+import { IconCalendar, IconDirectory, IconShield, IconUserCheck } from "../../../components/ui/icons";
 
 type AdminCard = {
     title: string;
     description: string;
     href: string;
-    icon: string;
+    icon: ReactNode;
 };
 
 const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
@@ -37,14 +38,10 @@ const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
                         backgroundColor: isHovered
                             ? "color-mix(in srgb, var(--text-accent) 15%, transparent)"
                             : "color-mix(in srgb, var(--border-color) 40%, transparent)",
+                        color: isHovered ? "var(--text-accent)" : "var(--text-secondary)",
                     }}
                 >
-                    <img
-                        src={card.icon}
-                        className="size-6"
-                        style={{ filter: "var(--theme-icon-filter)" }}
-                        alt=""
-                    />
+                    {card.icon}
                 </div>
                 <h2
                     className="text-xl font-bold font-heading transition-colors duration-200"
@@ -72,7 +69,7 @@ export default function AdminDashboard() {
             title: "Eventos y Comités",
             description: "Configura eventos, crea comités y gestiona sus muros correspondientes.",
             href: "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg",
+            icon: <IconCalendar size={24} />,
         },
         {
             title: "Participantes",
@@ -80,19 +77,19 @@ export default function AdminDashboard() {
             href: activeEventId
                 ? `/admin/events/${activeEventId}/participants`
                 : "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg",
+            icon: <IconDirectory size={24} />,
         },
         {
             title: "Asignaciones",
             description: "Asigna participantes a comités, gestiona moderadores y suspende/reactiva cuentas.",
             href: "/admin/assignments",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg",
+            icon: <IconUserCheck size={24} />,
         },
         {
             title: "Moderación",
             description: "Supervisa muros, elimina contenido inapropiado y gestiona conversaciones.",
             href: "/admin/moderation",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/shield-alert.svg",
+            icon: <IconShield size={24} />,
         },
     ];
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Delegate } from "../../types/common";
 import { BrandAttribution } from "../layout/BrandAttribution";
 import { buildPersonLabel } from "../../lib/person-label";
+import { IconChevronLeft } from "../ui/icons";
 
 interface ChatRoomHeaderProps {
     delegate: Delegate;
@@ -33,19 +34,7 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
                 }}
                 aria-label="Volver"
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <polyline points="15 18 9 12 15 6" />
-                </svg>
+                <IconChevronLeft size={22} />
             </Link>
 
             <div className="flex items-center gap-3 flex-1 min-w-0">

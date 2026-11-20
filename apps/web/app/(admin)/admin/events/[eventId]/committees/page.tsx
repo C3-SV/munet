@@ -14,6 +14,7 @@ import {
 } from "../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCommittees, IconPlus, IconRefresh } from "../../../../../../components/ui/icons";
 
 const CommitteeRow = ({
     committee,
@@ -172,7 +173,7 @@ export default function CommitteesPage() {
                 action={
                     <AdminButton
                         href={`/admin/events/${eventId}/committees/new`}
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                        icon={<IconPlus size={16} />}
                     >
                         Nuevo comité
                     </AdminButton>
@@ -203,14 +204,14 @@ export default function CommitteesPage() {
 
                 {!loading && error && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="Error al cargar comités"
                         description={error}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -220,13 +221,13 @@ export default function CommitteesPage() {
 
                 {!loading && !error && committees.length === 0 && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
+                        icon={<IconCommittees size={32} />}
                         title="No hay comités registrados"
                         description="Crea el primer comité para este evento."
                         action={
                             <AdminButton
                                 href={`/admin/events/${eventId}/committees/new`}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                                icon={<IconPlus size={16} />}
                             >
                                 Crear comité
                             </AdminButton>

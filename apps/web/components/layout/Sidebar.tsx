@@ -2,22 +2,38 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
 import { useTheme } from "../../lib/theme-context";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import type { EventWall } from "../../types/common";
+import {
+    IconAnnouncements,
+    IconChat,
+    IconChevronDown,
+    IconChevronRight,
+    IconClose,
+    IconCommittees,
+    IconDirectory,
+    IconGeneral,
+    IconMenu,
+    IconTheme,
+} from "../ui/icons";
 
 type NavItem = {
     name: string;
     href: string;
-    icon: string;
+    icon: ReactNode;
     current: boolean;
 };
 
+// Color del icono: activo usa el token de sidebar activo; inactivo, texto secundario.
+const navIconColor = (active: boolean) =>
+    active ? "var(--sidebar-active-text)" : "var(--text-secondary)";
+
 // Item base de navegacion lateral (muro general/avisos).
-const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
+const MenuItem = ({ item }: { item: NavItem }) => (
     <Link
         href={item.href}
         className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all"
@@ -26,15 +42,12 @@ const MenuItem = ({ item, isDark }: { item: NavItem; isDark: boolean }) => (
             color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
         }}
     >
-        <img
-            src={item.icon}
-            className="size-5 transition-opacity"
-            style={{
-                opacity: item.current ? 1 : 0.5,
-                filter: isDark ? "invert(1)" : "none",
-            }}
-            alt=""
-        />
+        <span
+            className="flex size-5 shrink-0 items-center justify-center"
+            style={{ color: navIconColor(item.current) }}
+        >
+            {item.icon}
+        </span>
         <span className="flex-1">{item.name}</span>
     </Link>
 );
@@ -175,7 +188,7 @@ export const Sidebar = () => {
                   {
                       name: "Muro General",
                       href: `/feed/${generalWall.slug}`,
-                      icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/world.svg",
+                      icon: <IconGeneral size={20} />,
                       current:
                           pathname === `/feed/${generalWall.slug}` || pathname === "/feed",
                   },
@@ -186,7 +199,7 @@ export const Sidebar = () => {
                   {
                       name: "Avisos",
                       href: `/feed/${announcementsWall.slug}`,
-                      icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/bell.svg",
+                      icon: <IconAnnouncements size={20} />,
                       current: pathname === `/feed/${announcementsWall.slug}`,
                   },
               ]
@@ -226,14 +239,15 @@ export const Sidebar = () => {
                         </button>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-2 rounded-lg transition-all"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-all"
                             style={{
                                 backgroundColor: "var(--bg-surface-secondary)",
                                 border: "1px solid var(--border-color)",
                                 color: "var(--text-primary)",
                             }}
+                            aria-label="Abrir menú"
                         >
-                            Menu
+                            <IconMenu size={22} />
                         </button>
                     </div>
                 </div>
@@ -268,10 +282,11 @@ export const Sidebar = () => {
                         </Link>
                         <button
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="md:hidden p-1.5 rounded-md transition-all"
-                            style={{ color: "var(--text-muted)" }}
+                            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-all"
+                            style={{ color: "var(--text-secondary)" }}
+                            aria-label="Cerrar menú"
                         >
-                            Close
+                            <IconClose size={22} />
                         </button>
                     </div>
                     <div
@@ -315,7 +330,7 @@ export const Sidebar = () => {
                     <ul className="flex flex-1 flex-col gap-y-6">
                         <li className="space-y-1">
                             {navigation.map((item) => (
-                                <MenuItem key={item.name} item={item} isDark={isDark} />
+                                <MenuItem key={item.name} item={item} />
                             ))}
                         </li>
 
@@ -325,20 +340,24 @@ export const Sidebar = () => {
                                 className="group flex w-full items-center gap-x-3 rounded-xl p-3 text-left transition-all"
                                 style={{ color: "var(--text-primary)" }}
                             >
-                                <img
-                                    src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
-                                    className="size-5"
-                                    style={{
-                                        opacity: 0.5,
-                                        filter: isDark ? "invert(1)" : "none",
-                                    }}
-                                    alt=""
-                                />
+                                <span
+                                    className="flex size-5 shrink-0 items-center justify-center"
+                                    style={{ color: "var(--text-secondary)" }}
+                                >
+                                    <IconCommittees size={20} />
+                                </span>
                                 <span className="flex-1 text-sm font-semibold font-heading">
                                     Muros de comités
                                 </span>
-                                <span style={{ opacity: 0.4 }}>
-                                    {isComitesOpen ? "v" : ">"}
+                                <span
+                                    className="flex size-5 shrink-0 items-center justify-center"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    {isComitesOpen ? (
+                                        <IconChevronDown size={16} />
+                                    ) : (
+                                        <IconChevronRight size={16} />
+                                    )}
                                 </span>
                             </button>
 
@@ -382,15 +401,14 @@ export const Sidebar = () => {
                                         : "var(--text-primary)",
                                 }}
                             >
-                                <img
-                                    src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/message-circle.svg"
-                                    className="size-5 transition-opacity"
+                                <span
+                                    className="flex size-5 shrink-0 items-center justify-center"
                                     style={{
-                                        opacity: pathname?.startsWith("/chat") ? 1 : 0.5,
-                                        filter: isDark ? "invert(1)" : "none",
+                                        color: navIconColor(!!pathname?.startsWith("/chat")),
                                     }}
-                                    alt=""
-                                />
+                                >
+                                    <IconChat size={20} />
+                                </span>
                                 Mensajes Directos
                             </Link>
                         </li>
@@ -408,15 +426,14 @@ export const Sidebar = () => {
                                         : "var(--text-primary)",
                                 }}
                             >
-                                <img
-                                    src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/address-book.svg"
-                                    className="size-5 transition-opacity"
+                                <span
+                                    className="flex size-5 shrink-0 items-center justify-center"
                                     style={{
-                                        opacity: pathname?.startsWith("/directory") ? 1 : 0.5,
-                                        filter: isDark ? "invert(1)" : "none",
+                                        color: navIconColor(!!pathname?.startsWith("/directory")),
                                     }}
-                                    alt=""
-                                />
+                                >
+                                    <IconDirectory size={20} />
+                                </span>
                                 Directorio
                             </Link>
                         </li>
@@ -443,16 +460,7 @@ export const Sidebar = () => {
                                 color: "var(--text-secondary)",
                             }}
                         >
-                            <img
-                                src={
-                                    isDark
-                                        ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/sun.svg"
-                                        : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/moon.svg"
-                                }
-                                className="size-4"
-                                style={{ filter: isDark ? "invert(1)" : "none" }}
-                                alt=""
-                            />
+                            <IconTheme size={16} />
                         </span>
                         {isDark ? "Modo claro" : "Modo oscuro"}
                     </button>

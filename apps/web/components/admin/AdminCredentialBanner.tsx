@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AdminButton } from "./AdminButton";
+import { IconCopy } from "../ui/icons";
 
 // Banner para mostrar una contraseña temporal una sola vez con acción de copiar.
 // El padre debe descartarla del estado cuando se oculte.
@@ -95,7 +96,7 @@ export const AdminCredentialBanner = ({
                     type="button"
                     variant="secondary"
                     onClick={handleCopy}
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/copy.svg"
+                    icon={<IconCopy size={16} />}
                 >
                     {copied ? "Copiado" : "Copiar"}
                 </AdminButton>

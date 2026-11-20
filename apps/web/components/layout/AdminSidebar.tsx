@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTheme } from "../../lib/theme-context";
 import { useAuthStore } from "../../stores/auth.store";
+import {
+    IconCalendar,
+    IconDashboard,
+    IconDirectory,
+    IconShield,
+    IconTheme,
+    IconUserCheck,
+} from "../ui/icons";
 
 type AdminNavItem = {
     name: string;
     href: string;
-    icon: string;
+    icon: ReactNode;
     current: boolean;
 };
 
-const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean }) => {
+const AdminNavLink = ({ item }: { item: AdminNavItem }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
@@ -33,15 +41,14 @@ const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean })
                     : "var(--text-primary)",
             }}
         >
-            <img
-                src={item.icon}
-                className="size-5 transition-opacity"
+            <span
+                className="flex size-5 shrink-0 items-center justify-center"
                 style={{
-                    opacity: item.current || isHovered ? 1 : 0.5,
-                    filter: isDark ? "invert(1)" : "none",
+                    color: item.current || isHovered ? "var(--sidebar-active-text)" : "var(--text-secondary)",
                 }}
-                alt=""
-            />
+            >
+                {item.icon}
+            </span>
             <span className="flex-1">{item.name}</span>
         </Link>
     );
@@ -82,13 +89,13 @@ export const AdminSidebar = () => {
         {
             name: "Inicio Panel",
             href: "/admin",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/layout-dashboard.svg",
+            icon: <IconDashboard size={20} />,
             current: pathname === "/admin",
         },
         {
             name: "Eventos y Comités",
             href: "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg",
+            icon: <IconCalendar size={20} />,
             current:
                 (pathname?.startsWith("/admin/events") ?? false) &&
                 !isParticipantsRoute,
@@ -98,19 +105,19 @@ export const AdminSidebar = () => {
             href: activeEventId
                 ? `/admin/events/${activeEventId}/participants`
                 : "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg",
+            icon: <IconDirectory size={20} />,
             current: isParticipantsRoute,
         },
         {
             name: "Asignaciones",
             href: "/admin/assignments",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg",
+            icon: <IconUserCheck size={20} />,
             current: pathname?.startsWith("/admin/assignments") ?? false,
         },
         {
             name: "Moderación",
             href: "/admin/moderation",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/shield-alert.svg",
+            icon: <IconShield size={20} />,
             current: pathname?.startsWith("/admin/moderation") ?? false,
         },
     ];
@@ -237,7 +244,7 @@ export const AdminSidebar = () => {
                     <ul className="flex flex-col gap-y-1">
                         {navigation.map((item) => (
                             <li key={item.name}>
-                                <AdminNavLink item={item} isDark={isDark} />
+                                <AdminNavLink item={item} />
                             </li>
                         ))}
                     </ul>
@@ -263,16 +270,7 @@ export const AdminSidebar = () => {
                                 color: "var(--text-secondary)",
                             }}
                         >
-                            <img
-                                src={
-                                    isDark
-                                        ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/sun.svg"
-                                        : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/moon.svg"
-                                }
-                                className="size-4"
-                                style={{ filter: isDark ? "invert(1)" : "none" }}
-                                alt=""
-                            />
+                            <IconTheme size={16} />
                         </span>
                         {isDark ? "Modo claro" : "Modo oscuro"}
                     </button>
