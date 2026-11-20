@@ -84,6 +84,8 @@ const CommentsPanel = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    // Botones "⋯" por comentario: el foco vuelve a ellos al cerrar el diálogo de borrado.
+    const menuButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
     const loadComments = useCallback(async (options?: { showLoader?: boolean }) => {
         // Fetch reutilizable para carga inicial y refrescos por realtime.
@@ -184,6 +186,27 @@ const CommentsPanel = ({
         field.style.height = `${field.scrollHeight}px`;
     }, [inputValue]);
 
+    useEffect(() => {
+        // Safari no enfoca el control tocado, así que el blur no basta: cierra el menú al tocar fuera.
+        if (!openMenuId) {
+            return;
+        }
+
+        const closeOnOutsidePointer = (event: PointerEvent) => {
+            if (event.target instanceof Element && event.target.closest("[data-comment-menu]")) {
+                return;
+            }
+
+            setOpenMenuId(null);
+        };
+
+        document.addEventListener("pointerdown", closeOnOutsidePointer);
+
+        return () => {
+            document.removeEventListener("pointerdown", closeOnOutsidePointer);
+        };
+    }, [openMenuId]);
+
     const byId = useMemo(
         () =>
             new Map<string, PostComment>(
@@ -234,7 +257,14 @@ const CommentsPanel = ({
 
     const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
         // Escritorio: Enter envía y Shift+Enter inserta salto. Táctil: Enter inserta salto.
-        if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || isCoarsePointer()) {
+        // Safari dispara el Enter que confirma un IME con keyCode 229 y sin isComposing.
+        if (
+            event.key !== "Enter" ||
+            event.shiftKey ||
+            event.nativeEvent.isComposing ||
+            event.keyCode === 229 ||
+            isCoarsePointer()
+        ) {
             return;
         }
 
@@ -325,6 +355,7 @@ const CommentsPanel = ({
 
                                     {showMenu && (
                                         <div
+                                            data-comment-menu
                                             className="relative shrink-0 -mr-2 -mt-2"
                                             onKeyDown={(event) => {
                                                 if (event.key === "Escape") {
@@ -338,13 +369,19 @@ const CommentsPanel = ({
                                             }}
                                         >
                                             <button
+                                                ref={(element) => {
+                                                    if (element) {
+                                                        menuButtonRefs.current.set(comment.id, element);
+                                                    } else {
+                                                        menuButtonRefs.current.delete(comment.id);
+                                                    }
+                                                }}
                                                 type="button"
                                                 aria-label="Más acciones del comentario"
                                                 aria-haspopup="menu"
                                                 aria-expanded={menuOpen}
-                                                disabled={deletingCommentId === comment.id}
                                                 onClick={() => setOpenMenuId(menuOpen ? null : comment.id)}
-                                                className="inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] enabled:hover:bg-[var(--bg-surface-secondary)] disabled:opacity-60"
+                                                className="inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] enabled:hover:bg-[var(--bg-surface-secondary)]"
                                                 style={{ color: "var(--text-secondary)" }}
                                             >
                                                 <svg
@@ -376,6 +413,8 @@ const CommentsPanel = ({
                                                         size="sm"
                                                         className="w-full justify-start"
                                                         onClick={() => {
+                                                            // El ítem se desmonta al cerrar el menú: el foco pasa al "⋯" antes.
+                                                            menuButtonRefs.current.get(comment.id)?.focus();
                                                             setOpenMenuId(null);
                                                             requestDeleteComment(comment);
                                                         }}
