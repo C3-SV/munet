@@ -118,6 +118,9 @@ export const ChatMessage = ({
                                         role="menuitem"
                                         disabled={isDeleting}
                                         onClick={() => {
+                                            // El foco vuelve al disparador "⋯" (sigue montado) antes de abrir
+                                            // el diálogo, para que al cerrarlo el foco no se pierda.
+                                            triggerRef.current?.focus();
                                             setMenuOpen(false);
                                             onDelete?.(message.id);
                                         }}

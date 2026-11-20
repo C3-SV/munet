@@ -137,6 +137,13 @@ const ChatRoomPage = () => {
 
         let cancelled = false;
 
+        // Otra conversación no hereda el estado de scroll ni los ids ya conocidos,
+        // aunque el componente no se desmonte al cambiar el parámetro.
+        initialScrollDoneRef.current = false;
+        knownMessageIdsRef.current = new Set();
+        nearBottomRef.current = true;
+        setShowNewMessagesChip(false);
+
         const loadRoom = async () => {
             try {
                 setIsLoading(true);
