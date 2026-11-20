@@ -131,7 +131,7 @@ export default function GuidePage() {
                             <TopicCard title="Tu perfil">
                                 {steps([
                                     { title: "Abre Perfil", text: "Consulta la información de tu participación, tu comité y tu código de delegación si aparece." },
-                                    { title: "Edita tus datos visibles", text: "Selecciona Editar mi perfil para cambiar el nombre visible, el alias o la biografía. Deja el alias vacío si quieres quitarlo." },
+                                    { title: "Edita tus datos visibles", text: "Cambia el nombre mostrado, el alias o la biografía en el formulario y pulsa Guardar perfil. Deja el alias vacío si quieres quitarlo." },
                                     { title: "Actualiza tu fotografía", text: "Elige una imagen JPG, PNG o WebP de hasta 5 MB y pulsa Subir foto." },
                                 ])}
                                 <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Tu cuenta, código de ingreso, evento, comité e institución son administrados por la organización.</p>
