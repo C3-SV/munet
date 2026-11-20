@@ -136,13 +136,13 @@ const Directory = () => {
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
                     <span
-                        className="text-[11px] font-bold uppercase tracking-[0.15em] font-heading"
+                        className="text-xs font-bold font-heading"
                         style={{ color: "var(--text-secondary)" }}
                     >
                         Participantes del evento
                     </span>
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading mt-1 uppercase tracking-tight"
+                        className="text-3xl sm:text-4xl font-bold font-heading mt-1 tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Directorio

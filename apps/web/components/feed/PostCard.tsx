@@ -239,10 +239,10 @@ export const PostCard = ({
                         border: "1px solid var(--border-color)",
                     }}
                 >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3 min-w-0">
                         <p
-                            className="text-sm font-semibold font-heading"
-                            style={{ color: "var(--text-secondary)" }}
+                            className="min-w-0 text-sm font-semibold font-heading"
+                            style={{ color: "var(--text-secondary)", overflowWrap: "anywhere" }}
                         >
                             {`Encuesta · ${post.poll.isClosed ? "cerrada" : "abierta"}`}
                         </p>
@@ -277,11 +277,14 @@ export const PostCard = ({
                                     cursor: canVoteNow ? "pointer" : "default",
                                 }}
                             >
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
+                                <div className="flex items-center justify-between gap-3 min-w-0">
+                                    <span
+                                        className="min-w-0 text-sm font-body"
+                                        style={{ color: "var(--text-primary)", overflowWrap: "anywhere" }}
+                                    >
                                         {option.text}
                                     </span>
-                                    <span className="text-xs font-body" style={{ color: "var(--text-secondary)" }}>
+                                    <span className="shrink-0 text-xs font-body" style={{ color: "var(--text-secondary)" }}>
                                         {option.votes} votos ({option.percentage}%)
                                     </span>
                                 </div>

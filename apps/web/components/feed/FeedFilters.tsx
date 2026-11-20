@@ -35,7 +35,15 @@ export const FeedFilters = ({
     // La búsqueda se muestra si el usuario la abre o si ya hay un texto filtrando.
     const [isSearchOpen, setIsSearchOpen] = useState(searchQuery.length > 0);
     const isSearchVisible = isSearchOpen || searchQuery.length > 0;
-    const hasActiveFilters = selectedCommittees.length > 0 || searchQuery.trim().length > 0;
+    // El filtro de comité solo se aplica y muestra en el muro General; en otros muros no cuenta.
+    const visibleCommittees = showCommitteeFilter ? selectedCommittees : [];
+    const trimmedSearch = searchQuery.trim();
+    const hasActiveFilters = visibleCommittees.length > 0 || trimmedSearch.length > 0;
+
+    const removeSearch = () => {
+        onSearchChange("");
+        setIsSearchOpen(false);
+    };
 
     const toggleSearch = () => {
         // Al cerrar la búsqueda se limpia el texto para no dejar un filtro oculto.
@@ -91,13 +99,54 @@ export const FeedFilters = ({
                         </Button>
                     ))}
                 </div>
+            </div>
 
-                {hasActiveFilters && (
+            {hasActiveFilters && (
+                <div
+                    role="group"
+                    aria-label="Filtros activos"
+                    className="flex flex-wrap items-center gap-2"
+                >
+                    {trimmedSearch.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={removeSearch}
+                            aria-label={`Quitar búsqueda: ${trimmedSearch}`}
+                            className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-full px-4 text-sm font-semibold font-body"
+                            style={{
+                                backgroundColor: "var(--sidebar-active-bg)",
+                                border: "1px solid var(--text-accent)",
+                                color: "var(--text-accent)",
+                            }}
+                        >
+                            <span className="min-w-0 truncate">Búsqueda: {trimmedSearch}</span>
+                            <IconClose size={14} />
+                        </button>
+                    )}
+
+                    {visibleCommittees.map((comite) => (
+                        <button
+                            key={comite}
+                            type="button"
+                            onClick={() => onCommitteeToggle(comite)}
+                            aria-label={`Quitar filtro de comité ${comite}`}
+                            className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-full px-4 text-sm font-semibold font-heading"
+                            style={{
+                                backgroundColor: "var(--sidebar-active-bg)",
+                                border: "1px solid var(--text-accent)",
+                                color: "var(--text-accent)",
+                            }}
+                        >
+                            <span className="min-w-0 truncate">{comite}</span>
+                            <IconClose size={14} />
+                        </button>
+                    ))}
+
                     <Button variant="ghost" size="sm" onClick={clearAllFilters}>
                         Limpiar
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
 
             {isSearchVisible && (
                 <div>

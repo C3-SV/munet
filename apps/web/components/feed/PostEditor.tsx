@@ -11,7 +11,7 @@ type PostDraft = {
 interface PostEditorProps {
     onPublish: (draft: PostDraft) => Promise<void> | void;
     disabled?: boolean;
-    // Identifica el borrador guardado en sessionStorage (un borrador por muro).
+    // Identifica el borrador guardado en sessionStorage (un borrador por evento y muro).
     draftKey?: string;
 }
 

@@ -17,7 +17,7 @@ import type { EventWall, Post } from "../../../../types/common";
 
 // Mensajes humanos: el detalle técnico no llega al participante.
 const FEED_LOAD_ERROR = "No se pudieron cargar las publicaciones. Revisa tu conexión e inténtalo de nuevo.";
-const FEED_PUBLISH_ERROR = "No se pudo publicar tu publicación. Revisa tu conexión e inténtalo de nuevo.";
+const FEED_PUBLISH_ERROR = "No se pudo publicar tu publicación. Tu texto sigue en el editor; revisa tu conexión e inténtalo de nuevo.";
 
 const Feed = () => {
     const params = useParams();
@@ -32,7 +32,10 @@ const Feed = () => {
     const [posts, setPosts] = useState<Post[]>([]);
     const [activeWall, setActiveWall] = useState<FeedResponse["wall"] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    // Error de carga o sincronización del muro: se reintenta recargando el muro.
     const [error, setError] = useState<string | null>(null);
+    // Error al publicar: no se reintenta recargando; el borrador del editor se conserva.
+    const [publishError, setPublishError] = useState<string | null>(null);
     const [isForbidden, setIsForbidden] = useState(false);
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
     const [walls, setWalls] = useState<EventWall[]>([]);
@@ -109,6 +112,7 @@ const Feed = () => {
         // Al cambiar de contexto no se conservan publicaciones del anterior.
         setActiveWall(null);
         setPosts([]);
+        setPublishError(null);
         void loadPosts();
 
         return () => {
@@ -277,7 +281,7 @@ const Feed = () => {
         }
 
         try {
-            setError(null);
+            setPublishError(null);
             const newPost = await publishFeedPost({
                 muro: muroParam,
                 content: draft.content,
@@ -288,11 +292,15 @@ const Feed = () => {
             });
 
             setPosts((currentPosts) => [newPost, ...currentPosts]);
-        } catch (publishError) {
-            setError(FEED_PUBLISH_ERROR);
-            throw publishError;
+        } catch (submitError) {
+            setPublishError(FEED_PUBLISH_ERROR);
+            throw submitError;
         }
     };
+
+    // El filtro de comité solo existe en el muro General: en otros muros no se aplica.
+    const showCommitteeFilter = activeWall?.kind === "general";
+    const activeCommittees = showCommitteeFilter ? selectedCommittees : [];
 
     const filteredPosts = posts.filter((post) => {
         // Filtro combinado de busqueda libre + comites seleccionados.
@@ -302,9 +310,9 @@ const Feed = () => {
             (post.user.alias ?? "").toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesCommittee =
-            selectedCommittees.length === 0 ||
+            activeCommittees.length === 0 ||
             (post.user.committeeName &&
-                selectedCommittees.includes(post.user.committeeName));
+                activeCommittees.includes(post.user.committeeName));
 
         return matchesSearch && matchesCommittee;
     });
@@ -340,7 +348,6 @@ const Feed = () => {
         return a.timestamp - b.timestamp;
     });
 
-    const showCommitteeFilter = activeWall?.kind === "general";
     const headerTitle = activeWall
         ? activeWall.kind === "committee"
             ? activeWall.committeeName ?? activeWall.name
@@ -428,13 +435,28 @@ const Feed = () => {
                     </nav>
                 )}
 
+                {/* El borrador es por evento y muro: los slugs de muro se repiten entre eventos. */}
                 {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
-                        key={muroParam}
-                        draftKey={muroParam}
+                        key={`${eventId ?? "sin-evento"}:${muroParam}`}
+                        draftKey={`${eventId ?? "sin-evento"}:${muroParam}`}
                         onPublish={handlePublishPost}
                         disabled={isLoading}
                     />
+                )}
+
+                {publishError && !isForbidden && (
+                    <div
+                        role="alert"
+                        className="mb-6 rounded-[var(--radius-sm)] px-4 py-3 text-sm font-body"
+                        style={{
+                            backgroundColor: "var(--danger-bg)",
+                            border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--text-primary)",
+                        }}
+                    >
+                        <span>{publishError}</span>
+                    </div>
                 )}
 
                 {error && !isForbidden && (
