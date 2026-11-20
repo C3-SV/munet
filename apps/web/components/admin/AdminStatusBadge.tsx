@@ -25,11 +25,11 @@ const STATUS_TONES: Record<string, StatusTone> = {
 
 const TONE_STYLES: Record<StatusTone, { backgroundColor: string; color: string }> = {
     success: {
-        backgroundColor: "color-mix(in srgb, var(--success) 12%, transparent)",
+        backgroundColor: "color-mix(in srgb, var(--success) 8%, transparent)",
         color: "var(--success)",
     },
     warning: {
-        backgroundColor: "color-mix(in srgb, var(--warning) 14%, transparent)",
+        backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)",
         color: "var(--warning)",
     },
     danger: {
@@ -38,7 +38,7 @@ const TONE_STYLES: Record<StatusTone, { backgroundColor: string; color: string }
     },
     neutral: {
         backgroundColor: "color-mix(in srgb, var(--text-muted) 14%, transparent)",
-        color: "var(--text-secondary)",
+        color: "var(--text-primary)",
     },
 };
 

@@ -378,7 +378,7 @@ export default function EventDetailPage() {
                                 )
                             }
                             disabled={saving}
-                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
+                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                             style={{
                                 backgroundColor: "var(--input-bg)",
                                 border: "1px solid var(--input-border)",
