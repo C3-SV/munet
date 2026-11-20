@@ -67,7 +67,7 @@ const ChatRoomPage = () => {
                       name: "Delegado",
                       // Sin avatar: ChatRoomHeader muestra iniciales locales.
                       avatar: "",
-                      role: "DELEGADO",
+                      role: "PARTICIPANT",
                       committee: "Comité",
                       lastActive: "desconocido",
                   },

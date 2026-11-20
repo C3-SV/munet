@@ -1,5 +1,11 @@
 // Roles conocidos del evento, con su texto visible en español.
 const ROLE_LABELS: Record<string, string> = {
+    // Valores reales de membership_role_enum en la base.
+    PARTICIPANT: "Delegado",
+    MODERATOR: "Moderador",
+    ADMIN_MUN: "Administrador MUN",
+    ADMIN_TECH: "Administrador técnico",
+    // Textos antiguos que aún pueden aparecer en datos previos.
     ADMIN: "Administrador",
     COORDINADOR: "Coordinador",
     ORGANIZADOR: "Organizador",
@@ -27,9 +33,8 @@ export const formatRoleLabel = (role: string | null | undefined): string => {
 
 // Roles que el panel admin ofrece al asignar o filtrar participantes.
 export const PARTICIPANT_ROLES: readonly string[] = [
-    "DELEGADO",
-    "MODERADOR",
-    "ORGANIZADOR",
-    "COORDINADOR",
-    "ADMIN",
+    "PARTICIPANT",
+    "MODERATOR",
+    "ADMIN_MUN",
+    "ADMIN_TECH",
 ];

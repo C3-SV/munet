@@ -708,7 +708,6 @@ export default function ParticipantDetailPage() {
                                 }
                                 options={roleOptions}
                                 error={errors.role}
-                                hint="Los roles administrativos se detectan por ADMIN, COORDINADOR u ORGANIZADOR."
                                 disabled={saving}
                             />
 

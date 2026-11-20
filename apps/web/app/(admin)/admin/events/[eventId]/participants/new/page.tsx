@@ -20,6 +20,7 @@ import {
     type CreateAccountBody,
 } from "../../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
 import { IconCheck, IconPlus } from "../../../../../../../components/ui/icons";
 
 const ROLE_SUGGESTIONS = [
@@ -46,7 +47,7 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 
 const INITIAL_FORM: FormState = {
     participant_code: "",
-    role: "DELEGADO",
+    role: "PARTICIPANT",
     committee_id: "",
     delegation_name: "",
     institution_name: "",
@@ -332,21 +333,17 @@ export default function NewParticipantPage() {
                             disabled={loading}
                         />
 
-                        <AdminFormInput
+                        <AdminFormSelect
                             id="participant-role"
                             label="Rol"
-                            placeholder="Ej: DELEGADO"
                             required
-                            list="participant-role-options"
                             value={form.role}
-                            onChange={(event) =>
-                                handleChange(
-                                    "role",
-                                    event.target.value.toUpperCase(),
-                                )
-                            }
+                            onChange={(event) => handleChange("role", event.target.value)}
+                            options={PARTICIPANT_ROLES.map((role) => ({
+                                value: role,
+                                label: formatRoleLabel(role),
+                            }))}
                             error={errors.role}
-                            hint="Los roles administrativos se detectan por ADMIN, COORDINADOR u ORGANIZADOR."
                             disabled={loading}
                         />
                     </div>
