@@ -1,11 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+    ATTACHMENT_ACCEPT,
+    ATTACHMENTS_BACKEND_READY,
+    formatFileSize,
+    validateAttachment,
+} from "../../lib/attachments";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { IconClose, IconFile, IconPaperclip } from "../ui/icons";
 
 type PostDraft = {
     content: string;
     postType: "TEXT" | "POLL";
     pollOptions?: string[];
+    attachment?: File;
 };
 
 interface PostEditorProps {
@@ -75,6 +83,10 @@ export const PostEditor = ({
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [isPublishing, setIsPublishing] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    // Un adjunto como máximo; no se guarda en el borrador (un File no es serializable).
+    const [attachment, setAttachment] = useState<File | null>(null);
+    const [attachmentError, setAttachmentError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     // Evita escribir el borrador antes de haber leído el guardado.
     const [draftReady, setDraftReady] = useState(false);
 
@@ -119,6 +131,30 @@ export const PostEditor = ({
         setPostText("");
         setPollOptions(["", ""]);
         setValidationError(null);
+        setAttachment(null);
+        setAttachmentError(null);
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        // Valida tipo y tamaño al elegir; un archivo inválido no reemplaza al actual.
+        const file = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        const error = validateAttachment(file);
+        setAttachmentError(error);
+
+        if (!error) {
+            setAttachment(file);
+        }
+    };
+
+    const removeAttachment = () => {
+        setAttachment(null);
+        setAttachmentError(null);
     };
 
     const handlePublish = async () => {
@@ -140,6 +176,7 @@ export const PostEditor = ({
                 content: postText.trim(),
                 postType,
                 pollOptions: postType === "POLL" ? normalizedPollOptions : undefined,
+                attachment: attachment ?? undefined,
             });
             resetEditor();
         } finally {
@@ -202,25 +239,28 @@ export const PostEditor = ({
                 </div>
             </div>
 
-            <textarea
-                aria-label={postType === "POLL" ? "Pregunta de la encuesta" : "Contenido de la publicación"}
-                value={postText}
-                onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setPostText(event.target.value)
-                }
-                placeholder={
-                    postType === "POLL"
-                        ? "Escribe la pregunta de la encuesta"
-                        : "Escribe tu intervención"
-                }
-                maxLength={MAX_POST_LENGTH}
-                disabled={disabled || isPublishing}
-                className="w-full min-h-28 p-5 text-[15px] font-body focus:outline-none resize-none bg-transparent"
-                style={{
-                    color: "var(--text-primary)",
-                    opacity: disabled ? 0.6 : 1,
-                }}
-            />
+            {/* El foco se dibuja en el contenedor: el Card recorta (overflow-hidden) cualquier outline externo. */}
+            <div className="mx-5 mt-3 mb-4 rounded-[var(--radius-sm)] border border-[var(--input-border)] bg-[var(--bg-input)] focus-within:border-[var(--input-focus)] focus-within:shadow-[0_0_0_1px_var(--input-focus)]">
+                <textarea
+                    aria-label={postType === "POLL" ? "Pregunta de la encuesta" : "Contenido de la publicación"}
+                    value={postText}
+                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+                        setPostText(event.target.value)
+                    }
+                    placeholder={
+                        postType === "POLL"
+                            ? "Escribe la pregunta de la encuesta"
+                            : "Escribe tu intervención"
+                    }
+                    maxLength={MAX_POST_LENGTH}
+                    disabled={disabled || isPublishing}
+                    className="block w-full min-h-28 px-4 py-3 text-[15px] font-body outline-none focus-visible:outline-none resize-none bg-transparent"
+                    style={{
+                        color: "var(--text-primary)",
+                        opacity: disabled ? 0.6 : 1,
+                    }}
+                />
+            </div>
 
             {postType === "POLL" && (
                 <div className="px-5 pb-4 space-y-2">
@@ -263,6 +303,51 @@ export const PostEditor = ({
                 </div>
             )}
 
+            {(attachment || attachmentError) && (
+                <div className="px-5 pb-4 space-y-2">
+                    {attachment && (
+                        <div
+                            className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2"
+                            style={{
+                                border: "1px solid var(--border-color)",
+                                backgroundColor: "var(--bg-surface-secondary)",
+                            }}
+                        >
+                            <span style={{ color: "var(--text-accent)" }}>
+                                <IconFile size={20} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p
+                                    className="truncate text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                    title={attachment.name}
+                                >
+                                    {attachment.name}
+                                </p>
+                                <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                    {formatFileSize(attachment.size)}
+                                    {!ATTACHMENTS_BACKEND_READY &&
+                                        " · El servidor aún no guarda adjuntos: se publicará sin el archivo."}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={removeAttachment}
+                                aria-label={`Quitar adjunto ${attachment.name}`}
+                                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] md:min-h-9 md:min-w-9"
+                            >
+                                <IconClose size={16} />
+                            </button>
+                        </div>
+                    )}
+                    {attachmentError && (
+                        <p role="alert" className="text-xs font-body" style={{ color: "var(--danger)" }}>
+                            {attachmentError}
+                        </p>
+                    )}
+                </div>
+            )}
+
             <div
                 className="flex flex-wrap justify-between items-center gap-3 px-5 py-3"
                 style={{
@@ -270,17 +355,39 @@ export const PostEditor = ({
                     backgroundColor: "var(--bg-surface-secondary)",
                 }}
             >
-                <span
-                    className="text-xs font-medium font-body"
-                    role={validationError ? "alert" : undefined}
-                    style={{ color: validationError ? "var(--danger)" : "var(--text-muted)" }}
-                >
-                    {validationError
-                        ? validationError
-                        : showCounter
-                          ? `${postText.length}/${MAX_POST_LENGTH}`
-                          : ""}
-                </span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ATTACHMENT_ACCEPT}
+                        onChange={handleFileChange}
+                        disabled={disabled || isPublishing}
+                        className="sr-only"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                    />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        leadingIcon={<IconPaperclip size={16} />}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={disabled || isPublishing}
+                        aria-label="Adjuntar archivo, JPG o PNG hasta 5 MB, o PDF hasta 20 MB"
+                    >
+                        Adjuntar
+                    </Button>
+                    <span
+                        className="min-w-0 text-xs font-medium font-body"
+                        role={validationError ? "alert" : undefined}
+                        style={{ color: validationError ? "var(--danger)" : "var(--text-muted)" }}
+                    >
+                        {validationError
+                            ? validationError
+                            : showCounter
+                              ? `${postText.length}/${MAX_POST_LENGTH}`
+                              : ""}
+                    </span>
+                </div>
                 <Button
                     onClick={() => void handlePublish()}
                     disabled={!canPublish}

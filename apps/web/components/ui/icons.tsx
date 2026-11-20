@@ -277,3 +277,36 @@ export const IconEyeOff = (props: IconProps) => (
         <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
     </IconBase>
 );
+
+// Acciones de fila del panel admin.
+export const IconSettings = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M4 7h10" />
+        <path d="M18 7h2" />
+        <circle cx="16" cy="7" r="2" />
+        <path d="M4 17h2" />
+        <path d="M10 17h10" />
+        <circle cx="8" cy="17" r="2" />
+    </IconBase>
+);
+
+export const IconEdit = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" />
+        <path d="M13.5 6.5l4 4" />
+    </IconBase>
+);
+
+// Adjuntos.
+export const IconPaperclip = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />
+    </IconBase>
+);
+
+export const IconFile = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+        <path d="M14 3v5h5" />
+    </IconBase>
+);
