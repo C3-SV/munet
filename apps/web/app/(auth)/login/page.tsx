@@ -434,7 +434,7 @@ const Login = () => {
                             type="button"
                             aria-label="Cerrar"
                             onClick={resetActivationModal}
-                            className="absolute top-2 right-2 inline-flex min-h-11 min-w-11 items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                            className="absolute top-2 right-2 inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
