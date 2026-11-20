@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 // default: caja con borde y sombra suave (contenedores).
 // flat: sin sombra ni borde lateral; solo separador inferior (ítems de lista).
-// official: borde izquierdo de 4 px en --signal (avisos oficiales).
+// official: borde de 1 px en --signal (avisos oficiales).
 export type CardVariant = "default" | "flat" | "official";
 
 interface CardProps {
@@ -25,8 +25,7 @@ const VARIANT_STYLE: Record<CardVariant, CSSProperties> = {
     },
     official: {
         backgroundColor: "var(--bg-surface)",
-        border: "1px solid var(--border-color)",
-        borderLeft: "4px solid var(--signal)",
+        border: "1px solid var(--signal)",
         borderRadius: "var(--radius-lg)",
     },
 };
