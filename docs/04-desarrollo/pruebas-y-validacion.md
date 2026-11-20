@@ -127,3 +127,21 @@ Pendiente, sin cambios en esta ronda:
 - Pasos 4 y 5 de la Tarea 13 y `/impeccable critique` sobre el muro: requieren sesión autenticada y datos ficticios en un entorno aislado. No hay autorización para crear cuentas (ver ronda 2).
 - Verificación visual en navegador de los puntos 3 a 6, en claro y oscuro, a 390 y 1440 px.
 - T13-R0-1 sigue abierto hasta que el dueño acepte formalmente el diferimiento registrado en `docs/07-auditoria/pendientes.md`.
+
+## Ronda 4 de corrección de la Tarea 13 (20 de noviembre de 2026)
+
+Sobre la base `ac94140`, con cambios solo en documentación. No se modificó código de `apps/web` ni `apps/api`, ni migraciones ni dependencias, por lo que no se repitieron las pruebas de código (`check-types` y `eslint` sobre archivos tocados no aplican a esta ronda).
+
+Hallazgo T13-R0-1: sin cambios de evidencia. Los pasos 4 y 5 siguen sin ejecutarse por estas razones:
+
+- Requieren una sesión autenticada con Supabase y datos ficticios en un entorno aislado. Crear cuentas exige autorización expresa del dueño, que no se ha dado para este fin.
+- La aceptación formal del diferimiento corresponde al dueño del proyecto. Esta ronda no la registra.
+
+Decisión pendiente del dueño, una de dos opciones:
+
+1. Autorizar un entorno aislado con datos ficticios para ejecutar los pasos 4 y 5 y registrar sus resultados.
+2. Aceptar formalmente el diferimiento y confirmarlo en la sección «Verificación diferida de la Tarea 13» de `docs/07-auditoria/pendientes.md`.
+
+Hasta que se resuelva una de las dos, la Tarea 13 no se considera cerrada.
+
+Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre los archivos tocados.
