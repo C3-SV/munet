@@ -160,3 +160,20 @@ Decisión de esta ronda (Ruling): el hallazgo no se marca como cerrado, porque c
 Pendiente de decisión del dueño: una de las dos opciones de la ronda 4 (autorizar el entorno aislado o aceptar el diferimiento en `pendientes.md`).
 
 Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre el archivo tocado.
+
+## Ronda 6 de la Tarea 13: ejecución de QA sin sesión (20 de noviembre de 2026)
+
+Sobre el árbol de trabajo con el cambio de `apps/web/components/ui/Card.tsx` (variante `official` con borde de 1 px en `--signal`), sin cambios en `apps/api`, migraciones ni dependencias. Se usó el servidor de desarrollo `npm run dev -w web` en `http://localhost:3000`, reiniciado porque el proceso anterior servía un bundle obsoleto.
+
+- Paso 3 (detector), repetido: `/login` y `/select-event` sin hallazgos a 390×844 y 1440×900. `/select-event` sin sesión redirige a `/login`, así que esa medición corresponde a la página de entrada. `/guia` mantiene los `straggler` (informativos) y, a 1440 px, `line-length` ya registrado en `docs/07-auditoria/pendientes.md`.
+- Desbordamiento horizontal sin sesión (`scrollWidth` frente a `innerWidth`): `/login`, `/guia` y `/select-event` (este último redirigido a `/login`) sin desbordamiento a 375 px; `/login` y `/guia` sin desbordamiento a 1024 px. Medido en pestaña nueva.
+- Consola en `/login`, pestaña nueva: sin errores. Antes del reinicio, la pestaña anterior mostraba `ReferenceError: EyeIcon is not defined` y errores 500 de HMR. El código actual importa `IconEye` e `IconEyeOff` y no contiene `EyeIcon`; el error venía de un bundle obsoleto del servidor, no del código.
+- Modo oscuro: la captura de `/login` a escritorio muestra la paleta oscura sin desbordamiento.
+
+No ejecutado en esta ronda, porque requiere sesión autenticada con Supabase, datos ficticios en entorno aislado y autorización del dueño:
+
+- Paso 4 (recorrido manual en claro y oscuro).
+- Paso 5 (`/impeccable critique` sobre el muro).
+- Puntos 3 a 6 de Review Focus en navegador con datos reales de la interfaz autenticada.
+
+T13-R0-1 sigue abierto hasta que el dueño autorice el entorno aislado o acepte formalmente el diferimiento en `docs/07-auditoria/pendientes.md`.
