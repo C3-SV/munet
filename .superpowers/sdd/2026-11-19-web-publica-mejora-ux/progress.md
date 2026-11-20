@@ -141,3 +141,4 @@ Task 6: minor (deferred): T6-R0-6 apps/web/app/(auth)/login/page.tsx:339, 516, 5
 Task 6: minor (deferred): T6-R0-7 apps/web/app/globals.css:67 y 121 El token --theme-icon-filter ya no lo usa ningun .tsx tras la migracion; solo quedan sus definiciones en claro y oscuro.
 Task 6: minor (deferred): T6-R0-8 docs/superpowers/plans/2026-11-19-web-publica-mejora-ux.md:seccion Task 6, 'Files' El brief lista 7 archivos a modificar y el commit toca 25. Las ampliaciones (paginas admin, AdminAlertBanner, AdminCredentialBanner, AdminEmptyState, directory, ChatRoomHeader) son necesarias para cumplir el paso 2 (cero referencias CDN en apps/web), por lo que son aceptables. La lista del brief es incompleta.
 Task 6: complete (commits c4ab91f..043560b, review clean)
+Task 7: fix round 1/5 (4 addressed, 0 open; commits 38aca4c..2a35927)
