@@ -148,3 +148,4 @@ Task 8: minor (deferred): T8-R0-8 apps/web/components/feed/PostEditor.tsx:175 El
 Task 8: minor (deferred): T8-R0-9 apps/web/components/feed/PostEditor.tsx:57 writeDraft solo elimina el borrador cuando el tipo es TEXT y está vacío. Tras publicar una encuesta, resetEditor (línea 117) no restablece postType, así que queda seleccionada Encuesta y se guarda un borrador POLL vacío que se restaura en el siguiente montaje.
 Task 8: minor (deferred): T8-R0-10 apps/web/components/feed/PostEditor.tsx:285 onClick ejecuta void handlePublish(), y handlePublish no captura el error que relanza onPublish (la página hace throw publishError tras mostrar el banner). El resultado es una promesa rechazada sin manejar en cada fallo de publicación. Es código previo a esta tarea, pero el diff tocó la ruta de error.
 Task 8: complete (commits 2a35927..970e3da, review clean)
+Task 9: fix round 1/5 (7 addressed, 0 open; commits 46849ce..4d8f41e)
