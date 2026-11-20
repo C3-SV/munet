@@ -164,7 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Error al iniciar sesion";
+      const message = err instanceof Error ? err.message : "Error al iniciar sesión";
 
       set({
         loading: false,

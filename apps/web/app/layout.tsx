@@ -11,6 +11,9 @@ const poppins = Poppins({
     variable: "--font-heading",
 });
 
+// Resuelve el tema antes de hidratar (localStorage y prefers-color-scheme) para evitar el destello claro.
+const themeInitScript = `(function(){try{var t=localStorage.getItem("munet-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+
 export const metadata: Metadata = {
     title: "MUNET",
     description: "Comunicaciones seguras y foros para delegados.",
@@ -27,6 +30,9 @@ export default function RootLayout({
             className={`${inter.variable} ${poppins.variable}`}
             suppressHydrationWarning
         >
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+            </head>
             <body className="font-body antialiased min-h-screen" style={{ backgroundColor: "var(--bg-base)", color: "var(--text-primary)" }}>
                 <ThemeProvider>
                     {children}

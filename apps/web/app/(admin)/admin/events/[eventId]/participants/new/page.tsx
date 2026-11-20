@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
@@ -21,6 +20,7 @@ import {
     type CreateAccountBody,
 } from "../../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { IconCheck, IconPlus } from "../../../../../../../components/ui/icons";
 
 const ROLE_SUGGESTIONS = [
     "DELEGADO",
@@ -261,11 +261,12 @@ export default function NewParticipantPage() {
                     { label: "Nuevo participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -279,16 +280,16 @@ export default function NewParticipantPage() {
                     />
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <Link
+                        <AdminButton
                             href={`/admin/events/${eventId}/participants/${created.membershipId}`}
                         >
-                            <AdminButton>Ver participante</AdminButton>
-                        </Link>
+                            Ver participante
+                        </AdminButton>
                         <AdminButton
                             type="button"
                             variant="secondary"
                             onClick={handleCreateAnother}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            icon={<IconPlus size={16} />}
                         >
                             Registrar otro
                         </AdminButton>
@@ -470,7 +471,7 @@ export default function NewParticipantPage() {
                         <AdminButton
                             type="submit"
                             loading={loading}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {loading ? "Creando cuenta..." : "Crear participante"}
                         </AdminButton>

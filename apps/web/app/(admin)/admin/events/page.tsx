@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../components/admin/AdminStatusBadge";
+import { RowActions } from "../../../../components/admin/RowActions";
 import {
     listEvents,
     type AdminEvent,
@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/api/admin";
 import { ApiError } from "../../../../lib/api/client";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { IconAlertTriangle, IconCalendar, IconPlus, IconRefresh } from "../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -54,7 +55,7 @@ const EventDates = ({
 
 const EventRow = ({ event }: { event: AdminEvent }) => (
     <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
+        className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
         <td className="px-6 py-4">
@@ -83,29 +84,15 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
         </td>
 
         <td className="px-6 py-4">
-            <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                <Link
-                    href={`/admin/events/${event.id}/participants`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Participantes
-                </Link>
-                <Link
-                    href={`/admin/events/${event.id}/committees`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Comités
-                </Link>
-                <Link
-                    href={`/admin/events/${event.id}`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
-                >
-                    Configurar
-                </Link>
-            </div>
+            <RowActions
+                primary={{ label: "Abrir", href: `/admin/events/${event.id}` }}
+                menuLabel={`Más acciones para ${event.name}`}
+                items={[
+                    { label: "Participantes", href: `/admin/events/${event.id}/participants` },
+                    { label: "Comités", href: `/admin/events/${event.id}/committees` },
+                    { label: "Configurar", href: `/admin/events/${event.id}` },
+                ]}
+            />
         </td>
     </tr>
 );
@@ -113,7 +100,7 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -178,16 +165,14 @@ export default function AdminEventsPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <AdminPageHeader
                 title="Eventos"
-                description="Crea, configura y administra los eventos del MUN."
                 breadcrumb={[{ label: "Panel", href: "/admin" }, { label: "Eventos" }]}
                 action={
-                    <Link href="/admin/events/new">
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                        >
-                            Nuevo evento
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href="/admin/events/new"
+                        icon={<IconPlus size={16} />}
+                    >
+                        Nuevo evento
+                    </AdminButton>
                 }
             />
 
@@ -203,14 +188,14 @@ export default function AdminEventsPage() {
 
                 {!loading && error && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="Error al cargar eventos"
                         description={error}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -220,17 +205,16 @@ export default function AdminEventsPage() {
 
                 {!loading && !error && events.length === 0 && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg"
+                        icon={<IconCalendar size={32} />}
                         title="No hay eventos registrados"
                         description="Crea el primer evento para empezar a configurar comités y participantes."
                         action={
-                            <Link href="/admin/events/new">
-                                <AdminButton
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                                >
-                                    Crear primer evento
-                                </AdminButton>
-                            </Link>
+                            <AdminButton
+                                href="/admin/events/new"
+                                icon={<IconPlus size={16} />}
+                            >
+                                Crear primer evento
+                            </AdminButton>
                         }
                     />
                 )}
@@ -244,7 +228,7 @@ export default function AdminEventsPage() {
                                         <th
                                             key={column || index}
                                             className={[
-                                                "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
+                                                "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
                                                 index === 1 ? "hidden md:table-cell" : "",
                                                 index === 3 ? "text-right" : "",
                                             ].join(" ")}

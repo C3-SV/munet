@@ -108,6 +108,7 @@ export interface MyProfile extends PublicProfile {
 export interface Delegate {
     id: string;
     name: string;
+    alias?: string | null;
     avatar: string;
     role: string;
     committee: string;

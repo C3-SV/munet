@@ -126,6 +126,7 @@ test("directoryEntryToRecipient maps public fields and falls back to alias or a 
     assert.equal(withCommittee.committee, "Seguridad");
     assert.equal(withCommittee.delegationName, "MX-01");
     assert.equal(withCommittee.avatar, "");
+    assert.equal(withCommittee.alias, "Anita");
 
     const aliasOnly = directoryEntryToRecipient({
         membershipId: "m-3",

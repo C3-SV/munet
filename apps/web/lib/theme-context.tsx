@@ -19,12 +19,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const [theme, setTheme] = useState<Theme>("light");
 
     useEffect(() => {
-        // Hidrata el tema guardado del usuario al montar la app.
-        const stored = localStorage.getItem("munet-theme") as Theme | null;
-        if (stored) {
-            setTheme(stored);
-            document.documentElement.classList.toggle("dark", stored === "dark");
-        }
+        // El script inline de layout.tsx ya aplicó la clase `dark`; aquí solo se sincroniza el estado.
+        setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
     }, []);
 
     // Alterna tema y persiste preferencia para futuros inicios de sesion.

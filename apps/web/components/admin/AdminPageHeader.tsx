@@ -57,7 +57,7 @@ export const AdminPageHeader = ({
                     </nav>
                 )}
                 <h1
-                    className="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading"
+                    className="text-2xl sm:text-3xl font-bold tracking-tight font-heading"
                     style={{ color: "var(--text-primary)" }}
                 >
                     {title}

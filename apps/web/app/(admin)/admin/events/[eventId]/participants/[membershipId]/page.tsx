@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
-import { AdminConfirmDialog } from "../../../../../../../components/admin/AdminConfirmDialog";
 import { AdminCredentialBanner } from "../../../../../../../components/admin/AdminCredentialBanner";
 import { AdminEmptyState } from "../../../../../../../components/admin/AdminEmptyState";
 import { AdminFormInput } from "../../../../../../../components/admin/AdminFormInput";
@@ -28,15 +26,10 @@ import {
     type AdminParticipant,
     type UpdateParticipantBody,
 } from "../../../../../../../lib/api/participants";
+import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
-
-const ROLE_SUGGESTIONS = [
-    "DELEGADO",
-    "MODERADOR",
-    "ORGANIZADOR",
-    "COORDINADOR",
-    "ADMIN",
-];
+import { ConfirmDialog } from "../../../../../../../components/ui/ConfirmDialog";
+import { IconAlertTriangle, IconCheck, IconKey, IconRefresh, IconUserCheck, IconUserOff } from "../../../../../../../components/ui/icons";
 
 type FormState = {
     role: string;
@@ -111,7 +104,7 @@ const formatDate = (value?: string | null) => {
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -152,6 +145,7 @@ export default function ParticipantDetailPage() {
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
     const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+    const [committeeDialogOpen, setCommitteeDialogOpen] = useState(false);
     const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
         null,
     );
@@ -246,6 +240,16 @@ export default function ParticipantDetailPage() {
         };
     }, [eventId, membershipId, reloadKey, token]);
 
+    // El rol actual se conserva en la lista aunque no sea uno de los sugeridos.
+    const currentRole = form.role.trim().toUpperCase();
+    const roleOptions = [
+        { value: "", label: "Selecciona un rol" },
+        ...(currentRole && !PARTICIPANT_ROLES.includes(currentRole)
+            ? [{ value: currentRole, label: formatRoleLabel(currentRole) }]
+            : []),
+        ...PARTICIPANT_ROLES.map((role) => ({ value: role, label: formatRoleLabel(role) })),
+    ];
+
     const committeeOptions = [
         { value: "", label: "Sin comité" },
         ...committees.map((committee) => ({
@@ -288,18 +292,7 @@ export default function ParticipantDetailPage() {
         return validationErrors;
     };
 
-    const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setApiError(null);
-        setSuccess(null);
-
-        const validationErrors = validate();
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
+    const saveParticipant = async () => {
         if (!token || !participant) {
             setApiError("Sesión o participante no válido. Recarga la página.");
             return;
@@ -353,6 +346,27 @@ export default function ParticipantDetailPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setApiError(null);
+        setSuccess(null);
+
+        const validationErrors = validate();
+
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        // Un cambio de comité pide confirmación antes de guardar.
+        if (participant && (form.committee_id || null) !== (participant.committee_id ?? null)) {
+            setCommitteeDialogOpen(true);
+            return;
+        }
+
+        void saveParticipant();
     };
 
     const openLifecycleAction = (action: LifecycleAction) => {
@@ -447,15 +461,25 @@ export default function ParticipantDetailPage() {
         : "este participante";
     const isSuspended = participant?.account_status === "SUSPENDED";
 
+    const committeeLabel = (committeeId: string | null) => {
+        if (!committeeId) {
+            return "Sin comité";
+        }
+
+        const committee = committees.find((item) => item.id === committeeId);
+        return committee ? `${committee.code} — ${committee.name}` : "Otro comité";
+    };
+
     const lifecycleDialog = lifecycleAction ? (
-        <AdminConfirmDialog
+        <ConfirmDialog
+            open
             key={lifecycleAction}
             title={
                 lifecycleAction === "suspend"
-                    ? "Suspender cuenta"
+                    ? "¿Suspender esta cuenta?"
                     : lifecycleAction === "reactivate"
-                      ? "Reactivar cuenta"
-                      : "Restablecer contraseña"
+                      ? "¿Reactivar esta cuenta?"
+                      : "¿Restablecer la contraseña?"
             }
             description={
                 lifecycleAction === "suspend"
@@ -471,7 +495,7 @@ export default function ParticipantDetailPage() {
                       ? "Reactivar cuenta"
                       : "Restablecer contraseña"
             }
-            variant={lifecycleAction === "suspend" ? "danger" : "primary"}
+            tone={lifecycleAction === "reactivate" ? "default" : "danger"}
             requireReason={lifecycleAction !== "reset-password"}
             reasonLabel={
                 lifecycleAction === "suspend"
@@ -481,19 +505,31 @@ export default function ParticipantDetailPage() {
             loading={actionLoading}
             error={actionError}
             onCancel={closeLifecycleAction}
-            onConfirm={handleConfirmLifecycleAction}
+            onConfirm={(reason) => handleConfirmLifecycleAction(reason ?? "")}
         />
     ) : null;
+
+    // Cambiar de comité pide confirmación; el guardado real se hace al confirmar.
+    const committeeDialog = (
+        <ConfirmDialog
+            open={committeeDialogOpen}
+            title="¿Cambiar el comité de este participante?"
+            description={`Comité actual: ${committeeLabel(participant?.committee_id ?? null)}. Nuevo comité: ${committeeLabel(form.committee_id || null)}.`}
+            confirmLabel="Cambiar comité"
+            tone="danger"
+            loading={saving}
+            onCancel={() => setCommitteeDialogOpen(false)}
+            onConfirm={async () => {
+                setCommitteeDialogOpen(false);
+                await saveParticipant();
+            }}
+        />
+    );
 
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <AdminPageHeader
                 title={participant ? participantName : "Participante"}
-                description={
-                    participant
-                        ? `Código ${participant.participant_code} en ${eventName}.`
-                        : "Detalle del participante."
-                }
                 breadcrumb={[
                     { label: "Panel", href: "/admin" },
                     { label: "Eventos", href: "/admin/events" },
@@ -505,11 +541,12 @@ export default function ParticipantDetailPage() {
                     { label: participant ? participantName : "Participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -562,7 +599,7 @@ export default function ParticipantDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el participante"
                         description={loadError}
                         action={
@@ -571,7 +608,7 @@ export default function ParticipantDetailPage() {
                                 onClick={() =>
                                     setReloadKey((value) => value + 1)
                                 }
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -593,7 +630,7 @@ export default function ParticipantDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Código
@@ -607,7 +644,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Estado
@@ -620,7 +657,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Creado
@@ -661,19 +698,15 @@ export default function ParticipantDetailPage() {
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <AdminFormInput
+                            <AdminFormSelect
                                 id="participant-role"
                                 label="Rol"
-                                placeholder="Ej: DELEGADO"
                                 required
-                                list="participant-role-options"
                                 value={form.role}
                                 onChange={(event) =>
-                                    handleChange(
-                                        "role",
-                                        event.target.value.toUpperCase(),
-                                    )
+                                    handleChange("role", event.target.value)
                                 }
+                                options={roleOptions}
                                 error={errors.role}
                                 hint="Los roles administrativos se detectan por ADMIN, COORDINADOR u ORGANIZADOR."
                                 disabled={saving}
@@ -693,12 +726,6 @@ export default function ParticipantDetailPage() {
                                 disabled={saving}
                             />
                         </div>
-
-                        <datalist id="participant-role-options">
-                            {ROLE_SUGGESTIONS.map((role) => (
-                                <option key={role} value={role} />
-                            ))}
-                        </datalist>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <AdminFormInput
@@ -811,7 +838,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="submit"
                                 loading={saving}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                                icon={<IconCheck size={16} />}
                             >
                                 {saving
                                     ? "Guardando..."
@@ -848,7 +875,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="button"
                                 variant="secondary"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/key.svg"
+                                icon={<IconKey size={16} />}
                                 onClick={() =>
                                     openLifecycleAction("reset-password")
                                 }
@@ -860,7 +887,7 @@ export default function ParticipantDetailPage() {
                             {isSuspended ? (
                                 <AdminButton
                                     type="button"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg"
+                                    icon={<IconUserCheck size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("reactivate")
                                     }
@@ -872,7 +899,7 @@ export default function ParticipantDetailPage() {
                                 <AdminButton
                                     type="button"
                                     variant="danger"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-off.svg"
+                                    icon={<IconUserOff size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("suspend")
                                     }
@@ -897,6 +924,7 @@ export default function ParticipantDetailPage() {
             )}
 
             {lifecycleDialog}
+            {committeeDialog}
         </div>
     );
 }

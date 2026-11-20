@@ -100,3 +100,13 @@ Lista consolidada de lo no ejecutado o no resuelto en los planes del [equipo web
 ### Trabajo local sin subir
 
 - Commit `3aeee7b` (inventario del plan 04) existe solo en local en `feat/web-improvements`. Pendiente de push.
+
+### Verificación diferida de la Tarea 13 (mejora de UX pública)
+
+Deuda abierta, pendiente de aceptación formal del dueño. Mientras no se acepte, la verificación sigue pendiente y no se considera cerrada. Registro en [pruebas y validación](../04-desarrollo/pruebas-y-validacion.md#ronda-2-de-corrección-de-la-tarea-13-20-de-noviembre-de-2026).
+
+- Recorrido manual autenticado en claro y oscuro, 390 y 1440 px: login, selección de evento, feed (Avisos, General y un comité), publicar, comentar, votar, chat entre dos sesiones, perfil y administración. Requiere datos ficticios en un entorno aislado.
+- Detector sobre rutas autenticadas (vista de selección con sesión, muro, perfil). Solo se midieron `/login`, `/guia` y `/select-event` sin sesión.
+- `/impeccable critique` sobre el muro, para comparar contra el puntaje de 20/40.
+- Puntos 1 a 6 de Review Focus del plan: evidencia solo a nivel de pruebas unitarias y de código (ronda 3); sin verificación en navegador. Pendiente verlos en 390 y 1440 px, sobre todo el desbordamiento de texto (punto 5) y el acordeón de muros (punto 4).
+- `line-length` en `/guia` a 1440 px: párrafos de unos 110 caracteres dentro de tarjetas. Advertencia del detector, no está en la lista de la especificación.

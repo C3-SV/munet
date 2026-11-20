@@ -66,7 +66,7 @@ export default function MainLayout({
         return (
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>
-                    Cargando sesion...
+                    Cargando sesión...
                 </span>
             </div>
         );
@@ -77,10 +77,11 @@ export default function MainLayout({
             <Sidebar />
 
             <main
-                className={`flex-1 overflow-y-auto relative flex flex-col md:pl-64 ${isChatRoom ? "" : "pt-16 md:pt-0"}`}
+                className={`flex-1 relative flex flex-col md:pl-64 ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}
                 style={{ backgroundColor: "var(--bg-base)" }}
             >
-                <div className="flex-1 shrink-0">{children}</div>
+                {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
+                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>{children}</div>
 
                 {!isChatRoom && <Footer />}
             </main>

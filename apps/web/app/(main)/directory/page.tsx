@@ -7,6 +7,8 @@ import {
     type ParticipantDirectoryResponse,
 } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
+import { PersonLabel } from "../../../components/ui/PersonLabel";
+import { IconSearch } from "../../../components/ui/icons";
 import { useAuthStore } from "../../../stores/auth.store";
 
 const PAGE_SIZE = 20;
@@ -133,14 +135,8 @@ const Directory = () => {
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
-                    <span
-                        className="text-[11px] font-bold uppercase tracking-[0.15em] font-heading"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        Participantes del evento
-                    </span>
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading mt-1 uppercase tracking-tight"
+                        className="text-3xl sm:text-4xl font-bold font-heading mt-1 tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Directorio
@@ -149,29 +145,18 @@ const Directory = () => {
 
                 <div className="flex flex-col sm:flex-row gap-3 mb-8">
                     <div className="relative flex-1">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        <IconSearch
+                            size={16}
                             className="absolute left-3.5 top-1/2 -translate-y-1/2"
                             style={{ color: "var(--text-muted)" }}
-                        >
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
+                        />
                         <input
                             type="search"
                             placeholder="Buscar por nombre, alias o delegación..."
                             aria-label="Buscar participantes"
                             value={searchInput}
                             onChange={(event) => setSearchInput(event.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl font-body text-sm outline-none transition-all"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl font-body text-sm outline-none transition-[opacity,transform,background-color,border-color,color]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
                                 border: "1px solid var(--border-color)",
@@ -196,7 +181,7 @@ const Directory = () => {
                             setCommitteeId(event.target.value);
                             setPage(1);
                         }}
-                        className="w-full sm:w-64 px-4 py-3 rounded-xl font-body text-sm outline-none transition-all"
+                        className="w-full sm:w-64 px-4 py-3 rounded-xl font-body text-sm outline-none transition-[opacity,transform,background-color,border-color,color]"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",
@@ -216,9 +201,9 @@ const Directory = () => {
                     <div
                         className="mb-6 rounded-xl px-4 py-3 text-sm font-body"
                         style={{
-                            backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                            border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                            color: "#991b1b",
+                            backgroundColor: "var(--danger-bg)",
+                            border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--text-primary)",
                         }}
                     >
                         {error}
@@ -248,34 +233,21 @@ const Directory = () => {
                                 <li key={participant.membershipId}>
                                     <Link
                                         href={`/profile/${participant.membershipId}`}
-                                        className="flex items-center gap-4 rounded-xl p-4 transition-opacity hover:opacity-90"
+                                        className="flex items-center gap-4 p-4 transition-opacity hover:opacity-90"
                                         style={{
                                             backgroundColor: "var(--bg-surface)",
                                             border: "1px solid var(--border-color)",
-                                            boxShadow: "var(--shadow-sm)",
+                                            borderRadius: "var(--radius-lg)",
                                         }}
                                     >
-                                        <div className="flex flex-1 flex-col min-w-0">
-                                            <span
-                                                className="font-heading font-bold text-base truncate"
-                                                style={{ color: "var(--text-primary)" }}
-                                            >
-                                                {fullName}
-                                            </span>
-                                            {participant.alias && (
-                                                <span
-                                                    className="font-body text-sm truncate"
-                                                    style={{ color: "var(--text-secondary)" }}
-                                                >
-                                                    {`“${participant.alias}”`}
-                                                </span>
-                                            )}
-                                            <span
-                                                className="mt-1 text-[11px] font-bold uppercase tracking-widest font-heading truncate"
-                                                style={{ color: "var(--text-muted)" }}
-                                            >
-                                                {participant.committee?.name ?? "Sin comité"}
-                                            </span>
+                                        <div className="flex flex-1 min-w-0">
+                                            <PersonLabel
+                                                person={{
+                                                    name: fullName,
+                                                    alias: participant.alias,
+                                                    committeeName: participant.committee?.name ?? null,
+                                                }}
+                                            />
                                         </div>
                                         {participant.delegationCode && (
                                             <span
@@ -316,7 +288,7 @@ const Directory = () => {
                         type="button"
                         onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
                         disabled={page <= 1 || isLoading}
-                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-all disabled:opacity-40"
+                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-[opacity,transform,background-color,border-color,color] disabled:opacity-40"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",
@@ -332,7 +304,7 @@ const Directory = () => {
                         type="button"
                         onClick={() => setPage((currentPage) => currentPage + 1)}
                         disabled={!directory?.hasMore || isLoading}
-                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-all disabled:opacity-40"
+                        className="px-4 py-2.5 rounded-xl text-sm font-heading font-semibold transition-[opacity,transform,background-color,border-color,color] disabled:opacity-40"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",

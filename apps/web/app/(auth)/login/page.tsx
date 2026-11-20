@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useId, useState } from "react";
+import { ModalDialog } from "../../../components/ui/ConfirmDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import { BrandAttribution } from "../../../components/layout/BrandAttribution";
+import { Button } from "../../../components/ui/Button";
+import {
+    IconAlertCircle,
+    IconCheckCircle,
+    IconClose,
+    IconEye,
+    IconEyeOff,
+} from "../../../components/ui/icons";
 
 const Login = () => {
     const router = useRouter();
@@ -41,6 +51,7 @@ const Login = () => {
 
     // Estados del modal de activación
     const [showActivationModal, setShowActivationModal] = useState(false);
+    const activationTitleId = useId();
     const [activationStep, setActivationStep] = useState(1);
     const [activationCode, setActivationCode] = useState("");
     const [oneTimePassword, setOneTimePassword] = useState("");
@@ -217,30 +228,17 @@ const Login = () => {
         }
     };
 
-    // --- ICONOS REUTILIZABLES ---
-    const EyeIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-    );
-
-    const EyeSlashIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-        </svg>
-    );
-
     return (
         <div
             className="flex min-h-screen flex-col justify-center px-4 sm:px-6 lg:px-8 py-10 relative"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
             <div className="mx-auto w-full max-w-70 sm:max-w-xs mb-8">
-                <img
+                <Image
                     alt="MUNET"
                     src="/logo-munet.png"
                     className="mx-auto h-20 sm:h-24 w-auto"
+                    width={954} height={299} unoptimized
                 />
                 <div className="mt-4 h-1.5 w-full rounded-full" style={{ backgroundColor: "var(--text-accent)" }}></div>
             </div>
@@ -283,7 +281,7 @@ const Login = () => {
                                 required
                                 value={participantCode}
                                 onChange={(e) => setParticipantCode(e.target.value)}
-                                className="font-body block w-full rounded-xl px-4 py-3 sm:py-3.5 text-base outline-none transition-all"
+                                className="font-body block w-full rounded-xl px-4 py-3 sm:py-3.5 text-base outline-none transition-[opacity,transform,background-color,border-color,color]"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",
@@ -318,7 +316,7 @@ const Login = () => {
                                     autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="font-body block w-full rounded-xl pl-4 pr-12 py-3 sm:py-3.5 text-base outline-none transition-all"
+                                    className="font-body block w-full rounded-xl pl-4 pr-12 py-3 sm:py-3.5 text-base outline-none transition-[opacity,transform,background-color,border-color,color]"
                                     style={{
                                         backgroundColor: "var(--bg-input)",
                                         border: "1px solid var(--input-border)",
@@ -337,31 +335,28 @@ const Login = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                                     className="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-4 opacity-50 hover:opacity-100 transition-opacity"
                                     style={{ color: "var(--text-primary)" }}
                                     tabIndex={-1}
                                 >
-                                    {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                    {showPassword ? <IconEyeOff size={20} /> : <IconEye size={20} />}
                                 </button>
                             </div>
                         </div>
 
                         {/* Mensaje de éxito tras activar la cuenta */}
                         {!showActivationModal && successMessage && (
-                            <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#10b981" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                            <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--success)" }}>
+                                <IconCheckCircle size={20} className="shrink-0" />
                                 <p className="text-center">{successMessage}</p>
                             </div>
                         )}
 
                         {/* Error de Login principal */}
                         {!showActivationModal && displayedError && (
-                            <div role="alert" className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                            <div role="alert" className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--danger)" }}>
+                                <IconAlertCircle size={20} className="shrink-0" />
                                 <p className="text-center">{displayedError}</p>
                             </div>
                         )}
@@ -379,14 +374,14 @@ const Login = () => {
                         )}
 
                         <div className="pt-2 sm:pt-4">
-                            <button
+                            <Button
                                 type="submit"
-                                disabled={loading && !showActivationModal}
-                                className="flex w-full justify-center rounded-xl px-3 py-3.5 sm:py-4 text-base sm:text-lg font-heading font-semibold text-white shadow-md hover:scale-[1.01] active:scale-95 transition-all duration-200 disabled:opacity-70"
-                                style={{ backgroundColor: "var(--bubble-me-bg)" }}
+                                size="lg"
+                                className="w-full"
+                                loading={loading && !showActivationModal}
                             >
                                 {loading && !showActivationModal ? "Ingresando..." : "Iniciar sesión"}
-                            </button>
+                            </Button>
                         </div>
                     </form>
 
@@ -419,30 +414,29 @@ const Login = () => {
 
             {/* --- MODAL DE ACTIVACIÓN --- */}
             {showActivationModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div 
-                        className="w-full max-w-md rounded-2xl p-6 sm:p-8 relative shadow-2xl"
-                        style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)" }}
-                    >
+                <ModalDialog
+                    titleId={activationTitleId}
+                    onClose={resetActivationModal}
+                    closeOnBackdrop={false}
+                    className="p-6 sm:p-8"
+                >
                         <button
+                            type="button"
+                            aria-label="Cerrar"
                             onClick={resetActivationModal}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="absolute top-2 right-2 inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            <IconClose size={24} />
                         </button>
 
-                        <h3 className="text-xl sm:text-2xl font-bold font-heading mb-6" style={{ color: "var(--text-accent)" }}>
+                        <h3 id={activationTitleId} className="text-xl sm:text-2xl font-bold font-heading mb-6" style={{ color: "var(--text-accent)" }}>
                             Activar Cuenta
                         </h3>
 
                         {/* Error de Activación dentro del modal con icono y estilo limpio */}
                         {(activationError || error) && (
-                            <div className="mb-6 flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                            <div className="mb-6 flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--danger)" }}>
+                                <IconAlertCircle size={20} className="shrink-0" />
                                 <p className="text-left">{activationError || error}</p>
                             </div>
                         )}
@@ -463,18 +457,13 @@ const Login = () => {
                                         required
                                         value={activationCode}
                                         onChange={(e) => setActivationCode(e.target.value)}
-                                        className="w-full rounded-xl px-4 py-3 outline-none border transition-all"
+                                        className="w-full rounded-xl px-4 py-3 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                         style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                     />
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full rounded-xl px-4 py-3 text-white font-semibold shadow-md disabled:opacity-70 transition-all duration-200 hover:scale-[1.01] active:scale-95"
-                                    style={{ backgroundColor: "var(--bubble-me-bg)" }}
-                                >
+                                <Button type="submit" size="lg" className="w-full" loading={loading}>
                                     {loading ? "Validando..." : "Continuar"}
-                                </button>
+                                </Button>
                             </form>
                         )}
 
@@ -517,17 +506,18 @@ const Login = () => {
                                             required
                                             value={oneTimePassword}
                                             onChange={(e) => setOneTimePassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowOneTimePassword(!showOneTimePassword)}
+                                            aria-label={showOneTimePassword ? "Ocultar contraseña temporal" : "Mostrar contraseña temporal"}
                                             className="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-4 opacity-50 hover:opacity-100 transition-opacity"
                                             style={{ color: "var(--text-primary)" }}
                                             tabIndex={-1}
                                         >
-                                            {showOneTimePassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                            {showOneTimePassword ? <IconEyeOff size={20} /> : <IconEye size={20} />}
                                         </button>
                                     </div>
                                 </div>
@@ -543,17 +533,18 @@ const Login = () => {
                                             minLength={6}
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowNewPassword(!showNewPassword)}
+                                            aria-label={showNewPassword ? "Ocultar nueva contraseña" : "Mostrar nueva contraseña"}
                                             className="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-4 opacity-50 hover:opacity-100 transition-opacity"
                                             style={{ color: "var(--text-primary)" }}
                                             tabIndex={-1}
                                         >
-                                            {showNewPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                            {showNewPassword ? <IconEyeOff size={20} /> : <IconEye size={20} />}
                                         </button>
                                     </div>
                                 </div>
@@ -569,50 +560,44 @@ const Login = () => {
                                             minLength={6}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-all"
+                                            className="w-full rounded-xl pl-4 pr-12 py-2.5 outline-none border transition-[opacity,transform,background-color,border-color,color]"
                                             style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            aria-label={showConfirmPassword ? "Ocultar confirmación de contraseña" : "Mostrar confirmación de contraseña"}
                                             className="absolute inset-y-0 right-0 flex items-center pr-3 sm:pr-4 opacity-50 hover:opacity-100 transition-opacity"
                                             style={{ color: "var(--text-primary)" }}
                                             tabIndex={-1}
                                         >
-                                            {showConfirmPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                            {showConfirmPassword ? <IconEyeOff size={20} /> : <IconEye size={20} />}
                                         </button>
                                     </div>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full mt-4 rounded-xl px-4 py-3 text-white font-semibold shadow-md disabled:opacity-70 transition-all duration-200 hover:scale-[1.01] active:scale-95"
-                                    style={{ backgroundColor: "var(--text-accent)" }}
-                                >
+                                <Button type="submit" size="lg" className="w-full mt-4" loading={loading}>
                                     {loading ? "Activando cuenta..." : "Activar Cuenta"}
-                                </button>
-                                
-                                <button
-                                    type="button"
+                                </Button>
+
+                                <Button
+                                    variant="ghost"
+                                    className="w-full mt-2"
                                     onClick={() => {
                                         setActivationStep(1);
-                                        setActivationError(""); 
-                                        clearError(); 
+                                        setActivationError("");
+                                        clearError();
                                         // Restablecemos visibilidad al volver atrás
                                         setShowOneTimePassword(false);
                                         setShowNewPassword(false);
                                         setShowConfirmPassword(false);
                                     }}
-                                    className="w-full text-sm font-semibold mt-2 opacity-60 hover:opacity-100 transition-opacity"
-                                    style={{ color: "var(--text-primary)" }}
                                 >
                                     Volver atrás
-                                </button>
+                                </Button>
                             </form>
                         )}
-                    </div>
-                </div>
+                </ModalDialog>
             )}
             <div className="mt-8 flex justify-center">
                 <BrandAttribution />

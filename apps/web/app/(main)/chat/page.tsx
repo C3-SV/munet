@@ -21,6 +21,7 @@ import {
 } from "../../../lib/api/chat";
 import { listParticipantDirectory } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
+import { formatDayLabel, formatTime } from "../../../lib/format-datetime";
 import { supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
@@ -120,7 +121,7 @@ const Chats = () => {
 
         if (targetMembershipIdFromQuery === activeMembershipId) {
             setLastOpenedTargetKey(targetConversationKey);
-            setError("No puedes iniciar una conversacion contigo.");
+            setError("No puedes iniciar una conversación contigo.");
             return;
         }
 
@@ -153,7 +154,7 @@ const Chats = () => {
                     setError(
                         createError instanceof Error
                             ? createError.message
-                            : "No se pudo iniciar la conversacion.",
+                            : "No se pudo iniciar la conversación.",
                     );
                 }
             } finally {
@@ -347,7 +348,7 @@ const Chats = () => {
             setError(
                 createError instanceof Error
                     ? createError.message
-                    : "No se pudo iniciar la conversacion.",
+                    : "No se pudo iniciar la conversación.",
             );
         }
     };
@@ -376,24 +377,15 @@ const Chats = () => {
                             committeeId={committeeId}
                             onCommitteeChange={handleCommitteeChange}
                         />
-
-                        <p
-                            className="text-[11px] font-semibold uppercase tracking-widest font-heading px-1"
-                            style={{ color: "var(--text-muted)" }}
-                        >
-                            {isSearchMode
-                                ? `${recipients.length} resultado${recipients.length !== 1 ? "s" : ""}`
-                                : `${visibleConversations.length} conversacion${visibleConversations.length !== 1 ? "es" : ""}`}
-                        </p>
                     </div>
 
                     {error && (
                         <div
                             className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm font-body"
                             style={{
-                                backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                                border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                                color: "#991b1b",
+                                backgroundColor: "color-mix(in srgb, var(--danger) 8%, var(--bg-surface))",
+                                border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+                                color: "var(--danger)",
                             }}
                         >
                             {error}
@@ -404,7 +396,7 @@ const Chats = () => {
                         {isLoading ? (
                             <EmptyChatState text="Cargando conversaciones..." />
                         ) : isAutoOpeningConversation ? (
-                            <EmptyChatState text="Abriendo conversacion..." />
+                            <EmptyChatState text="Abriendo conversación..." />
                         ) : isSearchMode ? (
                             recipientView.status === "loading" ? (
                                 <EmptyChatState text="Buscando participantes..." />
@@ -440,15 +432,19 @@ const Chats = () => {
                                     delegate={{
                                         ...conversation.otherParticipant,
                                         lastActive: conversation.lastMessageAt
-                                            ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                                            ? `${formatDayLabel(conversation.lastMessageAt)} · ${formatTime(conversation.lastMessageAt)}`
                                             : "Nuevo",
                                     }}
                                     href={`/chat/${conversation.id}`}
                                     lastMessage={conversation.lastMessage}
+                                    lastMessageIsMine={
+                                        Boolean(activeMembershipId) &&
+                                        conversation.lastMessageAuthorId === activeMembershipId
+                                    }
                                 />
                             ))
                         ) : (
-                            <EmptyChatState text="Todavia no tienes conversaciones. Busca un delegado para iniciar una." />
+                            <EmptyChatState text="Todavía no tienes conversaciones. Busca un delegado para iniciar una." />
                         )}
                     </div>
                 </div>
