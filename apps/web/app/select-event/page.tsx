@@ -90,10 +90,10 @@ const SelectEventPage = () => {
                             key={membership.id}
                             type="button"
                             onClick={() => handleChooseEvent(membership.id)}
-                            className="text-left rounded-2xl p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
+                            className="text-left p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
-                                boxShadow: "var(--shadow-sm)",
+                                borderRadius: "var(--radius-lg)",
                             }}
                         >
                             <p

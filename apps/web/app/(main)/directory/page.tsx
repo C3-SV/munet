@@ -207,9 +207,9 @@ const Directory = () => {
                     <div
                         className="mb-6 rounded-xl px-4 py-3 text-sm font-body"
                         style={{
-                            backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                            border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                            color: "#991b1b",
+                            backgroundColor: "var(--danger-bg)",
+                            border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--text-primary)",
                         }}
                     >
                         {error}
@@ -239,11 +239,11 @@ const Directory = () => {
                                 <li key={participant.membershipId}>
                                     <Link
                                         href={`/profile/${participant.membershipId}`}
-                                        className="flex items-center gap-4 rounded-xl p-4 transition-opacity hover:opacity-90"
+                                        className="flex items-center gap-4 p-4 transition-opacity hover:opacity-90"
                                         style={{
                                             backgroundColor: "var(--bg-surface)",
                                             border: "1px solid var(--border-color)",
-                                            boxShadow: "var(--shadow-sm)",
+                                            borderRadius: "var(--radius-lg)",
                                         }}
                                     >
                                         <div className="flex flex-1 min-w-0">

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { FeedFilters } from "../../../../components/feed/FeedFilters";
 import { PostCard } from "../../../../components/feed/PostCard";
 import { PostEditor } from "../../../../components/feed/PostEditor";
+import { Button } from "../../../../components/ui/Button";
 import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
@@ -13,6 +14,10 @@ import { buildWallNav } from "../../../../lib/wall-nav";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { EventWall, Post } from "../../../../types/common";
+
+// Mensajes humanos: el detalle técnico no llega al participante.
+const FEED_LOAD_ERROR = "No se pudieron cargar las publicaciones. Revisa tu conexión e inténtalo de nuevo.";
+const FEED_PUBLISH_ERROR = "No se pudo publicar tu publicación. Revisa tu conexión e inténtalo de nuevo.";
 
 const Feed = () => {
     const params = useParams();
@@ -31,6 +36,8 @@ const Feed = () => {
     const [isForbidden, setIsForbidden] = useState(false);
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
     const [walls, setWalls] = useState<EventWall[]>([]);
+    // Incrementar fuerza una nueva carga del muro (botón "Reintentar").
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         // Muros accesibles del evento para el selector rapido en movil.
@@ -89,11 +96,7 @@ const Feed = () => {
                         setIsForbidden(true);
                         setError("No tienes acceso a este muro.");
                     } else {
-                        setError(
-                            loadError instanceof Error
-                                ? loadError.message
-                                : "No se pudieron cargar las publicaciones.",
-                        );
+                        setError(FEED_LOAD_ERROR);
                     }
                 }
             } finally {
@@ -111,7 +114,7 @@ const Feed = () => {
         return () => {
             cancelled = true;
         };
-    }, [eventId, muroParam, token]);
+    }, [eventId, muroParam, token, reloadKey]);
 
     // Ids de encuestas del muro: poll_votes no tiene wall_id, así que se escucha cada una.
     const pollIdsKey = posts
@@ -286,11 +289,7 @@ const Feed = () => {
 
             setPosts((currentPosts) => [newPost, ...currentPosts]);
         } catch (publishError) {
-            setError(
-                publishError instanceof Error
-                    ? publishError.message
-                    : "No se pudo publicar el post.",
-            );
+            setError(FEED_PUBLISH_ERROR);
             throw publishError;
         }
     };
@@ -347,6 +346,18 @@ const Feed = () => {
             ? activeWall.committeeName ?? activeWall.name
             : activeWall.name
         : "Muro";
+    // Identidad de cada muro: avisos oficiales, foro abierto o comité con su código.
+    const headerSubtitle = !activeWall
+        ? null
+        : activeWall.kind === "announcements"
+          ? "Aviso oficial"
+          : activeWall.kind === "general"
+            ? "Abierto a todo el evento"
+            : activeWall.kind === "committee" && activeWall.committeeCode
+              ? `Comité · código ${activeWall.committeeCode}`
+              : null;
+    // Avisos usan tarjeta oficial; el resto del foro usa publicaciones planas.
+    const cardVariant = activeWall?.kind === "announcements" ? "official" : "flat";
     const canCommentInWall = activeWall
         ? activeWall.kind === "announcements"
             ? activeWall.canPublish
@@ -365,19 +376,21 @@ const Feed = () => {
     return (
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-4xl mx-auto">
-                <header className="mb-8">
-                    <span
-                        className="text-[11px] font-bold uppercase tracking-[0.15em] font-heading"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        Foro de discusion
-                    </span>
+                <header className="mb-6">
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading mt-1 uppercase tracking-tight"
+                        className="text-2xl sm:text-3xl font-bold font-heading tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         {headerTitle}
                     </h1>
+                    {headerSubtitle && (
+                        <p
+                            className="mt-1 text-sm font-body"
+                            style={{ color: "var(--text-secondary)" }}
+                        >
+                            {headerSubtitle}
+                        </p>
+                    )}
                 </header>
 
                 {quickWalls.length > 1 && (
@@ -417,6 +430,8 @@ const Feed = () => {
 
                 {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
+                        key={muroParam}
+                        draftKey={muroParam}
                         onPublish={handlePublishPost}
                         disabled={isLoading}
                     />
@@ -424,21 +439,28 @@ const Feed = () => {
 
                 {error && !isForbidden && (
                     <div
-                        className="mb-6 rounded-xl px-4 py-3 text-sm font-body"
+                        role="alert"
+                        className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-sm)] px-4 py-3 text-sm font-body"
                         style={{
-                            backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                            border:
-                                "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                            color: "#991b1b",
+                            backgroundColor: "var(--danger-bg)",
+                            border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--text-primary)",
                         }}
                     >
-                        {error}
+                        <span>{error}</span>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setReloadKey((key) => key + 1)}
+                        >
+                            Reintentar
+                        </Button>
                     </div>
                 )}
 
                 {isForbidden ? (
                     <div
-                        className="rounded-2xl p-6"
+                        className="rounded-[var(--radius-lg)] p-6"
                         style={{
                             backgroundColor: "var(--bg-surface)",
                             border: "1px solid var(--border-color)",
@@ -474,21 +496,52 @@ const Feed = () => {
                             showCommitteeFilter={Boolean(showCommitteeFilter)}
                         />
 
-                        <div className="space-y-4">
+                        <div className={cardVariant === "flat" ? "" : "space-y-4"}>
                             {isLoading ? (
-                                <div
-                                    className="flex justify-center py-12 rounded-xl"
-                                    style={{
-                                        backgroundColor: "var(--bg-surface)",
-                                        border: "1px solid var(--border-color)",
-                                    }}
-                                >
-                                    <span
-                                        className="font-body text-sm"
-                                        style={{ color: "var(--text-muted)" }}
-                                    >
-                                        Cargando publicaciones...
-                                    </span>
+                                <div role="status" className="space-y-4">
+                                    <span className="sr-only">Cargando publicaciones</span>
+                                    {[0, 1, 2].map((item) => (
+                                        <div
+                                            key={item}
+                                            aria-hidden="true"
+                                            className="motion-fade-in rounded-[var(--radius-lg)] p-5 md:p-6"
+                                            style={{
+                                                backgroundColor: "var(--bg-surface)",
+                                                border: "1px solid var(--border-color)",
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="size-11 shrink-0 rounded-full"
+                                                    style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                />
+                                                <div className="flex-1 space-y-2">
+                                                    <div
+                                                        className="h-3 w-40 rounded"
+                                                        style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                    />
+                                                    <div
+                                                        className="h-2.5 w-24 rounded"
+                                                        style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 space-y-2">
+                                                <div
+                                                    className="h-3 w-full rounded"
+                                                    style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                />
+                                                <div
+                                                    className="h-3 w-5/6 rounded"
+                                                    style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                />
+                                                <div
+                                                    className="h-3 w-2/3 rounded"
+                                                    style={{ backgroundColor: "var(--bg-surface-secondary)" }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : sortedAndFilteredPosts.length > 0 && token && eventId ? (
                                 sortedAndFilteredPosts.map((post) => (
@@ -499,13 +552,14 @@ const Feed = () => {
                                         eventId={eventId}
                                         canComment={canCommentInWall}
                                         showAuthorCommittee={activeWall?.kind !== "committee"}
+                                        variant={cardVariant}
                                         onPostUpdated={handlePostUpdated}
                                         onPostDeleted={handlePostDeleted}
                                     />
                                 ))
                             ) : (
                                 <div
-                                    className="flex justify-center py-12 rounded-xl"
+                                    className="flex justify-center py-12 rounded-[var(--radius-lg)]"
                                     style={{
                                         backgroundColor: "var(--bg-surface)",
                                         border: "2px dashed var(--border-color)",

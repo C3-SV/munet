@@ -3,7 +3,8 @@ import { closeFeedPoll, deleteFeedPost, voteOnFeedPoll } from "../../lib/api/fee
 import { formatDateTime } from "../../lib/format-datetime";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
-import { Card } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Card, type CardVariant } from "../ui/Card";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { Post } from "../../types/common";
@@ -15,9 +16,23 @@ interface PostCardProps {
     canComment?: boolean;
     // En el muro de un comité el comité no se repite en cada publicación.
     showAuthorCommittee?: boolean;
+    // "official" en el muro de avisos; "flat" en el resto del foro.
+    variant?: CardVariant;
     onPostUpdated?: (post: Post) => void;
     onPostDeleted?: (postId: string) => void;
 }
+
+const deletedLabel = (deletedByActorType: Post["deletedByActorType"]) => {
+    if (deletedByActorType === "ADMIN") {
+        return "Eliminada por la organización";
+    }
+
+    if (deletedByActorType === "AUTHOR") {
+        return "Eliminada por su autor";
+    }
+
+    return "Esta publicación fue eliminada";
+};
 
 export const PostCard = ({
     post,
@@ -25,6 +40,7 @@ export const PostCard = ({
     eventId,
     canComment = true,
     showAuthorCommittee = true,
+    variant = "flat",
     onPostUpdated,
     onPostDeleted,
 }: PostCardProps) => {
@@ -33,6 +49,13 @@ export const PostCard = ({
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [confirmAction, setConfirmAction] = useState<"delete-post" | "close-poll" | null>(null);
+
+    const isOfficial = variant === "official";
+    const isFlat = variant === "flat";
+    // Un comité ya visible en la línea del autor no se repite como etiqueta.
+    const committeeTags = (post.committeeTags ?? []).filter(
+        (tag) => tag !== post.user.committeeName,
+    );
 
     const requestDeletePost = () => {
         // Soft delete: pide confirmacion antes de llamar a la API; backend decide permiso final.
@@ -54,7 +77,7 @@ export const PostCard = ({
             await deleteFeedPost(post.id, { token, eventId });
             onPostDeleted?.(post.id);
         } catch (deleteError) {
-            setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar la publicacion");
+            setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar la publicación");
         } finally {
             setIsDeleting(false);
         }
@@ -104,8 +127,22 @@ export const PostCard = ({
         }
     };
 
+    const canVoteNow = Boolean(post.poll?.canVote) && !votingOptionId;
+
     return (
-        <Card className="mb-4 p-5 md:p-6">
+        <Card
+            variant={variant}
+            className={isFlat ? "py-5 md:py-6" : "mb-4 p-5 md:p-6"}
+        >
+            {isOfficial && (
+                <p
+                    className="mb-3 text-xs font-semibold font-heading"
+                    style={{ color: "var(--signal)" }}
+                >
+                    Aviso
+                </p>
+            )}
+
             <div className="flex items-start justify-between mb-4 gap-4">
                 <UserHoverCard
                     membershipId={post.user.id}
@@ -140,12 +177,12 @@ export const PostCard = ({
                 </UserHoverCard>
 
                 <div className="flex flex-col items-end gap-2">
-                    {post.committeeTags && post.committeeTags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 justify-end mt-1">
-                            {post.committeeTags.map((tag) => (
+                    {committeeTags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            {committeeTags.map((tag) => (
                                 <span
                                     key={tag}
-                                    className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest rounded-full font-heading"
+                                    className="px-2.5 py-1 text-xs font-semibold rounded-full font-heading"
                                     style={{
                                         backgroundColor:
                                             "color-mix(in srgb, var(--text-accent) 10%, transparent)",
@@ -160,37 +197,43 @@ export const PostCard = ({
                         </div>
                     )}
 
-                    {post.canDelete && (
-                        <button
-                            type="button"
+                    {post.canDelete && !post.isDeleted && (
+                        <Button
+                            variant="danger-text"
+                            size="sm"
                             onClick={requestDeletePost}
-                            disabled={post.isDeleted || isDeleting}
-                            className="text-xs font-semibold font-heading"
-                            style={{
-                                color: post.isDeleted ? "var(--text-muted)" : "var(--danger)",
-                                cursor: post.isDeleted || isDeleting ? "not-allowed" : "pointer",
-                                opacity: post.isDeleted || isDeleting ? 0.6 : 1,
-                            }}
+                            disabled={isDeleting}
+                            loading={isDeleting}
                         >
-                            {post.isDeleted ? "Eliminada" : isDeleting ? "Eliminando..." : "Eliminar"}
-                        </button>
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                        </Button>
                     )}
                 </div>
             </div>
 
-            <p
-                className="font-body leading-relaxed text-[15px]"
-                style={{
-                    color: post.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
-                    fontStyle: post.isDeleted ? "italic" : "normal",
-                }}
-            >
-                {post.content}
-            </p>
+            {post.isDeleted ? (
+                <p
+                    className="font-body text-[15px] italic"
+                    style={{ color: "var(--text-muted)" }}
+                >
+                    {deletedLabel(post.deletedByActorType)}
+                </p>
+            ) : (
+                <p
+                    className="font-body leading-relaxed text-[15px]"
+                    style={{
+                        color: "var(--text-primary)",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                    }}
+                >
+                    {post.content}
+                </p>
+            )}
 
             {post.postType === "POLL" && post.poll && (
                 <div
-                    className="mt-4 rounded-xl p-4 space-y-3"
+                    className="mt-4 rounded-[var(--radius-sm)] p-4 space-y-3"
                     style={{
                         backgroundColor: "var(--bg-surface-secondary)",
                         border: "1px solid var(--border-color)",
@@ -198,24 +241,21 @@ export const PostCard = ({
                 >
                     <div className="flex items-center justify-between gap-3">
                         <p
-                            className="text-[11px] font-extrabold uppercase tracking-wider font-heading"
+                            className="text-sm font-semibold font-heading"
                             style={{ color: "var(--text-secondary)" }}
                         >
-                            {post.poll.isClosed ? "Encuesta cerrada" : "Encuesta abierta"}
+                            {`Encuesta · ${post.poll.isClosed ? "cerrada" : "abierta"}`}
                         </p>
                         {post.poll.canClose && (
-                            <button
-                                type="button"
+                            <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={requestClosePoll}
                                 disabled={isClosingPoll}
-                                className="text-xs font-semibold font-heading"
-                                style={{
-                                    color: isClosingPoll ? "var(--text-muted)" : "var(--text-accent)",
-                                    cursor: isClosingPoll ? "wait" : "pointer",
-                                }}
+                                loading={isClosingPoll}
                             >
                                 {isClosingPoll ? "Cerrando..." : "Cerrar encuesta"}
-                            </button>
+                            </Button>
                         )}
                     </div>
 
@@ -226,21 +266,15 @@ export const PostCard = ({
                                 type="button"
                                 onClick={() => void handleVoteOption(option.id)}
                                 disabled={!post.poll?.canVote || Boolean(votingOptionId)}
-                                className="w-full text-left rounded-lg px-3 py-2.5"
+                                aria-pressed={option.isSelectedByMe}
+                                className="w-full text-left rounded-[var(--radius-sm)] px-3 py-2.5 min-h-11"
                                 style={{
                                     border: `1px solid ${option.isSelectedByMe ? "var(--text-accent)" : "var(--border-color)"}`,
                                     backgroundColor:
                                         option.isSelectedByMe
                                             ? "color-mix(in srgb, var(--text-accent) 12%, transparent)"
                                             : "var(--bg-surface)",
-                                    cursor:
-                                        !post.poll?.canVote || Boolean(votingOptionId)
-                                            ? "not-allowed"
-                                            : "pointer",
-                                    opacity:
-                                        !post.poll?.canVote || Boolean(votingOptionId)
-                                            ? 0.85
-                                            : 1,
+                                    cursor: canVoteNow ? "pointer" : "default",
                                 }}
                             >
                                 <div className="flex items-center justify-between gap-3">

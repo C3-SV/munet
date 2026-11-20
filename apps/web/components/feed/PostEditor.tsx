@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
 
 type PostDraft = {
     content: string;
@@ -10,20 +11,95 @@ type PostDraft = {
 interface PostEditorProps {
     onPublish: (draft: PostDraft) => Promise<void> | void;
     disabled?: boolean;
+    // Identifica el borrador guardado en sessionStorage (un borrador por muro).
+    draftKey?: string;
 }
+
+type StoredDraft = {
+    postType: "TEXT" | "POLL";
+    postText: string;
+    pollOptions: string[];
+};
 
 const MAX_POST_LENGTH = 500;
 const MAX_POLL_OPTIONS = 10;
+// El contador solo aparece al superar este porcentaje del límite.
+const COUNTER_THRESHOLD = 0.8;
+
+const draftStorageKey = (draftKey: string) => `munet:feed-draft:${draftKey}`;
+
+const readDraft = (draftKey: string): StoredDraft | null => {
+    try {
+        const raw = window.sessionStorage.getItem(draftStorageKey(draftKey));
+        if (!raw) {
+            return null;
+        }
+
+        const parsed = JSON.parse(raw) as Partial<StoredDraft>;
+        return {
+            postType: parsed.postType === "POLL" ? "POLL" : "TEXT",
+            postText: typeof parsed.postText === "string" ? parsed.postText : "",
+            pollOptions:
+                Array.isArray(parsed.pollOptions) && parsed.pollOptions.length >= 2
+                    ? parsed.pollOptions.map((option) => String(option))
+                    : ["", ""],
+        };
+    } catch {
+        // Sin acceso a sessionStorage (modo privado, datos bloqueados): se edita sin borrador.
+        return null;
+    }
+};
+
+const writeDraft = (draftKey: string, draft: StoredDraft) => {
+    try {
+        const isEmpty =
+            !draft.postText.trim() && draft.pollOptions.every((option) => !option.trim());
+        if (isEmpty && draft.postType === "TEXT") {
+            window.sessionStorage.removeItem(draftStorageKey(draftKey));
+            return;
+        }
+
+        window.sessionStorage.setItem(draftStorageKey(draftKey), JSON.stringify(draft));
+    } catch {
+        // Si el almacenamiento falla, el borrador simplemente no se conserva.
+    }
+};
 
 export const PostEditor = ({
     onPublish,
     disabled = false,
+    draftKey,
 }: PostEditorProps) => {
     const [postType, setPostType] = useState<"TEXT" | "POLL">("TEXT");
     const [postText, setPostText] = useState<string>("");
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [isPublishing, setIsPublishing] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    // Evita escribir el borrador antes de haber leído el guardado.
+    const [draftReady, setDraftReady] = useState(false);
+
+    useEffect(() => {
+        // Restaura el borrador del muro al montar el editor (el padre lo remonta por muro).
+        if (draftKey) {
+            const stored = readDraft(draftKey);
+            if (stored) {
+                setPostType(stored.postType);
+                setPostText(stored.postText);
+                setPollOptions(stored.pollOptions);
+            }
+        }
+
+        setDraftReady(true);
+    }, [draftKey]);
+
+    useEffect(() => {
+        // Persiste el borrador en cada cambio, por muro.
+        if (!draftKey || !draftReady) {
+            return;
+        }
+
+        writeDraft(draftKey, { postType, postText, pollOptions });
+    }, [draftKey, draftReady, postType, postText, pollOptions]);
 
     const normalizedPollOptions = useMemo(
         // Limpia opciones para validacion y envio de encuestas.
@@ -96,40 +172,47 @@ export const PostEditor = ({
         setPollOptions((current) => current.filter((_, itemIndex) => itemIndex !== index));
     };
 
+    const showCounter = postText.length >= MAX_POST_LENGTH * COUNTER_THRESHOLD;
+
     return (
-        <div
-            className="mb-8 rounded-2xl overflow-hidden"
-            style={{
-                backgroundColor: "var(--bg-surface)",
-                border: "1px solid var(--border-color)",
-                boxShadow: "var(--shadow-sm)",
-            }}
-        >
-            <div className="px-5 pt-4 flex items-center gap-2">
-                <Button
-                    variant={postType === "TEXT" ? "secondary" : "ghost"}
-                    size="sm"
-                    aria-pressed={postType === "TEXT"}
-                    onClick={() => setPostType("TEXT")}
+        <Card className="mb-8 overflow-hidden">
+            <div className="px-5 pt-4">
+                <div
+                    role="group"
+                    aria-label="Tipo de publicación"
+                    className="inline-flex gap-1 rounded-[var(--radius-sm)] p-1"
+                    style={{ border: "1px solid var(--border-color)" }}
                 >
-                    Publicación
-                </Button>
-                <Button
-                    variant={postType === "POLL" ? "secondary" : "ghost"}
-                    size="sm"
-                    aria-pressed={postType === "POLL"}
-                    onClick={() => setPostType("POLL")}
-                >
-                    Encuesta
-                </Button>
+                    <Button
+                        variant={postType === "TEXT" ? "secondary" : "ghost"}
+                        size="sm"
+                        aria-pressed={postType === "TEXT"}
+                        onClick={() => setPostType("TEXT")}
+                    >
+                        Publicación
+                    </Button>
+                    <Button
+                        variant={postType === "POLL" ? "secondary" : "ghost"}
+                        size="sm"
+                        aria-pressed={postType === "POLL"}
+                        onClick={() => setPostType("POLL")}
+                    >
+                        Encuesta
+                    </Button>
+                </div>
             </div>
 
             <textarea
+                aria-label={postType === "POLL" ? "Pregunta de la encuesta" : "Contenido de la publicación"}
                 value={postText}
                 onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setPostText(event.target.value)
                 }
-                placeholder={postType === "POLL" ? "Escribe la pregunta de la encuesta..." : "¿Qué estás pensando?"}
+                placeholder={
+                    postType === "POLL"
+                        ? "Escribe la pregunta de la encuesta"
+                        : "Escribe tu intervención"
+                }
                 maxLength={MAX_POST_LENGTH}
                 disabled={disabled || isPublishing}
                 className="w-full min-h-28 p-5 text-[15px] font-body focus:outline-none resize-none bg-transparent"
@@ -144,10 +227,11 @@ export const PostEditor = ({
                     {pollOptions.map((option, index) => (
                         <div key={`poll-option-${index}`} className="flex items-center gap-2">
                             <input
+                                aria-label={`Opción ${index + 1}`}
                                 value={option}
                                 onChange={(event) => updatePollOption(index, event.target.value)}
                                 placeholder={`Opción ${index + 1}`}
-                                className="flex-1 rounded-lg px-3 py-2 text-sm font-body outline-none"
+                                className="flex-1 min-h-11 rounded-[var(--radius-sm)] px-3 py-2 text-sm font-body outline-none"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",
@@ -180,14 +264,22 @@ export const PostEditor = ({
             )}
 
             <div
-                className="flex justify-between items-center px-5 py-3"
+                className="flex flex-wrap justify-between items-center gap-3 px-5 py-3"
                 style={{
                     borderTop: "1px solid var(--border-color)",
                     backgroundColor: "var(--bg-surface-secondary)",
                 }}
             >
-                <span className="text-xs font-medium font-body" style={{ color: "var(--text-muted)" }}>
-                    {validationError ? validationError : `${postText.length}/${MAX_POST_LENGTH}`}
+                <span
+                    className="text-xs font-medium font-body"
+                    role={validationError ? "alert" : undefined}
+                    style={{ color: validationError ? "var(--danger)" : "var(--text-muted)" }}
+                >
+                    {validationError
+                        ? validationError
+                        : showCounter
+                          ? `${postText.length}/${MAX_POST_LENGTH}`
+                          : ""}
                 </span>
                 <Button
                     onClick={() => void handlePublish()}
@@ -197,6 +289,6 @@ export const PostEditor = ({
                     {isPublishing ? "Publicando..." : postType === "POLL" ? "Publicar encuesta" : "Publicar"}
                 </Button>
             </div>
-        </div>
+        </Card>
     );
 };
