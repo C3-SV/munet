@@ -6,7 +6,7 @@ import { AdminButton } from "../../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
-import { RowActions } from "../../../../../../components/admin/RowActions";
+import { IconAction } from "../../../../../../components/admin/IconAction";
 import {
     getEvent,
     listCommittees,
@@ -14,7 +14,7 @@ import {
 } from "../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../../stores/auth.store";
-import { IconAlertTriangle, IconCommittees, IconPlus, IconRefresh } from "../../../../../../components/ui/icons";
+import { IconAlertTriangle, IconCommittees, IconEdit, IconPlus, IconRefresh } from "../../../../../../components/ui/icons";
 
 const CommitteeRow = ({
     committee,
@@ -71,13 +71,13 @@ const CommitteeRow = ({
         </td>
 
         <td className="px-6 py-4">
-            <RowActions
-                primary={{
-                    label: "Editar",
-                    href: `/admin/events/${eventId}/committees/${committee.id}/edit`,
-                }}
-                menuLabel={`Más acciones para ${committee.name}`}
-            />
+            <div className="flex items-center justify-end">
+                <IconAction
+                    href={`/admin/events/${eventId}/committees/${committee.id}/edit`}
+                    label={`Editar ${committee.name}`}
+                    icon={<IconEdit size={18} />}
+                />
+            </div>
         </td>
     </tr>
 );

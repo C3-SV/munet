@@ -10,6 +10,7 @@ import { useAuthStore } from "../../stores/auth.store";
 import {
     IconCalendar,
     IconClose,
+    IconCommittees,
     IconDashboard,
     IconDirectory,
     IconMenu,
@@ -86,6 +87,7 @@ export const AdminSidebar = () => {
     };
 
     const isParticipantsRoute = pathname?.includes("/participants") ?? false;
+    const isCommitteesRoute = pathname?.includes("/committees") ?? false;
 
     const navigation: AdminNavItem[] = [
         {
@@ -95,12 +97,21 @@ export const AdminSidebar = () => {
             current: pathname === "/admin",
         },
         {
-            name: "Eventos y Comités",
+            name: "Eventos",
             href: "/admin/events",
             icon: <IconCalendar size={20} />,
             current:
                 (pathname?.startsWith("/admin/events") ?? false) &&
-                !isParticipantsRoute,
+                !isParticipantsRoute &&
+                !isCommitteesRoute,
+        },
+        {
+            name: "Comités",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/committees`
+                : "/admin/events",
+            icon: <IconCommittees size={20} />,
+            current: isCommitteesRoute,
         },
         {
             name: "Participantes",

@@ -5,7 +5,7 @@ import { AdminButton } from "../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../components/admin/AdminStatusBadge";
-import { RowActions } from "../../../../components/admin/RowActions";
+import { IconAction } from "../../../../components/admin/IconAction";
 import {
     listEvents,
     type AdminEvent,
@@ -13,7 +13,15 @@ import {
 } from "../../../../lib/api/admin";
 import { ApiError } from "../../../../lib/api/client";
 import { useAuthStore } from "../../../../stores/auth.store";
-import { IconAlertTriangle, IconCalendar, IconPlus, IconRefresh } from "../../../../components/ui/icons";
+import {
+    IconAlertTriangle,
+    IconCalendar,
+    IconCommittees,
+    IconDirectory,
+    IconPlus,
+    IconRefresh,
+    IconSettings,
+} from "../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -58,7 +66,7 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
         className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
-        <td className="px-6 py-4">
+        <td className="px-4 py-4 sm:px-6">
             <div className="min-w-0">
                 <p
                     className="text-sm font-semibold font-heading truncate"
@@ -75,24 +83,32 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
             </div>
         </td>
 
-        <td className="px-6 py-4 hidden md:table-cell text-sm whitespace-nowrap">
+        <td className="px-4 py-4 hidden md:table-cell text-sm whitespace-nowrap">
             <EventDates startDate={event.start_date} endDate={event.end_date} />
         </td>
 
-        <td className="px-6 py-4">
+        <td className="px-4 py-4">
             <AdminStatusBadge status={event.status} />
         </td>
 
-        <td className="px-6 py-4">
-            <RowActions
-                primary={{ label: "Abrir", href: `/admin/events/${event.id}` }}
-                menuLabel={`Más acciones para ${event.name}`}
-                items={[
-                    { label: "Participantes", href: `/admin/events/${event.id}/participants` },
-                    { label: "Comités", href: `/admin/events/${event.id}/committees` },
-                    { label: "Configurar", href: `/admin/events/${event.id}` },
-                ]}
-            />
+        <td className="px-4 py-4">
+            <div className="flex items-center justify-end gap-2">
+                <IconAction
+                    href={`/admin/events/${event.id}/participants`}
+                    label={`Participantes de ${event.name}`}
+                    icon={<IconDirectory size={18} />}
+                />
+                <IconAction
+                    href={`/admin/events/${event.id}/committees`}
+                    label={`Comités de ${event.name}`}
+                    icon={<IconCommittees size={18} />}
+                />
+                <IconAction
+                    href={`/admin/events/${event.id}`}
+                    label={`Configurar ${event.name}`}
+                    icon={<IconSettings size={18} />}
+                />
+            </div>
         </td>
     </tr>
 );
@@ -221,16 +237,18 @@ export default function AdminEventsPage() {
 
                 {!loading && !error && events.length > 0 && (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full table-fixed text-left border-collapse">
                             <thead>
                                 <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
-                                    {["Evento", "Fechas", "Estado", ""].map((column, index) => (
+                                    {["Evento", "Fechas", "Estado", "Acciones"].map((column, index) => (
                                         <th
-                                            key={column || index}
+                                            key={column}
                                             className={[
-                                                "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
-                                                index === 1 ? "hidden md:table-cell" : "",
-                                                index === 3 ? "text-right" : "",
+                                                "px-4 py-3 text-xs font-bold uppercase tracking-wide font-heading",
+                                                index === 0 ? "sm:px-6" : "",
+                                                index === 1 ? "hidden md:table-cell w-56" : "",
+                                                index === 2 ? "w-28" : "",
+                                                index === 3 ? "w-36 sm:w-44 text-right" : "",
                                             ].join(" ")}
                                             style={{
                                                 color: "var(--text-muted)",
