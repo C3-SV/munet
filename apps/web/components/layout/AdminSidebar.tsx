@@ -7,8 +7,10 @@ import { useTheme } from "../../lib/theme-context";
 import { useAuthStore } from "../../stores/auth.store";
 import {
     IconCalendar,
+    IconClose,
     IconDashboard,
     IconDirectory,
+    IconMenu,
     IconShield,
     IconTheme,
     IconUserCheck,
@@ -154,16 +156,17 @@ export const AdminSidebar = () => {
                     </button>
                     <button
                         onClick={() => setIsMobileMenuOpen(true)}
-                        className="p-2 rounded-lg transition-all"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-all"
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "1px solid var(--border-color)",
                             color: "var(--text-primary)",
                         }}
+                        aria-label="Abrir menú"
                         aria-controls="admin-sidebar"
                         aria-expanded={isMobileMenuOpen}
                     >
-                        Menú
+                        <IconMenu size={22} />
                     </button>
                 </div>
             </div>
@@ -198,11 +201,11 @@ export const AdminSidebar = () => {
                         </Link>
                         <button
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="md:hidden p-1.5 rounded-md transition-all text-xs font-semibold font-heading"
-                            style={{ color: "var(--text-muted)" }}
+                            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-all"
+                            style={{ color: "var(--text-secondary)" }}
                             aria-label="Cerrar menú"
                         >
-                            Cerrar
+                            <IconClose size={22} />
                         </button>
                     </div>
                     <div
