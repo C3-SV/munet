@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FeedFilters } from "../../../../components/feed/FeedFilters";
 import { PostCard } from "../../../../components/feed/PostCard";
 import { PostEditor } from "../../../../components/feed/PostEditor";
 import { ApiError } from "../../../../lib/api/client";
-import { getEventCommittees } from "../../../../lib/api/events";
+import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
+import { buildWallNav } from "../../../../lib/wall-nav";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
-import type { Post } from "../../../../types/common";
+import type { EventWall, Post } from "../../../../types/common";
 
 const Feed = () => {
     const params = useParams();
@@ -28,6 +30,36 @@ const Feed = () => {
     const [error, setError] = useState<string | null>(null);
     const [isForbidden, setIsForbidden] = useState(false);
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
+    const [walls, setWalls] = useState<EventWall[]>([]);
+
+    useEffect(() => {
+        // Muros accesibles del evento para el selector rapido en movil.
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadWalls = async () => {
+            try {
+                const response = await getEventWalls({ token, eventId });
+
+                if (!cancelled) {
+                    setWalls(response.walls);
+                }
+            } catch {
+                if (!cancelled) {
+                    setWalls([]);
+                }
+            }
+        };
+
+        void loadWalls();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, token]);
 
     useEffect(() => {
         // Carga inicial del muro activo (incluye control de acceso 403).
@@ -321,6 +353,15 @@ const Feed = () => {
             : activeWall.canAccess
         : false;
 
+    // Selector rapido de muros para movil: mismos muros que el menu lateral, en orden.
+    const wallNav = useMemo(() => buildWallNav(walls, muroParam), [walls, muroParam]);
+    const quickWalls = [
+        wallNav.announcements,
+        wallNav.general,
+        wallNav.mine,
+        ...wallNav.committees,
+    ].filter((wall): wall is EventWall => wall !== null);
+
     return (
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-4xl mx-auto">
@@ -338,6 +379,41 @@ const Feed = () => {
                         {headerTitle}
                     </h1>
                 </header>
+
+                {quickWalls.length > 1 && (
+                    <nav
+                        aria-label="Muros"
+                        className="md:hidden -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1"
+                    >
+                        {quickWalls.map((wall) => {
+                            const isActive = wall.slug === muroParam;
+                            const label =
+                                wall.kind === "committee"
+                                    ? wall.committeeName ?? wall.name
+                                    : wall.name;
+
+                            return (
+                                <Link
+                                    key={wall.id}
+                                    href={`/feed/${wall.slug}`}
+                                    aria-current={isActive ? "page" : undefined}
+                                    className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold font-heading"
+                                    style={{
+                                        backgroundColor: isActive
+                                            ? "var(--sidebar-active-bg)"
+                                            : "var(--bg-surface)",
+                                        border: `1px solid ${
+                                            isActive ? "var(--text-accent)" : "var(--border-color)"
+                                        }`,
+                                        color: isActive ? "var(--text-accent)" : "var(--text-secondary)",
+                                    }}
+                                >
+                                    {label}
+                                </Link>
+                            );
+                        })}
+                    </nav>
+                )}
 
                 {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
