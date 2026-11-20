@@ -49,7 +49,8 @@ const ChatRoomPage = () => {
                 : {
                       id: conversationId,
                       name: "Delegado",
-                      avatar: `https://ui-avatars.com/api/?name=Delegado&background=E5E7EB&color=111827`,
+                      // Sin avatar: ChatRoomHeader muestra iniciales locales.
+                      avatar: "",
                       role: "DELEGADO",
                       committee: "Comité",
                       lastActive: "desconocido",

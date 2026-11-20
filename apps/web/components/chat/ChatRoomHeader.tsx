@@ -39,12 +39,26 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
 
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="relative shrink-0">
-                    <img
-                        src={delegate.avatar}
-                        alt={delegate.name}
-                        className="size-10 rounded-full object-cover"
-                        style={{ border: "2px solid var(--border-color)" }}
-                    />
+                    {delegate.avatar?.trim() ? (
+                        <img
+                            src={delegate.avatar}
+                            alt={delegate.name}
+                            className="size-10 rounded-full object-cover"
+                            style={{ border: "2px solid var(--border-color)" }}
+                        />
+                    ) : (
+                        <div
+                            aria-hidden="true"
+                            className="size-10 rounded-full flex items-center justify-center font-heading font-semibold"
+                            style={{
+                                backgroundColor: "var(--bg-surface-secondary)",
+                                border: "2px solid var(--border-color)",
+                                color: "var(--text-primary)",
+                            }}
+                        >
+                            {label.initials}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 min-w-0">

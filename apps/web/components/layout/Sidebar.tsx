@@ -77,7 +77,7 @@ const CommitteeItem = ({ wall, activeSlug }: { wall: EventWall; activeSlug: stri
             <Link
                 href={`/feed/${wall.slug}`}
                 aria-current={isSelected ? "page" : undefined}
-                className="relative flex items-center gap-2 rounded-lg py-2.5 px-3 text-sm font-medium font-heading"
+                className="relative flex min-h-11 items-center gap-2 rounded-lg py-2.5 px-3 text-sm font-medium font-heading"
                 style={{
                     color: isSelected ? "var(--sidebar-active-text)" : "var(--text-secondary)",
                     backgroundColor: isSelected ? "var(--sidebar-active-bg)" : "transparent",
@@ -437,21 +437,30 @@ export const Sidebar = () => {
                                     </span>
                                 </button>
 
-                                <ul
-                                    id="sidebar-committees"
-                                    hidden={!committeesOpen}
-                                    className={`mt-1 space-y-1 pl-11 pr-1 max-h-[50vh] overflow-y-auto ${
-                                        committeesOpen ? "motion-fade-in" : ""
-                                    }`}
+                                {/* Animacion por grid-template-rows (0fr <-> 1fr). visibility cambia al final de la transicion al cerrar. */}
+                                <div
+                                    className="grid transition-[grid-template-rows,visibility] duration-200 ease-out motion-reduce:transition-none"
+                                    style={{
+                                        gridTemplateRows: committeesOpen ? "1fr" : "0fr",
+                                        visibility: committeesOpen ? "visible" : "hidden",
+                                    }}
                                 >
-                                    {committees.map((wall) => (
-                                        <CommitteeItem
-                                            key={wall.id}
-                                            wall={wall}
-                                            activeSlug={activeSlug}
-                                        />
-                                    ))}
-                                </ul>
+                                    <div className="min-h-0 overflow-hidden">
+                                        <ul
+                                            id="sidebar-committees"
+                                            inert={!committeesOpen}
+                                            className="mt-1 space-y-1 pl-11 pr-1 max-h-[50vh] overflow-y-auto"
+                                        >
+                                            {committees.map((wall) => (
+                                                <CommitteeItem
+                                                    key={wall.id}
+                                                    wall={wall}
+                                                    activeSlug={activeSlug}
+                                                />
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
                             </li>
                         )}
                     </ul>
