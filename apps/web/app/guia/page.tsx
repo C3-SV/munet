@@ -29,7 +29,7 @@ const steps = (items: { title: string; text: string }[]) => (
 function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
     return (
         <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--text-accent)]">{eyebrow}</p>
+            <p className="text-xs font-bold text-[var(--text-accent)]">{eyebrow}</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">{title}</h2>
             <p className="mt-3 text-base leading-7 text-[var(--text-secondary)]">{description}</p>
         </div>
@@ -65,7 +65,7 @@ export default function GuidePage() {
             <section className="relative overflow-hidden border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-2/5 bg-[linear-gradient(135deg,transparent_48%,var(--sidebar-active-bg)_48%,var(--sidebar-active-bg)_70%,transparent_70%)] opacity-70 lg:block" />
                 <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-accent)]">MUN ESEN · Centro de ayuda</p>
+                    <p className="text-xs font-bold text-[var(--text-accent)]">MUN ESEN · Centro de ayuda</p>
                     <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl">Guía de uso</h1>
                     <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--text-secondary)]">Todo lo que necesitas saber para utilizar MUNET: activa tu cuenta, encuentra tu comité y mantente al día durante el evento.</p>
                     <div className="mt-8 flex flex-wrap gap-3">
@@ -76,11 +76,11 @@ export default function GuidePage() {
 
             <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16 lg:py-16">
                 <aside className="lg:sticky lg:top-8 lg:h-fit">
-                    <p className="mb-3 px-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">En esta guía</p>
+                    <p className="mb-3 px-3 text-xs font-bold text-[var(--text-muted)]">En esta guía</p>
                     <nav aria-label="Secciones de la guía" className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
                         {sections.map((section) => (
                             <a key={section.id} href={`#${section.id}`} className="group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]">
-                                <span className="font-mono text-[11px] text-[var(--text-muted)] group-hover:text-[var(--text-accent)]">{section.number}</span>
+                                <span className="font-mono text-xs text-[var(--text-muted)] group-hover:text-[var(--text-accent)]">{section.number}</span>
                                 <span>{section.label}</span>
                             </a>
                         ))}

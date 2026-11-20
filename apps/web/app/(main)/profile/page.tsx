@@ -171,7 +171,7 @@ const ProfilePage = () => {
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-3xl mx-auto">
                 <header className="mb-8">
-                    <h1 className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight" style={{ color: "var(--text-accent)" }}>
+                    <h1 className="text-3xl sm:text-4xl font-bold font-heading tracking-tight" style={{ color: "var(--text-accent)" }}>
                         Mi perfil
                     </h1>
                     <p className="font-body mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>

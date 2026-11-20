@@ -226,7 +226,7 @@ export const Sidebar = () => {
                         </button>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-2 rounded-lg transition-all active:scale-95"
+                            className="p-2 rounded-lg transition-all"
                             style={{
                                 backgroundColor: "var(--bg-surface-secondary)",
                                 border: "1px solid var(--border-color)",

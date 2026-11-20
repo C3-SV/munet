@@ -74,13 +74,13 @@ const SelectEventPage = () => {
             <div className="max-w-4xl mx-auto w-full flex-1">
                 <header className="mb-8">
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight"
+                        className="text-3xl sm:text-4xl font-bold font-heading tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Selecciona tu evento
                     </h1>
                     <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                        Elige el evento con el que quieres trabajar en esta sesion.
+                        Elige el evento con el que quieres trabajar en esta sesión.
                     </p>
                 </header>
 
@@ -144,13 +144,13 @@ const SelectEventPage = () => {
                         className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-all"
                         style={{ color: "var(--danger)" }}
                     >
-                        Cerrar sesion
+                        Cerrar sesión
                     </button>
                 </div>
 
                 {memberships.some((membership) => isAdminRole(membership.role)) && (
                     <p className="mt-3 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                        Como administrador debes seleccionar explicitamente el evento al iniciar sesion.
+                        Como administrador debes seleccionar explícitamente el evento al iniciar sesión.
                     </p>
                 )}
             </div>

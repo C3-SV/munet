@@ -89,7 +89,7 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
                 <button
                     onClick={() => void handleSend()}
                     disabled={!canSend}
-                    className="shrink-0 flex items-center justify-center size-10 rounded-xl transition-all active:scale-95"
+                    className="shrink-0 flex items-center justify-center size-10 rounded-xl transition-all"
                     style={{
                         backgroundColor: canSend
                             ? "var(--bubble-me-bg)"

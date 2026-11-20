@@ -19,7 +19,7 @@ const AdminDashboardCard = ({ card }: { card: AdminCard }) => {
             href={card.href}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="block p-6 sm:p-8 rounded-2xl transition-all duration-200 hover:scale-[1.01] active:scale-95"
+            className="block p-6 sm:p-8 rounded-2xl transition-all duration-200"
             style={{
                 backgroundColor: "var(--bg-surface)",
                 border: isHovered
