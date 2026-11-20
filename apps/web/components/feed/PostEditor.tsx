@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Button } from "../ui/Button";
 
 type PostDraft = {
     content: string;
@@ -105,38 +106,22 @@ export const PostEditor = ({
             }}
         >
             <div className="px-5 pt-4 flex items-center gap-2">
-                <button
-                    type="button"
+                <Button
+                    variant={postType === "TEXT" ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-pressed={postType === "TEXT"}
                     onClick={() => setPostType("TEXT")}
-                    className="px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider"
-                    style={{
-                        backgroundColor:
-                            postType === "TEXT" ? "var(--bubble-me-bg)" : "var(--bg-surface-secondary)",
-                        color: postType === "TEXT" ? "white" : "var(--text-secondary)",
-                        border:
-                            postType === "TEXT"
-                                ? "1px solid transparent"
-                                : "1px solid var(--border-color)",
-                    }}
                 >
                     Publicación
-                </button>
-                <button
-                    type="button"
+                </Button>
+                <Button
+                    variant={postType === "POLL" ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-pressed={postType === "POLL"}
                     onClick={() => setPostType("POLL")}
-                    className="px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider"
-                    style={{
-                        backgroundColor:
-                            postType === "POLL" ? "var(--bubble-me-bg)" : "var(--bg-surface-secondary)",
-                        color: postType === "POLL" ? "white" : "var(--text-secondary)",
-                        border:
-                            postType === "POLL"
-                                ? "1px solid transparent"
-                                : "1px solid var(--border-color)",
-                    }}
                 >
                     Encuesta
-                </button>
+                </Button>
             </div>
 
             <textarea
@@ -171,40 +156,26 @@ export const PostEditor = ({
                                 disabled={disabled || isPublishing}
                             />
                             {pollOptions.length > 2 && (
-                                <button
-                                    type="button"
+                                <Button
+                                    variant="danger-text"
+                                    size="sm"
                                     onClick={() => removePollOption(index)}
-                                    className="px-2.5 py-2 rounded-lg text-xs font-heading font-bold"
-                                    style={{
-                                        backgroundColor: "var(--bg-surface-secondary)",
-                                        border: "1px solid var(--border-color)",
-                                        color: "#b91c1c",
-                                    }}
+                                    disabled={disabled || isPublishing}
                                 >
                                     Quitar
-                                </button>
+                                </Button>
                             )}
                         </div>
                     ))}
 
-                    <button
-                        type="button"
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={addPollOption}
                         disabled={pollOptions.length >= MAX_POLL_OPTIONS || disabled || isPublishing}
-                        className="text-xs font-heading font-bold uppercase tracking-wider"
-                        style={{
-                            color:
-                                pollOptions.length >= MAX_POLL_OPTIONS || disabled || isPublishing
-                                    ? "var(--text-muted)"
-                                    : "var(--text-accent)",
-                            cursor:
-                                pollOptions.length >= MAX_POLL_OPTIONS || disabled || isPublishing
-                                    ? "not-allowed"
-                                    : "pointer",
-                        }}
                     >
                         + Agregar opción
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -218,19 +189,13 @@ export const PostEditor = ({
                 <span className="text-xs font-medium font-body" style={{ color: "var(--text-muted)" }}>
                     {validationError ? validationError : `${postText.length}/${MAX_POST_LENGTH}`}
                 </span>
-                <button
+                <Button
                     onClick={() => void handlePublish()}
                     disabled={!canPublish}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-body font-semibold transition-all text-sm active:scale-95"
-                    style={{
-                        backgroundColor: canPublish ? "var(--bubble-me-bg)" : "var(--bg-surface-secondary)",
-                        color: canPublish ? "white" : "var(--text-muted)",
-                        border: `1px solid ${canPublish ? "transparent" : "var(--border-color)"}`,
-                        cursor: canPublish ? "pointer" : "not-allowed",
-                    }}
+                    loading={isPublishing}
                 >
                     {isPublishing ? "Publicando..." : postType === "POLL" ? "Publicar encuesta" : "Publicar"}
-                </button>
+                </Button>
             </div>
         </div>
     );

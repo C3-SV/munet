@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../../components/admin/AdminAlertBanner";
@@ -143,7 +142,7 @@ export default function EditCommitteePage() {
         return () => {
             cancelled = true;
         };
-    }, [committeeId, reloadKey, token]);
+    }, [committeeId, eventId, reloadKey, token]);
 
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -243,9 +242,12 @@ export default function EditCommitteePage() {
                     { label: "Editar comité" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/committees`}>
-                        <AdminButton variant="secondary">Volver a comités</AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/committees`}
+                        variant="secondary"
+                    >
+                        Volver a comités
+                    </AdminButton>
                 }
             />
 

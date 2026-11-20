@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
+import { Button } from "../ui/Button";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { PostComment } from "../../types/common";
 
@@ -32,7 +33,7 @@ export const PostComments = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
 
-    const loadComments = async (options?: { showLoader?: boolean }) => {
+    const loadComments = useCallback(async (options?: { showLoader?: boolean }) => {
         // Fetch reutilizable para carga inicial y refrescos por realtime.
         const showLoader = options?.showLoader ?? true;
 
@@ -51,7 +52,7 @@ export const PostComments = ({
                 setLoading(false);
             }
         }
-    };
+    }, [eventId, postId, token]);
 
     useEffect(() => {
         // Bootstrap inicial de comentarios por post.
@@ -70,7 +71,7 @@ export const PostComments = ({
         return () => {
             cancelled = true;
         };
-    }, [eventId, postId, token]);
+    }, [eventId, postId, token, loadComments]);
 
     useEffect(() => {
         // Realtime de comentarios por `post_id`.
@@ -117,7 +118,7 @@ export const PostComments = ({
             cancelled = true;
             void realtimeClient.removeChannel(channel);
         };
-    }, [eventId, postId, token]);
+    }, [eventId, postId, token, loadComments]);
 
     const byId = useMemo(
         () =>
@@ -267,7 +268,7 @@ export const PostComments = ({
                                                 disabled={comment.isDeleted || deletingCommentId === comment.id}
                                                 className="text-xs font-semibold font-heading"
                                                 style={{
-                                                    color: comment.isDeleted ? "var(--text-muted)" : "#b91c1c",
+                                                    color: comment.isDeleted ? "var(--text-muted)" : "var(--danger)",
                                                     cursor:
                                                         comment.isDeleted || deletingCommentId === comment.id
                                                             ? "not-allowed"
@@ -350,33 +351,18 @@ export const PostComments = ({
                             opacity: disabled || isSubmitting ? 0.6 : 1,
                         }}
                     />
-                    <button
-                        type="button"
+                    <Button
+                        variant="secondary"
                         onClick={submitComment}
-                        disabled={disabled || isSubmitting || !inputValue.trim()}
-                        className="rounded-lg px-4 py-2 text-sm font-heading font-semibold"
-                        style={{
-                            backgroundColor:
-                                disabled || isSubmitting || !inputValue.trim()
-                                    ? "var(--bg-surface-secondary)"
-                                    : "var(--bubble-me-bg)",
-                            color:
-                                disabled || isSubmitting || !inputValue.trim()
-                                    ? "var(--text-muted)"
-                                    : "white",
-                            border:
-                                disabled || isSubmitting || !inputValue.trim()
-                                    ? "1px solid var(--border-color)"
-                                    : "1px solid transparent",
-                            cursor:
-                                disabled || isSubmitting || !inputValue.trim() ? "not-allowed" : "pointer",
-                        }}
+                        disabled={disabled || !inputValue.trim()}
+                        loading={isSubmitting}
+                        size="sm"
                     >
                         {isSubmitting ? "Enviando..." : "Comentar"}
-                    </button>
+                    </Button>
                 </div>
                 {error && (
-                    <p className="mt-2 text-xs font-body" style={{ color: "#b91c1c" }}>
+                    <p className="mt-2 text-xs font-body" style={{ color: "var(--danger)" }}>
                         {error}
                     </p>
                 )}

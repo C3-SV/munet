@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
@@ -261,11 +260,12 @@ export default function NewParticipantPage() {
                     { label: "Nuevo participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -279,11 +279,11 @@ export default function NewParticipantPage() {
                     />
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <Link
+                        <AdminButton
                             href={`/admin/events/${eventId}/participants/${created.membershipId}`}
                         >
-                            <AdminButton>Ver participante</AdminButton>
-                        </Link>
+                            Ver participante
+                        </AdminButton>
                         <AdminButton
                             type="button"
                             variant="secondary"

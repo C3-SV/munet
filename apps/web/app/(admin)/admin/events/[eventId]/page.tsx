@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../components/admin/AdminAlertBanner";
@@ -208,22 +207,20 @@ export default function EventDetailPage() {
 
     const headerAction = event ? (
         <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/events/${eventId}/participants`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
-                >
-                    Participantes
-                </AdminButton>
-            </Link>
-            <Link href={`/admin/events/${eventId}/committees`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
-                >
-                    Gestionar comités
-                </AdminButton>
-            </Link>
+            <AdminButton
+                href={`/admin/events/${eventId}/participants`}
+                variant="secondary"
+                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
+            >
+                Participantes
+            </AdminButton>
+            <AdminButton
+                href={`/admin/events/${eventId}/committees`}
+                variant="secondary"
+                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
+            >
+                Gestionar comités
+            </AdminButton>
         </div>
     ) : undefined;
 

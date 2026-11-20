@@ -170,13 +170,12 @@ export default function CommitteesPage() {
                     { label: "Comités" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/committees/new`}>
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                        >
-                            Nuevo comité
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/committees/new`}
+                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                    >
+                        Nuevo comité
+                    </AdminButton>
                 }
             />
 
@@ -225,13 +224,12 @@ export default function CommitteesPage() {
                         title="No hay comités registrados"
                         description="Crea el primer comité para este evento."
                         action={
-                            <Link href={`/admin/events/${eventId}/committees/new`}>
-                                <AdminButton
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                                >
-                                    Crear comité
-                                </AdminButton>
-                            </Link>
+                            <AdminButton
+                                href={`/admin/events/${eventId}/committees/new`}
+                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            >
+                                Crear comité
+                            </AdminButton>
                         }
                     />
                 )}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { Button } from "../../components/ui/Button";
 import { MunEsenLogo } from "../../components/layout/MunEsenLogo";
 
 const sections = [
@@ -51,6 +52,7 @@ export default function GuidePage() {
             <header className="border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
                     <Link href="/guia" aria-label="MUNET, guía de uso" className="inline-flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/logo-munet.png" alt="MUNET" className="h-10 w-auto" />
                         <span className="hidden border-l border-[var(--border-color)] pl-3 text-sm font-semibold text-[var(--text-secondary)] sm:block">Guía de uso</span>
                     </Link>
@@ -67,9 +69,7 @@ export default function GuidePage() {
                     <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl">Guía de uso</h1>
                     <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--text-secondary)]">Todo lo que necesitas saber para utilizar MUNET: activa tu cuenta, encuentra tu comité y mantente al día durante el evento.</p>
                     <div className="mt-8 flex flex-wrap gap-3">
-                        <a href="#primeros-pasos" className="rounded-full bg-[var(--text-accent)] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90">Empezar</a>
-                        <a href="#participantes" className="rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]">Soy participante</a>
-                        <a href="#organizadores" className="rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]">Soy organizador</a>
+                        <Button href="#primeros-pasos">Empezar</Button>
                     </div>
                 </div>
             </section>
@@ -221,6 +221,7 @@ export default function GuidePage() {
             <footer className="border-t border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                     <div className="flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/logo-munet.png" alt="" className="h-8 w-auto" />
                         <MunEsenLogo className="h-8 w-auto" />
                         <p className="text-xs text-[var(--text-secondary)]">Una plataforma para conectar cada delegación.</p>

@@ -322,13 +322,12 @@ export default function EventParticipantsPage() {
                     { label: "Participantes" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants/new`}>
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                        >
-                            Nuevo participante
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants/new`}
+                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                    >
+                        Nuevo participante
+                    </AdminButton>
                 }
             />
 
@@ -452,15 +451,12 @@ export default function EventParticipantsPage() {
                                     Limpiar filtros
                                 </AdminButton>
                             ) : (
-                                <Link
+                                <AdminButton
                                     href={`/admin/events/${eventId}/participants/new`}
+                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
                                 >
-                                    <AdminButton
-                                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                                    >
-                                        Registrar participante
-                                    </AdminButton>
-                                </Link>
+                                    Registrar participante
+                                </AdminButton>
                             )
                         }
                     />

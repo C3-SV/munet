@@ -90,15 +90,14 @@ const SelectEventPage = () => {
                             key={membership.id}
                             type="button"
                             onClick={() => handleChooseEvent(membership.id)}
-                            className="text-left rounded-2xl p-5 transition-all hover:scale-[1.01] active:scale-95"
+                            className="text-left rounded-2xl p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
-                                border: "1px solid var(--border-color)",
                                 boxShadow: "var(--shadow-sm)",
                             }}
                         >
                             <p
-                                className="text-[11px] font-extrabold uppercase tracking-widest font-heading"
+                                className="text-xs font-semibold font-heading"
                                 style={{ color: "var(--text-muted)" }}
                             >
                                 {membership.eventStatus}
@@ -116,9 +115,6 @@ const SelectEventPage = () => {
                                 {membership.committeeName
                                     ? `Comité: ${membership.committeeName}`
                                     : "Comité: No asignado"}
-                            </p>
-                            <p className="mt-4 text-xs font-semibold font-heading uppercase tracking-wider" style={{ color: "var(--text-accent)" }}>
-                                Entrar al evento
                             </p>
                         </button>
                     ))}
@@ -146,7 +142,7 @@ const SelectEventPage = () => {
                             router.replace("/login");
                         }}
                         className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-all"
-                        style={{ color: "#ef4444" }}
+                        style={{ color: "var(--danger)" }}
                     >
                         Cerrar sesion
                     </button>

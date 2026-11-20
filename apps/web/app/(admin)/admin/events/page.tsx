@@ -181,13 +181,12 @@ export default function AdminEventsPage() {
                 description="Crea, configura y administra los eventos del MUN."
                 breadcrumb={[{ label: "Panel", href: "/admin" }, { label: "Eventos" }]}
                 action={
-                    <Link href="/admin/events/new">
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                        >
-                            Nuevo evento
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href="/admin/events/new"
+                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                    >
+                        Nuevo evento
+                    </AdminButton>
                 }
             />
 
@@ -224,13 +223,12 @@ export default function AdminEventsPage() {
                         title="No hay eventos registrados"
                         description="Crea el primer evento para empezar a configurar comités y participantes."
                         action={
-                            <Link href="/admin/events/new">
-                                <AdminButton
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                                >
-                                    Crear primer evento
-                                </AdminButton>
-                            </Link>
+                            <AdminButton
+                                href="/admin/events/new"
+                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            >
+                                Crear primer evento
+                            </AdminButton>
                         }
                     />
                 )}

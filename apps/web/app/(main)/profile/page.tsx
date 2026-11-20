@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
+import { Button } from "../../../components/ui/Button";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
 import { buildPersonLabel } from "../../../lib/person-label";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
@@ -180,6 +181,8 @@ const ProfilePage = () => {
 
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
                     <div className="p-6 sm:p-8 flex items-center gap-6" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        {/* Avatar externo de la API: sin next/image porque el host no está en remotePatterns. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={profileData.profile.avatar}
                             alt="Avatar"
@@ -224,45 +227,23 @@ const ProfilePage = () => {
                                 </label>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="px-3 py-2.5 rounded-xl font-heading font-bold text-sm transition-all"
-                                            style={{
-                                                backgroundColor: "var(--bg-surface-secondary)",
-                                                border: "1px solid var(--border-color)",
-                                                color: "var(--text-primary)",
-                                            }}
                                         >
                                             Seleccionar archivo
-                                        </button>
-                                        <button
-                                            type="button"
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
                                             onClick={() => void handleAvatarUpload()}
                                             disabled={!avatarFile || uploadingAvatar}
-                                            className="px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
-                                            style={{
-                                                backgroundColor:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "var(--bg-surface-secondary)"
-                                                        : "var(--bubble-me-bg)",
-                                                border:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "1px solid var(--border-color)"
-                                                        : "1px solid transparent",
-                                                color:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "var(--text-muted)"
-                                                        : "white",
-                                                cursor:
-                                                    !avatarFile || uploadingAvatar ? "not-allowed" : "pointer",
-                                            }}
+                                            loading={uploadingAvatar}
                                         >
                                             {uploadingAvatar ? "Subiendo..." : "Subir foto"}
-                                        </button>
+                                        </Button>
                                     </div>
                                     {avatarError && (
-                                        <p className="text-xs font-body sm:text-right" style={{ color: "#b91c1c" }}>
+                                        <p className="text-xs font-body sm:text-right" style={{ color: "var(--danger)" }}>
                                             {avatarError}
                                         </p>
                                     )}
@@ -380,7 +361,7 @@ const ProfilePage = () => {
                         </div>
 
                         {error && (
-                            <p className="text-sm font-body" style={{ color: "#b91c1c" }}>
+                            <p className="text-sm font-body" style={{ color: "var(--danger)" }}>
                                 {error}
                             </p>
                         )}
@@ -391,43 +372,23 @@ const ProfilePage = () => {
                         >
                             <LogoutButton />
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {canOpenAdminEditor && activeMembershipId && (
-                                    <button
-                                        onClick={() => router.push(`/profile/${activeMembershipId}`)}
-                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
-                                        style={{
-                                            backgroundColor: "var(--sidebar-active-bg)",
-                                            color: "var(--text-accent)",
-                                            border: "1px solid var(--border-color)",
-                                        }}
-                                    >
-                                        Editar mi perfil
-                                    </button>
-                                )}
                                 {canOpenAdminEditor && (
-                                    <button
+                                    <Button
+                                        variant="ghost"
                                         onClick={() => router.push("/select-event")}
-                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
-                                        style={{
-                                            backgroundColor: "var(--bg-surface-secondary)",
-                                            color: "var(--text-secondary)",
-                                            border: "1px solid var(--border-color)",
-                                        }}
+                                        className="w-full sm:w-auto"
                                     >
                                         Cambiar evento
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
+                                <Button
                                     onClick={saveProfile}
                                     disabled={saving}
-                                    className="w-full sm:w-auto px-6 py-3 text-white font-heading font-bold text-sm rounded-xl shadow-md transition-all"
-                                    style={{
-                                        backgroundColor: "var(--bubble-me-bg)",
-                                        opacity: saving ? 0.7 : 1,
-                                    }}
+                                    loading={saving}
+                                    className="w-full sm:w-auto"
                                 >
                                     {saving ? "Guardando..." : "Guardar perfil"}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>

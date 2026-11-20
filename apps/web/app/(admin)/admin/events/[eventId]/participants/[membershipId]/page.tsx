@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
@@ -505,11 +504,12 @@ export default function ParticipantDetailPage() {
                     { label: participant ? participantName : "Participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 

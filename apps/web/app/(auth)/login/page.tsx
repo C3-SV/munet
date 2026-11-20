@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import { BrandAttribution } from "../../../components/layout/BrandAttribution";
+import { Button } from "../../../components/ui/Button";
 
 const Login = () => {
     const router = useRouter();
@@ -237,6 +238,8 @@ const Login = () => {
             style={{ backgroundColor: "var(--bg-base)" }}
         >
             <div className="mx-auto w-full max-w-70 sm:max-w-xs mb-8">
+                {/* Logo local de public/: se conserva <img> para mantener su tamaño CSS actual. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     alt="MUNET"
                     src="/logo-munet.png"
@@ -348,7 +351,7 @@ const Login = () => {
 
                         {/* Mensaje de éxito tras activar la cuenta */}
                         {!showActivationModal && successMessage && (
-                            <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#10b981" }}>
+                            <div className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--success)" }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -358,7 +361,7 @@ const Login = () => {
 
                         {/* Error de Login principal */}
                         {!showActivationModal && displayedError && (
-                            <div role="alert" className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
+                            <div role="alert" className="flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--danger)" }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -379,14 +382,14 @@ const Login = () => {
                         )}
 
                         <div className="pt-2 sm:pt-4">
-                            <button
+                            <Button
                                 type="submit"
-                                disabled={loading && !showActivationModal}
-                                className="flex w-full justify-center rounded-xl px-3 py-3.5 sm:py-4 text-base sm:text-lg font-heading font-semibold text-white shadow-md hover:scale-[1.01] active:scale-95 transition-all duration-200 disabled:opacity-70"
-                                style={{ backgroundColor: "var(--bubble-me-bg)" }}
+                                size="lg"
+                                className="w-full"
+                                loading={loading && !showActivationModal}
                             >
                                 {loading && !showActivationModal ? "Ingresando..." : "Iniciar sesión"}
-                            </button>
+                            </Button>
                         </div>
                     </form>
 
@@ -439,7 +442,7 @@ const Login = () => {
 
                         {/* Error de Activación dentro del modal con icono y estilo limpio */}
                         {(activationError || error) && (
-                            <div className="mb-6 flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "#ef4444" }}>
+                            <div className="mb-6 flex items-center justify-center gap-2 text-sm font-medium" style={{ color: "var(--danger)" }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -467,14 +470,9 @@ const Login = () => {
                                         style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
                                     />
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full rounded-xl px-4 py-3 text-white font-semibold shadow-md disabled:opacity-70 transition-all duration-200 hover:scale-[1.01] active:scale-95"
-                                    style={{ backgroundColor: "var(--bubble-me-bg)" }}
-                                >
+                                <Button type="submit" size="lg" className="w-full" loading={loading}>
                                     {loading ? "Validando..." : "Continuar"}
-                                </button>
+                                </Button>
                             </form>
                         )}
 
@@ -584,31 +582,25 @@ const Login = () => {
                                     </div>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full mt-4 rounded-xl px-4 py-3 text-white font-semibold shadow-md disabled:opacity-70 transition-all duration-200 hover:scale-[1.01] active:scale-95"
-                                    style={{ backgroundColor: "var(--text-accent)" }}
-                                >
+                                <Button type="submit" size="lg" className="w-full mt-4" loading={loading}>
                                     {loading ? "Activando cuenta..." : "Activar Cuenta"}
-                                </button>
-                                
-                                <button
-                                    type="button"
+                                </Button>
+
+                                <Button
+                                    variant="ghost"
+                                    className="w-full mt-2"
                                     onClick={() => {
                                         setActivationStep(1);
-                                        setActivationError(""); 
-                                        clearError(); 
+                                        setActivationError("");
+                                        clearError();
                                         // Restablecemos visibilidad al volver atrás
                                         setShowOneTimePassword(false);
                                         setShowNewPassword(false);
                                         setShowConfirmPassword(false);
                                     }}
-                                    className="w-full text-sm font-semibold mt-2 opacity-60 hover:opacity-100 transition-opacity"
-                                    style={{ color: "var(--text-primary)" }}
                                 >
                                     Volver atrás
-                                </button>
+                                </Button>
                             </form>
                         )}
                     </div>
