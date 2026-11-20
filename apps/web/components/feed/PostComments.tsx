@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
@@ -9,22 +9,70 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PersonLabel } from "../ui/PersonLabel";
 import type { PostComment } from "../../types/common";
 
+const COMMENT_SUBMIT_COOLDOWN_MS = 1200;
+
 type PostCommentsProps = {
     postId: string;
     token: string;
     eventId: string;
     disabled?: boolean;
     showAuthorCommittee?: boolean;
+    defaultOpen?: boolean;
 };
 
+// En pantallas táctiles Enter inserta salto de línea; el envío es el botón.
+const isCoarsePointer = () =>
+    typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
+// Solo el disparador vive aquí. El panel (carga, realtime y composer) se monta al abrir
+// y se desmonta al cerrar, así que sus efectos empiezan y terminan con la apertura.
 export const PostComments = ({
     postId,
     token,
     eventId,
     disabled = false,
     showAuthorCommittee = true,
+    defaultOpen = false,
 }: PostCommentsProps) => {
-    const COMMENT_SUBMIT_COOLDOWN_MS = 1200;
+    const [open, setOpen] = useState(defaultOpen);
+    const panelId = useId();
+
+    return (
+        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--border-color)" }}>
+            <Button
+                variant="ghost"
+                size="sm"
+                aria-expanded={open}
+                aria-controls={open ? panelId : undefined}
+                onClick={() => setOpen((current) => !current)}
+            >
+                {open ? "Ocultar comentarios" : "Comentarios"}
+            </Button>
+
+            {open && (
+                <CommentsPanel
+                    id={panelId}
+                    postId={postId}
+                    token={token}
+                    eventId={eventId}
+                    disabled={disabled}
+                    showAuthorCommittee={showAuthorCommittee}
+                />
+            )}
+        </div>
+    );
+};
+
+type CommentsPanelProps = Omit<PostCommentsProps, "defaultOpen"> & { id: string };
+
+const CommentsPanel = ({
+    id,
+    postId,
+    token,
+    eventId,
+    disabled = false,
+    showAuthorCommittee = true,
+}: CommentsPanelProps) => {
     const [comments, setComments] = useState<PostComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [inputValue, setInputValue] = useState("");
@@ -32,8 +80,10 @@ export const PostComments = ({
     const [error, setError] = useState<string | null>(null);
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
     const [pendingDeleteComment, setPendingDeleteComment] = useState<PostComment | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const loadComments = useCallback(async (options?: { showLoader?: boolean }) => {
         // Fetch reutilizable para carga inicial y refrescos por realtime.
@@ -57,7 +107,7 @@ export const PostComments = ({
     }, [eventId, postId, token]);
 
     useEffect(() => {
-        // Bootstrap inicial de comentarios por post.
+        // Carga inicial al abrir el panel.
         let cancelled = false;
 
         const bootstrap = async () => {
@@ -76,7 +126,7 @@ export const PostComments = ({
     }, [eventId, postId, token, loadComments]);
 
     useEffect(() => {
-        // Realtime de comentarios por `post_id`.
+        // Realtime de comentarios por `post_id`; se cancela al cerrar el panel.
         if (!realtimeEnabled || !supabaseBrowser || !token) {
             return;
         }
@@ -122,6 +172,18 @@ export const PostComments = ({
         };
     }, [eventId, postId, token, loadComments]);
 
+    useEffect(() => {
+        // Auto-altura del campo: crece con el texto hasta el límite de max-h.
+        const field = textareaRef.current;
+
+        if (!field) {
+            return;
+        }
+
+        field.style.height = "auto";
+        field.style.height = `${field.scrollHeight}px`;
+    }, [inputValue]);
+
     const byId = useMemo(
         () =>
             new Map<string, PostComment>(
@@ -145,6 +207,9 @@ export const PostComments = ({
             return;
         }
 
+        // El foco se queda en el campo para seguir escribiendo.
+        textareaRef.current?.focus();
+
         try {
             setIsSubmitting(true);
             setError(null);
@@ -165,6 +230,16 @@ export const PostComments = ({
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        // Escritorio: Enter envía y Shift+Enter inserta salto. Táctil: Enter inserta salto.
+        if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || isCoarsePointer()) {
+            return;
+        }
+
+        event.preventDefault();
+        void submitComment();
     };
 
     const requestDeleteComment = (comment: PostComment) => {
@@ -205,31 +280,28 @@ export const PostComments = ({
     };
 
     return (
-        <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border-color)" }}>
-            <p
-                className="text-[11px] font-extrabold uppercase tracking-widest font-heading mb-3"
-                style={{ color: "var(--text-secondary)" }}
-            >
-                Comentarios
-            </p>
-
+        <div id={id} className="mt-3">
             {loading ? (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>
                     Cargando comentarios...
                 </p>
             ) : comments.length > 0 ? (
-                <div className="space-y-3">
+                <ul className="space-y-4" aria-label="Comentarios">
                     {comments.map((comment) => {
+                        const isReply = Boolean(comment.parentCommentId);
+                        const parent = comment.parentCommentId
+                            ? byId.get(comment.parentCommentId)
+                            : undefined;
+                        const menuOpen = openMenuId === comment.id;
+                        const showMenu = comment.canDelete && !comment.isDeleted;
+
                         return (
-                            <div
+                            <li
                                 key={comment.id}
-                                className="rounded-xl p-3"
-                                style={{
-                                    backgroundColor: "var(--bg-surface-secondary)",
-                                    border: "1px solid var(--border-color)",
-                                }}
+                                className={isReply ? "ml-4 border-l-2 pl-3 md:ml-8" : undefined}
+                                style={isReply ? { borderLeftColor: "var(--border-color)" } : undefined}
                             >
-                                <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3">
                                     <div className="min-w-0 flex-1">
                                         <PersonLabel
                                             size="sm"
@@ -240,135 +312,183 @@ export const PostComments = ({
                                                 avatar: comment.user.avatar,
                                             }}
                                             showSecondary={showAuthorCommittee}
-                                        >
-                                            <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                                <time
-                                                    dateTime={comment.createdAt}
-                                                    title={formatDateTime(comment.createdAt)}
-                                                >
-                                                    {formatDateTime(comment.createdAt)}
-                                                </time>
-                                            </p>
-                                        </PersonLabel>
+                                        />
                                     </div>
 
-                                    <div className="flex items-center gap-3">
-                                        {!comment.isDeleted && !disabled && (
+                                    <time
+                                        dateTime={comment.createdAt}
+                                        className="shrink-0 pt-1 text-xs font-body"
+                                        style={{ color: "var(--text-muted)" }}
+                                    >
+                                        {formatDateTime(comment.createdAt)}
+                                    </time>
+
+                                    {showMenu && (
+                                        <div
+                                            className="relative shrink-0 -mr-2 -mt-2"
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Escape") {
+                                                    setOpenMenuId(null);
+                                                }
+                                            }}
+                                            onBlur={(event) => {
+                                                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                                    setOpenMenuId(null);
+                                                }
+                                            }}
+                                        >
                                             <button
                                                 type="button"
-                                                onClick={() => setReplyTo(comment)}
-                                                className="text-xs font-semibold font-heading"
-                                                style={{ color: "var(--text-accent)" }}
+                                                aria-label="Más acciones del comentario"
+                                                aria-haspopup="menu"
+                                                aria-expanded={menuOpen}
+                                                disabled={deletingCommentId === comment.id}
+                                                onClick={() => setOpenMenuId(menuOpen ? null : comment.id)}
+                                                className="inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] enabled:hover:bg-[var(--bg-surface-secondary)] disabled:opacity-60"
+                                                style={{ color: "var(--text-secondary)" }}
                                             >
-                                                Responder
+                                                <svg
+                                                    width="20"
+                                                    height="20"
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                    aria-hidden="true"
+                                                    focusable="false"
+                                                >
+                                                    <circle cx="5" cy="12" r="1.75" />
+                                                    <circle cx="12" cy="12" r="1.75" />
+                                                    <circle cx="19" cy="12" r="1.75" />
+                                                </svg>
                                             </button>
-                                        )}
-                                        {comment.canDelete && (
-                                            <button
-                                                type="button"
-                                                onClick={() => requestDeleteComment(comment)}
-                                                disabled={comment.isDeleted || deletingCommentId === comment.id}
-                                                className="text-xs font-semibold font-heading"
-                                                style={{
-                                                    color: comment.isDeleted ? "var(--text-muted)" : "var(--danger)",
-                                                    cursor:
-                                                        comment.isDeleted || deletingCommentId === comment.id
-                                                            ? "not-allowed"
-                                                            : "pointer",
-                                                    opacity:
-                                                        comment.isDeleted || deletingCommentId === comment.id
-                                                            ? 0.6
-                                                            : 1,
-                                                }}
-                                            >
-                                                {comment.isDeleted
-                                                    ? "Eliminado"
-                                                    : deletingCommentId === comment.id
-                                                      ? "Eliminando..."
-                                                      : "Eliminar"}
-                                            </button>
-                                        )}
-                                    </div>
+
+                                            {menuOpen && (
+                                                <div
+                                                    role="menu"
+                                                    className="absolute right-0 top-11 z-10 min-w-40 rounded-[var(--radius-sm)] p-1"
+                                                    style={{
+                                                        backgroundColor: "var(--bg-surface)",
+                                                        border: "1px solid var(--border-color)",
+                                                    }}
+                                                >
+                                                    <Button
+                                                        role="menuitem"
+                                                        variant="danger-text"
+                                                        size="sm"
+                                                        className="w-full justify-start"
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            requestDeleteComment(comment);
+                                                        }}
+                                                    >
+                                                        Eliminar
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {comment.parentCommentId && (
-                                    <p className="mt-2 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                        Respuesta a {byId.get(comment.parentCommentId)?.user.name ?? "comentario"}
+                                {isReply && (
+                                    <p className="mt-1.5 pl-11 text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                        En respuesta a {parent ? parent.user.name : "un comentario"}
                                     </p>
                                 )}
 
                                 <p
-                                    className="mt-2 text-sm font-body"
+                                    className="mt-1.5 pl-11 text-sm font-body whitespace-pre-wrap"
                                     style={{
                                         color: comment.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
                                         fontStyle: comment.isDeleted ? "italic" : "normal",
+                                        overflowWrap: "anywhere",
                                     }}
                                 >
                                     {comment.content}
                                 </p>
-                            </div>
+
+                                {!comment.isDeleted && !disabled && (
+                                    <div className="pl-8">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setReplyTo(comment);
+                                                textareaRef.current?.focus();
+                                            }}
+                                        >
+                                            Responder
+                                        </Button>
+                                    </div>
+                                )}
+                            </li>
                         );
                     })}
-                </div>
-            ) : (
+                </ul>
+            ) : error ? null : (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>
-                    Aun no hay comentarios.
+                    Sé la primera persona en comentar.
                 </p>
             )}
 
-            <div className="mt-4">
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    void submitComment();
+                }}
+                className="mt-4"
+            >
                 {replyTo && (
                     <div
-                        className="mb-2 flex items-center justify-between rounded-lg px-3 py-2"
+                        className="mb-2 flex items-center justify-between gap-2 rounded-lg px-3 py-1"
                         style={{
                             backgroundColor: "var(--sidebar-active-bg)",
                             border: "1px solid var(--border-color)",
                         }}
                     >
-                        <p className="text-xs font-body" style={{ color: "var(--text-secondary)" }}>
+                        <p className="min-w-0 truncate text-xs font-body" style={{ color: "var(--text-secondary)" }}>
                             Respondiendo a <strong>{replyTo.user.name}</strong>
                         </p>
-                        <button
-                            type="button"
-                            onClick={() => setReplyTo(null)}
-                            className="text-xs font-semibold font-heading"
-                            style={{ color: "var(--text-accent)" }}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)}>
                             Cancelar
-                        </button>
+                        </Button>
                     </div>
                 )}
 
-                <div className="flex gap-2">
-                    <input
+                <div className="flex items-end gap-2">
+                    <textarea
+                        ref={textareaRef}
+                        rows={1}
                         value={inputValue}
                         onChange={(event) => setInputValue(event.target.value)}
-                        disabled={disabled || isSubmitting}
+                        onKeyDown={handleComposerKeyDown}
+                        disabled={disabled}
+                        readOnly={isSubmitting}
+                        aria-label="Escribe un comentario"
                         placeholder="Escribe un comentario..."
-                        className="flex-1 rounded-lg px-3 py-2 text-sm font-body outline-none"
+                        className="max-h-40 min-h-11 flex-1 resize-none overflow-y-auto whitespace-pre-wrap rounded-lg px-3 py-2.5 text-sm font-body"
                         style={{
                             backgroundColor: "var(--bg-input)",
                             border: "1px solid var(--input-border)",
                             color: "var(--text-primary)",
-                            opacity: disabled || isSubmitting ? 0.6 : 1,
+                            opacity: disabled ? 0.6 : 1,
                         }}
                     />
                     <Button
-                        variant="secondary"
-                        onClick={submitComment}
+                        type="submit"
+                        variant="primary"
+                        size="sm"
                         disabled={disabled || !inputValue.trim()}
                         loading={isSubmitting}
-                        size="sm"
                     >
                         {isSubmitting ? "Enviando..." : "Comentar"}
                     </Button>
                 </div>
+
                 {error && (
-                    <p className="mt-2 text-xs font-body" style={{ color: "var(--danger)" }}>
+                    <p role="alert" className="mt-2 text-xs font-body" style={{ color: "var(--danger)" }}>
                         {error}
                     </p>
                 )}
-            </div>
+            </form>
 
             <ConfirmDialog
                 open={pendingDeleteComment !== null}
