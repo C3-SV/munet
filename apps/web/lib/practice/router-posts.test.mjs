@@ -265,17 +265,102 @@ test("límite de adjuntos: dos adjuntos de la persona bloquean el tercer ticket;
     assertFails(() => initUpload(), 400, PRACTICE_LIMIT_MESSAGES.attachments);
 });
 
-test("límite de adjuntos: los tickets pendientes cuentan para el límite", () => {
+test("un nuevo init reemplaza al ticket pendiente anterior (state.uploads solo trae el último)", () => {
+    const first = initUpload();
+    const second = initUpload({ file_name: "otro.png" });
+    assert.deepEqual(
+        state.uploads.map((item) => item.id),
+        [second.id],
+    );
+    assertFails(
+        () => call("POST", "/posts", textBody({ upload_id: first.id })),
+        404,
+        "Subida no encontrada",
+    );
+});
+
+test("límite de adjuntos: el ticket pendiente no cuenta; solo los adjuntos de publicaciones propias", () => {
+    attachedPost("Primero");
     initUpload();
-    initUpload();
+    // Con un ticket pendiente, el siguiente adjunto sigue permitido: el init lo reemplaza y luego lo consume.
+    attachedPost("Segundo");
     assertFails(() => initUpload(), 400, PRACTICE_LIMIT_MESSAGES.attachments);
 });
 
-test("límite de adjuntos: un ticket consumido cuenta una sola vez", () => {
-    const upload = initUpload();
-    call("POST", "/posts", textBody({ upload_id: upload.id }));
-    assert.match(initUpload().id, /^practice-upload-\d+$/);
+test("un init rechazado por tipo, tamaño o muro no borra el ticket pendiente", () => {
+    const pending = initUpload();
+    assertFails(
+        () => call("POST", "/posts/attachments/init", initBody({ muro: "avisos" })),
+        403,
+        "No tienes permisos para publicar en este muro",
+    );
+    assertFails(
+        () => call("POST", "/posts/attachments/init", initBody({ mime_type: "image/gif" })),
+        400,
+        TYPE_MESSAGE,
+    );
+    assert.deepEqual(
+        state.uploads.map((item) => item.id),
+        [pending.id],
+    );
+});
+
+test("un init rechazado por el límite no borra el ticket pendiente", () => {
+    attachedPost("Primero");
+    attachedPost("Segundo");
+    // Dos adjuntos propios y un ticket pendiente: la API no llega sola a este estado, así que se añade a mano.
+    state.uploads.push({
+        id: "practice-upload-900",
+        wallSlug: "general",
+        fileName: "pendiente.png",
+        mimeType: "image/png",
+        size: 1024,
+        postId: null,
+    });
+    const snapshot = structuredClone(state);
     assertFails(() => initUpload(), 400, PRACTICE_LIMIT_MESSAGES.attachments);
+    assert.deepEqual(state, snapshot);
+});
+
+test("un ticket ya consumido sobrevive a un init nuevo: el reintento sigue devolviendo su post", () => {
+    const consumed = initUpload();
+    const post = call("POST", "/posts", textBody({ upload_id: consumed.id })).post;
+    initUpload({ file_name: "siguiente.png" });
+    assert.deepEqual(call("POST", "/posts", textBody({ upload_id: consumed.id })).post, post);
+});
+
+test("publicar con upload_id: 11 opciones se rechaza sin tocar el estado ni consumir la subida", () => {
+    const upload = initUpload();
+    const eleven = Array.from({ length: 11 }, (_, index) => `Opción ${index}`);
+    const snapshot = structuredClone(state);
+    assertFails(() => publish(pollBody(eleven, { upload_id: upload.id })), 400, POLL_MAX_MESSAGE);
+    assert.deepEqual(state, snapshot);
+    assert.equal(publish(textBody({ upload_id: upload.id })).attachment.name, "mapa.png");
+});
+
+test("publicar con upload_id en un muro ajeno se rechaza sin tocar el estado", () => {
+    const upload = initUpload();
+    const snapshot = structuredClone(state);
+    assertFails(
+        () => publish(textBody({ muro: FOREIGN_SLUG, upload_id: upload.id })),
+        403,
+        "No tienes acceso a este muro",
+    );
+    assert.deepEqual(state, snapshot);
+});
+
+test("publicar con upload_id en la publicación 31 se rechaza sin consumir la subida", () => {
+    for (let index = 0; index < PRACTICE_LIMITS.maxOwnPosts; index += 1) {
+        publish(textBody({ content: `Mensaje ${index}` }));
+    }
+    const upload = initUpload();
+    const snapshot = structuredClone(state);
+    assertFails(
+        () => publish(textBody({ upload_id: upload.id })),
+        400,
+        PRACTICE_LIMIT_MESSAGES.ownPosts,
+    );
+    assert.deepEqual(state, snapshot);
 });
 
 test("publicar con upload_id: el post trae el adjunto con canRemove y se ve en el muro", () => {

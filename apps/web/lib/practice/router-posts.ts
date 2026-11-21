@@ -100,10 +100,9 @@ const nextId = (state: PracticeState, kind: string): string => {
 const ownPostCount = (state: PracticeState): number =>
     state.posts.filter((post) => post.authorId === PRACTICE_MEMBERSHIP_ID).length;
 
-// Adjuntos que ocupan espacio: los de publicaciones propias y los tickets pendientes. Los sembrados no cuentan.
+// Adjuntos que ocupan espacio: solo los de publicaciones propias. Los tickets pendientes y los sembrados no cuentan.
 const ownAttachmentCount = (state: PracticeState): number =>
-    state.posts.filter((post) => post.authorId === PRACTICE_MEMBERSHIP_ID && post.attachment !== null).length +
-    state.uploads.filter((upload) => upload.postId === null).length;
+    state.posts.filter((post) => post.authorId === PRACTICE_MEMBERSHIP_ID && post.attachment !== null).length;
 
 // Publicación que ya consumió el ticket, si la hay.
 const replayedPost = (state: PracticeState, uploadId: string): PracticePost | null => {
@@ -191,6 +190,8 @@ export const handleAttachmentInit = (context: PracticeRouteContext): { upload: U
         throw new PracticeRequestError(400, PRACTICE_LIMIT_MESSAGES.attachments);
     }
 
+    // Un solo ticket en vuelo: los pendientes anteriores quedaron huérfanos, el archivo vive solo en memoria.
+    state.uploads = state.uploads.filter((upload) => upload.postId !== null);
     const id = nextId(state, "upload");
     state.uploads.push({ id, wallSlug: wall.slug, fileName, mimeType, size, postId: null });
     context.wrote = true;
