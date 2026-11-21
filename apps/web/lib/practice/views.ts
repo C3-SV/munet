@@ -1,5 +1,5 @@
 import type { ParticipantDirectoryEntry } from "../api/directory.ts";
-import type { ChatParticipant, ConversationSummary } from "../../types/chat.ts";
+import type { ChatParticipant, ConversationSummary, DirectMessage } from "../../types/chat.ts";
 import type {
     EventWall,
     MyProfile,
@@ -223,8 +223,14 @@ export const toCommentDeleted = (state: PracticeState, comment: PracticeComment)
     canDelete: false,
 });
 
-export const toWallView = (state: PracticeState, slug: string): EventWall | null =>
-    buildPracticeWalls(state.persona.committeeId).find((wall) => wall.slug === slug) ?? null;
+// Muro por slug o por nombre, sin tildes ni mayúsculas (como findWallBySlug en la API).
+export const toWallView = (state: PracticeState, slug: string): EventWall | null => {
+    const wanted = normalizeSearch(slug).trim();
+    const wall = buildPracticeWalls(state.persona.committeeId).find(
+        (item) => normalizeSearch(item.slug) === wanted || normalizeSearch(item.name) === wanted,
+    );
+    return wall ?? null;
+};
 
 // Último mensaje visible de la conversación; ante empate de hora gana el que va después en el estado.
 const lastVisibleMessage = (state: PracticeState, conversationId: string): PracticeMessage | null => {
@@ -240,7 +246,8 @@ const lastVisibleMessage = (state: PracticeState, conversationId: string): Pract
     return last;
 };
 
-const chatParticipantOf = (state: PracticeState, person: PracticePerson): ChatParticipant => {
+// Participante de chat (mapDmParticipant en la API): base de la conversación y del buscador de DM.
+export const chatParticipantOf = (state: PracticeState, person: PracticePerson): ChatParticipant => {
     const name = displayNameOf(state, person);
     return {
         id: person.membershipId,
@@ -272,6 +279,15 @@ export const toConversationSummary = (
         lastMessageAuthorId: last ? last.senderId : null,
     };
 };
+
+// Mensaje directo con los campos que la web tipa (la hora local que devuelve la API no se usa).
+export const toDirectMessage = (message: PracticeMessage): DirectMessage => ({
+    id: message.id,
+    conversationId: message.conversationId,
+    text: message.content,
+    senderId: message.senderId,
+    createdAt: message.createdAt,
+});
 
 export const toDirectoryEntry = (state: PracticeState, person: PracticePerson): ParticipantDirectoryEntry => {
     const committee = committeeOf(person.committeeId);

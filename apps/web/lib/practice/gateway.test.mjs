@@ -44,11 +44,14 @@ afterEach(() => {
     globalThis.fetch = originalFetch;
 });
 
-test("walls: devuelve los seis muros de la persona del usuario", async () => {
+test("walls: devuelve los tres muros accesibles de la persona del usuario", async () => {
     setPracticeStorageFactory(async () => createMemoryStorage());
     const response = await run("u1", "GET", "/events/practice-local/walls");
-    assert.equal(response.walls.length, 6);
-    assert.deepEqual(response.walls, buildPracticeWalls(personaFor("u1").committeeId));
+    assert.equal(response.walls.length, 3);
+    assert.deepEqual(
+        response.walls,
+        buildPracticeWalls(personaFor("u1").committeeId).filter((wall) => wall.canAccess),
+    );
 });
 
 test("camino no simulado: rechaza con PracticeRequestError 501", async () => {
