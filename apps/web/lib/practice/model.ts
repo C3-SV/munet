@@ -84,12 +84,14 @@ export type PracticeProfileEdit = {
 };
 
 // Metadatos de un adjunto subido por la persona; los binarios viven en el almacén de blobs.
+// postId: publicación que consumió el ticket (permite repetir la confirmación); null mientras está pendiente.
 export type PracticeUpload = {
     id: string;
     wallSlug: string;
     fileName: string;
     mimeType: string;
     size: number;
+    postId: string | null;
 };
 
 // Estado completo de la práctica (versión 2). Todos los ids nuevos salen de `seq`.

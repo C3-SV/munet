@@ -122,8 +122,8 @@ test("dm: las dos conversaciones de la semilla", () => {
 
 test("falla cerrada: caminos no simulados lanzan 501", () => {
     const requests = [
-        ["POST", "/posts"],
-        ["DELETE", "/posts/x"],
+        ["PUT", "/posts/practice-post-1"],
+        ["DELETE", "/profiles/me"],
         ["GET", "/admin/participants"],
         ["POST", "/auth/login"],
         ["PATCH", "/profiles/me"],

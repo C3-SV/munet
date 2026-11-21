@@ -1,5 +1,5 @@
 import type { ChatParticipant, ConversationSummary, DirectMessage } from "../../types/chat.ts";
-import type { EventWall, MyProfile, PostComment, PublicProfile } from "../../types/common.ts";
+import type { MyProfile, PostComment, PublicProfile } from "../../types/common.ts";
 import type { ParticipantDirectoryResponse } from "../api/directory.ts";
 import type { FeedResponse } from "../api/feed.ts";
 import type { EventCommittee, EventWallsResponse } from "../api/events.ts";
@@ -19,19 +19,26 @@ import {
     toMyProfile,
     toPost,
     toPublicProfile,
-    toWallView,
 } from "./views.ts";
+import {
+    PracticeRequestError,
+    readableWallOrThrow,
+    requireParam,
+    visiblePostOrThrow,
+    type PracticeRouteContext,
+} from "./router-shared.ts";
+import {
+    handleAttachmentInit,
+    handleAttachmentRemove,
+    handlePollClose,
+    handlePollVote,
+    handlePostCreate,
+    handlePostDelete,
+} from "./router-posts.ts";
 
-// Error de la práctica con el estado HTTP que la capa de peticiones debe devolver.
-export class PracticeRequestError extends Error {
-    status: number;
-
-    constructor(status: number, message: string) {
-        super(message);
-        this.name = "PracticeRequestError";
-        this.status = status;
-    }
-}
+// Los errores y el contexto de los manejadores viven en router-shared.ts; se reexportan desde aquí.
+export { PracticeRequestError };
+export type { PracticeRouteContext };
 
 export const PRACTICE_UNAVAILABLE_MESSAGE = "No disponible en modo práctica";
 
@@ -39,15 +46,6 @@ export type PracticeRequest = {
     method: string;
     path: string;
     body?: unknown;
-};
-
-// Lo que recibe cada manejador. `params` trae los segmentos `:nombre` ya decodificados.
-export type PracticeRouteContext = {
-    params: Readonly<Record<string, string>>;
-    query: URLSearchParams;
-    body: unknown;
-    state: PracticeState;
-    now: Date;
 };
 
 type Route = {
@@ -66,14 +64,6 @@ const DIRECTORY_MAX_LIMIT = 100;
 const DM_SEARCH_READ_LIMIT = 80;
 const DM_SEARCH_RESULT_LIMIT = 20;
 
-const requireParam = (params: Readonly<Record<string, string>>, name: string): string => {
-    const value = params[name];
-    if (value === undefined) {
-        throw new Error(`Falta el parámetro de ruta ${name}.`);
-    }
-    return value;
-};
-
 const practiceCommittees = (state: PracticeState): EventCommittee[] =>
     PRACTICE_COMMITTEES.map((committee, index) => ({
         id: committee.id,
@@ -85,27 +75,6 @@ const practiceCommittees = (state: PracticeState): EventCommittee[] =>
         sort_order: index + 1,
         canAccess: committee.id === state.persona.committeeId,
     }));
-
-// Muro visible o error: 404 si no existe, 403 si la persona no tiene acceso.
-const readableWallOrThrow = (state: PracticeState, slug: string, forbidden: string): EventWall => {
-    const wall = toWallView(state, slug);
-    if (wall === null) {
-        throw new PracticeRequestError(404, "Muro no encontrado");
-    }
-    if (!wall.canAccess) {
-        throw new PracticeRequestError(403, forbidden);
-    }
-    return wall;
-};
-
-// Publicación no borrada; una borrada se trata como inexistente.
-const visiblePostOrThrow = (state: PracticeState, postId: string) => {
-    const post = state.posts.find((item) => item.id === postId && !item.deleted);
-    if (post === undefined) {
-        throw new PracticeRequestError(404, "Post no encontrado en este evento");
-    }
-    return post;
-};
 
 // Orden ascendente por fecha de creación; Array.prototype.sort es estable, así que los empates conservan el orden del estado.
 const byCreatedAt = <T extends { createdAt: string }>(items: readonly T[]): T[] =>
@@ -289,6 +258,12 @@ const ROUTES: readonly Route[] = [
     { method: "GET", pattern: ["dm", "conversations"], handle: handleConversations },
     { method: "GET", pattern: ["dm", "conversations", ":conversationId", "messages"], handle: handleMessages },
     { method: "GET", pattern: ["dm", "participants"], handle: handleDmParticipants },
+    { method: "POST", pattern: ["posts"], handle: handlePostCreate },
+    { method: "POST", pattern: ["posts", "attachments", "init"], handle: handleAttachmentInit },
+    { method: "DELETE", pattern: ["posts", ":postId"], handle: handlePostDelete },
+    { method: "DELETE", pattern: ["posts", ":postId", "attachment"], handle: handleAttachmentRemove },
+    { method: "POST", pattern: ["posts", ":postId", "poll", "vote"], handle: handlePollVote },
+    { method: "POST", pattern: ["posts", ":postId", "poll", "close"], handle: handlePollClose },
 ];
 
 // Separa la ruta en segmentos decodificados y su consulta. Devuelve null si la ruta
@@ -337,12 +312,20 @@ const matchPattern = (
     return params;
 };
 
-// Enrutador síncrono: atiende solo los caminos de la tabla y falla cerrado con 501 en el resto.
-export const routePracticeRequest = (
+// Resultado de una petición: la respuesta, los ids de binarios liberados y si alguna escritura cambió el estado.
+export type PracticeOutcome = {
+    result: unknown;
+    released: string[];
+    wrote: boolean;
+};
+
+// Enrutador síncrono y sin red: atiende solo los caminos de la tabla y falla cerrado con 501 en el resto.
+// Las escrituras mutan `state` (que la pasarela conserva); cada una valida antes de tocar nada.
+export const routePracticeRequestDetailed = (
     request: PracticeRequest,
     state: PracticeState,
     options?: { now?: Date },
-): unknown => {
+): PracticeOutcome => {
     const method = request.method.toUpperCase();
     const parsed = parsePath(request.path);
     if (parsed === null) {
@@ -354,14 +337,25 @@ export const routePracticeRequest = (
         }
         const params = matchPattern(route.pattern, parsed.segments);
         if (params !== null) {
-            return route.handle({
+            const context: PracticeRouteContext = {
                 params,
                 query: parsed.query,
                 body: request.body,
                 state,
                 now: options?.now ?? new Date(),
-            });
+                released: [],
+                wrote: false,
+            };
+            const result = route.handle(context);
+            return { result, released: context.released, wrote: context.wrote };
         }
     }
     throw unavailable();
 };
+
+// Igual que routePracticeRequestDetailed, pero devuelve solo la respuesta.
+export const routePracticeRequest = (
+    request: PracticeRequest,
+    state: PracticeState,
+    options?: { now?: Date },
+): unknown => routePracticeRequestDetailed(request, state, options).result;
