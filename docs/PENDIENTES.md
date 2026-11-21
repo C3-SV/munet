@@ -14,7 +14,7 @@ Los IDs B, S, D, W, Q y A vienen de los [planes del equipo web](04-desarrollo/pl
 | 4 | Completar el ciclo del evento: borrador, cierre, archivo y reapertura; solo lectura uniforme; decidir si el panel ofrece borrar comités. | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
 | 5 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
 | 6 | Definir el mínimo de moderación para MUN ESEN (mesa, motivos, acciones sobre contenido y cuentas). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
-| 7 | Adjuntos de publicaciones: contrato de API, bucket privado y activación de la interfaz ya construida. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
+| 7 | Adjuntos de publicaciones en Cloudflare R2 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](04-desarrollo/plan-adjuntos-r2.md)). Aprobado el 20 de noviembre de 2026; en curso. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
 
 ## 2. Decisiones de producto
 
@@ -47,12 +47,17 @@ Estado verificado el 20 de noviembre de 2026 con consultas de solo lectura:
 
 Reglas vigentes ([RN-11](01-producto/reglas-de-negocio.md), REQ-16): cero o un adjunto por post, JPG/PNG ≤ 5 MB o PDF ≤ 20 MB, permisos heredados del post y retiro auditable.
 
-Trabajo pendiente (se planifica aparte):
+Decisiones del 20 de noviembre de 2026 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md)): almacenamiento en Cloudflare R2 (bucket privado) detrás de una interfaz compatible con S3; subida directa con URL firmada; descarga a demanda; un adjunto por post con índice único; moderación puede retirar con motivo; adjuntos de posts eliminados se conservan 30 días salvo retención; solo JPG, PNG y PDF; la API corre en Vercel.
 
-1. Contrato de API: carga, lectura con URL temporal y retiro; validación de tipo, tamaño y evento.
-2. Bucket privado y políticas de Storage.
-3. Enviar el archivo desde `publishFeedPost`, devolver `attachment` en los posts y poner `ATTACHMENTS_BACKEND_READY = true`.
-4. Pruebas de API y de aislamiento entre eventos. Depende de Q03.
+Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
+
+0. Cuenta, bucket privado, token, CORS y ciclo de vida de R2, a cargo del dueño de la cuenta. Variables `STORAGE_*` en `apps/api/.env` y en Vercel.
+1. Documentación y migración `003_adjuntos_un_por_post.sql` redactadas (esta revisión). La 003 no está aplicada: requiere revisión y autorización expresa.
+2. Módulo de almacenamiento (`lib/storage`) y pruebas.
+3. API: inicio de subida, creación de post con adjunto, descarga, retiro, moderación, auditoría y script de conciliación y purga.
+4. Web: envío en pasos, descarga a demanda, retiro y `ATTACHMENTS_BACKEND_READY = true`.
+5. Aplicar la 003 y verificar en el evento demo con dos cuentas. Pruebas de aislamiento entre eventos. Depende de Q03.
+- Pendiente de confirmar: umbrales de límites por membresía (3 intentos sin consumir, 20 por hora).
 
 ## 4. API, base de datos y seguridad
 

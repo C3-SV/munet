@@ -32,6 +32,8 @@ sequenceDiagram
 
 La API usa una clave privilegiada para datos; por eso la autorización de aplicación es crítica. El navegador crea además un cliente Supabase para Realtime y establece el token explícitamente solo en chat, no en feed/comentarios.
 
+[ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md) (aceptada, no implementada) añade Cloudflare R2: el navegador subirá y descargará adjuntos directamente de R2 con URL firmadas que emite la API, que sigue controlando toda la autorización.
+
 ## Límites comprobados
 
 - Hay un snapshot parcial y dos migraciones incrementales. La base reproducible y las políticas completas quedan pendientes. Véase [base de datos](base-de-datos.md).
