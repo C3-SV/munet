@@ -1,6 +1,6 @@
 # Diseño: modo práctica de MUNET («Conoce MUNET»)
 
-Estado: borrador para aprobación (21 de noviembre de 2026). Reemplaza al primer borrador, que planteaba un sandbox en el servidor con inscripción automática, límites en la base y reinicio semanal. Parte de [evento-de-entrenamiento.md](evento-de-entrenamiento.md), el evento sembrado con 40 cuentas ficticias que ya existe.
+Estado: aprobado el 21 de noviembre de 2026. Reemplaza al primer borrador, que planteaba un sandbox en el servidor con inscripción automática, límites en la base y reinicio semanal. Parte de [evento-de-entrenamiento.md](evento-de-entrenamiento.md), el evento sembrado con 40 cuentas ficticias que ya existe.
 
 ## Intención y por qué
 
@@ -60,7 +60,7 @@ Revisión del código de la web (21 de noviembre de 2026):
 ### 1. El contexto «práctica» en la web
 
 - Una membresía **ficticia solo en el cliente** (`id` y `eventId` reservados, rol participante, nombre «Práctica») que se agrega a las membresías reales **sin persistirse en ellas**. El resto de la aplicación la trata como un evento más.
-- **Acceso:** un enlace «Modo práctica» en el menú lateral y, cuando el selector de evento ya aparezca (personas con rol de administración), una opción más. No es una membresía de la base y **no cuenta** para decidir si alguien entra directo: quien tiene un solo evento real sigue entrando directo a ese evento.
+- **Acceso:** un enlace «Modo práctica» en el menú lateral y, cuando el selector de evento ya aparezca (personas con rol de administración), una tarjeta «Modo práctica» más, visible para cualquier rol con sesión. No es una membresía de la base y **no cuenta** para decidir si alguien entra directo: quien tiene un solo evento real sigue entrando directo a ese evento.
 - **Nunca por defecto:** entrar a la práctica no se guarda como evento activo. Al salir, o al iniciar sesión otra vez, se vuelve al evento real.
 - **Quién llega:** solo quien ya puede iniciar sesión (hoy se exige una membresía activa). Una cuenta pendiente o suspendida no llega a la práctica.
 - **Aviso fijo** en todas las pantallas de práctica: «Modo práctica: todo se guarda solo en tu navegador». Etiqueta «Práctica» en el menú y en el selector.
@@ -136,10 +136,10 @@ Verificado el 21 de noviembre de 2026: 61 pruebas de `lib/practice`, `tsc` y `es
 
 Límites conocidos de esta entrega, para las siguientes:
 
-- Las superficies que escriben (publicar, encuestas, comentarios, adjuntos, mensajes directos, directorio, perfil editable) responden «No disponible en modo práctica» (501) hasta la entrega 2. El formulario de publicar sí se ve.
+- Las superficies que escriben (publicar, encuestas, comentarios, adjuntos, mensajes directos, directorio, perfil editable) responden «No disponible en modo práctica» (501) hasta la entrega 2. El formulario de publicar sí se ve; al publicar, la persona lee ese mismo texto en el aviso del muro. Comentar, votar, eliminar y cerrar encuestas ya muestran el mensaje del error tal cual. Los borradores del editor no se guardan en la práctica.
+- El reinicio automático por versión «con aviso» (sección 3) no existe: la pasarela descarta el indicador `wasReset`. Es requisito de la entrega 2: cuando suba `PRACTICE_STATE_VERSION` debe avisarse en el banner de la práctica.
 - Rutas que no pasan por el desvío porque no llevan el evento en `requestApi`: `lib/api/admin.ts`, `moderation.ts` y `participants.ts` (el id va en la ruta) y `lib/api/auth.ts` (`fetch` directo). Hoy no son alcanzables desde la interfaz de práctica; la entrega 2 debe cerrarlas o comprobarlo de nuevo.
 - `hydrateAuth` pone `practice: false` y lo llaman los layouts `(admin)`, login y selector de evento: abrir esas rutas (por ejemplo con el botón «atrás») sale de la práctica. El layout `(main)` solo hidrata si aún no está hidratado.
-- `refreshContext` hace una petición a la API real aunque la práctica esté activa; hoy nadie lo llama.
 - `setPracticeStorageFactory` (solo para pruebas) queda exportada en el paquete de producción.
 - El store de autenticación y el desvío de `client.ts` no tienen pruebas automáticas dentro del repositorio (solo verificación manual y guiones fuera del repositorio).
 
