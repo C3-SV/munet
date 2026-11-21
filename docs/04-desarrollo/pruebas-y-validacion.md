@@ -7,11 +7,13 @@
 | `npm test -w api` | Suites Node de `apps/api/src`, ejecutadas desde la raíz por el script del workspace. Incluyen utilidades y pruebas con sustitutos de Supabase y bcrypt. |
 | `npm run check-types -w api` | TypeScript de la API sin emitir archivos. `npm run build -w api` hace la misma comprobación. |
 | `node --test apps/web/lib/api/base-url.test.mjs` | Normalización y composición de URL base de la API en web. |
-| `node --test apps/web/lib/*.test.mjs apps/web/lib/api/*.test.mjs` | Suites Node de utilidades de `apps/web`: fecha y hora (`format-datetime`), etiqueta de persona (`person-label`), navegación de muros (`wall-nav`), agrupación de mensajes (`chat-groups`) y las de `lib/api`. |
+| `node --test apps/web/lib/*.test.mjs apps/web/lib/api/*.test.mjs apps/web/lib/practice/*.test.mjs` | Suites Node de utilidades de `apps/web`: fecha y hora (`format-datetime`), etiqueta de persona (`person-label`), navegación de muros (`wall-nav`), agrupación de mensajes (`chat-groups`), las de `lib/api` y las del [modo práctica](diseno-sandbox-conoce-munet.md) (`lib/practice`). Estas últimas protegen que la práctica falle cerrado ante un camino sin simular, que no haga ninguna llamada `fetch` y que dos cuentas no compartan datos. |
 | `npm run check-types -w web` | TypeScript de la web (genera tipos de rutas y compila sin emitir). |
 | `npx eslint .` dentro de `apps/web` | Lint de la web. Debe dar 0 errores; la línea base tenía 32 advertencias y no puede subir. |
 | `npm run build` y `npm run check-types` | Turbo ejecuta los scripts disponibles en workspaces, incluida la API. |
 | `npm run lint` | Turbo ejecuta los scripts disponibles. La API carece de lint propio. El script de la web usa `--max-warnings 0`, por lo que falla mientras queden advertencias. |
+
+Un cambio de contrato de la API que afecte a una superficie de participante (muros, publicaciones, comentarios, mensajes directos, directorio, perfiles) obliga a actualizar el simulador del modo práctica, `apps/web/lib/practice/router.ts`, y sus pruebas. Es la «lista de revisión» de la sección 5 del [diseño del modo práctica](diseno-sandbox-conoce-munet.md#5-evitar-la-deriva-del-simulador), que explica las reglas; aquí no se repiten.
 
 El root y la web carecen de script `test`. `npm run format` escribe archivos. Las reglas visuales y de interacción de la web están en la [especificación de la mejora de UX pública](../superpowers/specs/2026-11-19-web-publica-critica-ux-design.md); este documento no las repite.
 
