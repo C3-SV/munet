@@ -15,6 +15,7 @@ import {
     sendConversationMessage,
 } from "../../../../lib/api/chat";
 import { formatDayLabel, formatTime } from "../../../../lib/format-datetime";
+import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
@@ -206,7 +207,7 @@ const ChatRoomPage = () => {
 
     useEffect(() => {
         // Realtime de la conversacion: mensajes y cambios de cabecera.
-        if (!conversationId || !supabaseBrowser || !token || !eventId) {
+        if (!conversationId || !supabaseBrowser || !token || !eventId || isPracticeEvent(eventId)) {
             return;
         }
 

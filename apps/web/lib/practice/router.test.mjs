@@ -155,6 +155,16 @@ test("falla cerrada: identificadores que no coinciden lanzan 501", () => {
     }
 });
 
+test("tolerancia: el identificador del evento puede llegar codificado", () => {
+    assert.equal(get("/events/practice%2Dlocal/walls").event.id, "practice-local");
+});
+
+test("falla cerrada: barra inicial doble, identificador en otras mayúsculas y ruta raíz lanzan 501", () => {
+    for (const path of ["//events/practice-local/walls", "/events/Practice-Local/walls", "/"]) {
+        assert.throws(() => get(path), isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE), path);
+    }
+});
+
 test("tolerancia: barra final, método en minúsculas y consulta en rutas sin parámetros", () => {
     assert.equal(get("/events/practice-local/walls/").event.id, "practice-local");
     assert.equal(

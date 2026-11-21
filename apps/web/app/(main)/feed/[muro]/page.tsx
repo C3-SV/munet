@@ -12,6 +12,7 @@ import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { AttachmentUploadError } from "../../../../lib/attachment-upload";
 import { buildWallNav } from "../../../../lib/wall-nav";
+import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { EventWall, Post } from "../../../../types/common";
@@ -144,7 +145,7 @@ const Feed = () => {
 
     useEffect(() => {
         // Realtime: sincroniza cambios en posts/polls/votos del muro actual.
-        if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden) {
+        if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden || isPracticeEvent(eventId)) {
             return;
         }
 

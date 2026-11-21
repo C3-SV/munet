@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPostComment, deletePostComment, getPostComments } from "../../lib/api/comments";
+import { isPracticeEvent } from "../../lib/practice/constants";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
 import { Button } from "../ui/Button";
@@ -161,7 +162,7 @@ const CommentsPanel = ({
 
     useEffect(() => {
         // Realtime de comentarios por `post_id`; se cancela al cerrar el panel.
-        if (!realtimeEnabled || !supabaseBrowser || !token) {
+        if (!realtimeEnabled || !supabaseBrowser || !token || isPracticeEvent(eventId)) {
             return;
         }
 

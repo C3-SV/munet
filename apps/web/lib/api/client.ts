@@ -1,4 +1,7 @@
 import { useAuthStore } from "../../stores/auth.store";
+import { runPracticeRequest } from "../practice/gateway";
+import { isPracticeEvent } from "../practice/constants";
+import { PracticeRequestError } from "../practice/router";
 import { API_URL, buildApiUrl } from "./base-url";
 
 export class ApiError extends Error {
@@ -25,6 +28,23 @@ export const requestApi = async <T>(
     path: string,
     { method = "GET", token, eventId, body, cache = "no-store" }: RequestOptions,
 ): Promise<T> => {
+    // Modo práctica: el evento local se atiende en el navegador, sin red y sin token.
+    if (isPracticeEvent(eventId)) {
+        try {
+            return (await runPracticeRequest({
+                userId: useAuthStore.getState().user?.id ?? "anonimo",
+                method,
+                path,
+                body,
+            })) as T;
+        } catch (error) {
+            if (error instanceof PracticeRequestError) {
+                throw new ApiError(error.message, error.status, { error: error.message });
+            }
+            throw error;
+        }
+    }
+
     // Cliente base para requests autenticados; agrega token y evento activo.
     const response = await fetch(buildApiUrl(API_URL, path), {
         method,
