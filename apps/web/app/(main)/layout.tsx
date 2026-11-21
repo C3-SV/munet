@@ -4,6 +4,7 @@ import React, { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
+import { PracticeBanner } from "../../components/practice/PracticeBanner";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 
 export default function MainLayout({
@@ -28,9 +29,12 @@ export default function MainLayout({
     );
 
     useEffect(() => {
-        // Recupera auth desde localStorage al montar el layout protegido.
-        hydrateAuth();
-    }, [hydrateAuth]);
+        // Recupera auth desde localStorage solo si aún no está hidratada. Volver a montar el layout
+        // (p. ej. desde /guia) no debe sacar de la práctica, que vive solo en memoria.
+        if (!hydrated) {
+            hydrateAuth();
+        }
+    }, [hydrated, hydrateAuth]);
 
     useEffect(() => {
         if (!hydrated) {
@@ -81,7 +85,10 @@ export default function MainLayout({
                 style={{ backgroundColor: "var(--bg-base)" }}
             >
                 {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
-                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>{children}</div>
+                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>
+                    <PracticeBanner />
+                    {children}
+                </div>
 
                 {!isChatRoom && <Footer />}
             </main>

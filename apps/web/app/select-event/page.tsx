@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
 import { formatRoleLabel } from "../../lib/role-label";
+import { isPracticeMembership } from "../../lib/practice/membership";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -100,6 +101,17 @@ const SelectEventPage = () => {
                             >
                                 {membership.eventName}
                             </h2>
+                            {isPracticeMembership(membership) && (
+                                <span
+                                    className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                                    style={{
+                                        backgroundColor: "var(--sidebar-active-bg)",
+                                        color: "var(--sidebar-active-text)",
+                                    }}
+                                >
+                                    Práctica
+                                </span>
+                            )}
                             <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
                                 {formatRoleLabel(membership.role)}
                             </p>
