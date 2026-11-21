@@ -42,19 +42,20 @@ const spyStorage = () => {
         log,
         failSaves: 0,
         failPutBlob: false,
+        failure: () => new Error("fallo de escritura"),
         load: () => inner.load(),
         save: async (state) => {
             log.push("save");
             if (storage.failSaves > 0) {
                 storage.failSaves -= 1;
-                throw new Error("cuota excedida");
+                throw storage.failure();
             }
             await inner.save(state);
         },
         putBlob: async (id, blob) => {
             log.push(`putBlob:${id}`);
             if (storage.failPutBlob) {
-                throw new Error("cuota de binarios excedida");
+                throw storage.failure();
             }
             await inner.putBlob(id, blob);
         },
@@ -405,11 +406,89 @@ test("save que rechaza: la escritura responde 507 y el estado en memoria queda c
 
     await assert.rejects(
         () => call("u1", "POST", "/posts", { muro: "general", content: "Se pierde" }),
-        isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes),
+        isRequestError(507, PRACTICE_LIMIT_MESSAGES.saveFailed),
     );
     const { posts } = await call("u1", "GET", "/posts?muro=general");
     assert.ok(!posts.some((post) => post.content === "Se pierde"));
     assert.ok(!(await storages.get("u1").load()).posts.some((post) => post.content === "Se pierde"));
+});
+
+test("save que rechaza por cuota (QuotaExceededError): 507 con el texto del límite de espacio", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    storage.failure = () => new DOMException("sin espacio", "QuotaExceededError");
+    storage.failSaves = 1;
+    await assert.rejects(
+        () => call("u1", "POST", "/posts", { muro: "general", content: "Sin espacio" }),
+        isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes),
+    );
+});
+
+test("putBlob que rechaza por cuota: 507 con el texto del límite de espacio", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    const upload = await initUpload("u1");
+    stashPracticeFile(upload.id, pngFile());
+    storage.failure = () => new DOMException("sin espacio", "QuotaExceededError");
+    storage.failPutBlob = true;
+    await assert.rejects(
+        () => call("u1", "POST", "/posts", { muro: "general", content: "Sin cuota", upload_id: upload.id }),
+        isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes),
+    );
+});
+
+test("el cuerpo se normaliza como JSON: una clave undefined no borra el alias ni cuenta como protegida", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    await call("u1", "PATCH", "/profiles/me", { alias: "Ana" });
+    const kept = await call("u1", "PATCH", "/profiles/me", { alias: undefined, bio: "Bio" });
+    assert.equal(kept.profile.profile.alias, "Ana");
+    assert.equal(kept.profile.profile.bio, "Bio");
+    await call("u1", "PATCH", "/profiles/me", { role: undefined, bio: "Otra" });
+});
+
+test("un cuerpo que no se puede serializar falla cerrado con 501", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const circular = {};
+    circular.self = circular;
+    await assert.rejects(
+        () => call("u1", "PATCH", "/profiles/me", circular),
+        isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
+    );
+    await assert.rejects(
+        () => call("u1", "PATCH", "/profiles/me", { big: 1n }),
+        isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
+    );
+});
+
+test("descarga: la URL se reutiliza por adjunto, lleva el tipo del adjunto y se revoca una sola vez", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    // Binario guardado sin tipo: la URL debe tomar el tipo del adjunto validado.
+    await storages.get("u1").putBlob(post.attachment.id, new Blob([new Uint8Array([1, 2, 3])]));
+    const first = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+    const second = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+    assert.equal(second.url, first.url);
+    assert.equal(createdUrls.length, 1);
+    assert.equal(createdUrls[0].blob.type, "image/png");
+    await call("u1", "DELETE", `/posts/${post.id}/attachment`);
+    assert.deepEqual(revokedUrls, [first.url]);
+});
+
+test("descarga de la semilla: reutiliza URL y Blob entre peticiones", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    const seeded = posts.find((item) => item.attachment !== null) ??
+        (await call("u1", "GET", "/posts?muro=avisos")).posts.find((item) => item.attachment !== null);
+    assert.ok(seeded);
+    const first = await call("u1", "GET", `/posts/${seeded.id}/attachment/download`);
+    const second = await call("u1", "GET", `/posts/${seeded.id}/attachment/download`);
+    assert.equal(second.url, first.url);
+    assert.equal(createdUrls.length, 1);
 });
 
 test("save que rechaza al publicar con adjunto: el binario se borra, el archivo vuelve al stash y el reintento funciona", async () => {
@@ -423,7 +502,7 @@ test("save que rechaza al publicar con adjunto: el binario se borra, el archivo 
     const body = { muro: "general", content: "Con adjunto", upload_id: upload.id };
     storage.failSaves = 1;
 
-    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes));
+    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.saveFailed));
     const putId = storage.log.find((entry) => entry.startsWith("putBlob:")).slice("putBlob:".length);
     assert.equal(await storage.getBlob(putId), null, "el binario que llegó a guardarse se borra");
     assert.equal(peekPracticeFile(upload.id), file, "el archivo vuelve al stash");
@@ -447,7 +526,7 @@ test("putBlob que rechaza (cuota de binarios): 507, estado sin cambios y el arch
     storage.log.splice(0);
     storage.failPutBlob = true;
 
-    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes));
+    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.saveFailed));
     assert.equal(storage.log.includes("save"), false, "no se guarda un estado sin su binario");
     const { posts } = await call("u1", "GET", "/posts?muro=general");
     assert.ok(!posts.some((post) => post.content === "Sin binario"));
@@ -489,7 +568,7 @@ test("dos escrituras a la vez se atienden en orden: si la primera no se guarda, 
         call("u1", "POST", "/posts", { muro: "general", content: "Segunda" }),
     ]);
     assert.equal(first.status, "rejected");
-    assert.ok(isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes)(first.reason));
+    assert.ok(isRequestError(507, PRACTICE_LIMIT_MESSAGES.saveFailed)(first.reason));
     assert.equal(second.status, "fulfilled");
     const { posts } = await call("u1", "GET", "/posts?muro=general");
     assert.ok(!posts.some((post) => post.content === "Primera"));

@@ -115,7 +115,7 @@ test("campos protegidos: 400 con la lista en el orden role, participant_code, de
     );
 });
 
-test("una clave protegida presente con valor undefined también cuenta", () => {
+test("el enrutador directo trata una clave protegida con valor undefined como presente (la pasarela la elimina al normalizar el JSON)", () => {
     assertFails(() => call("PATCH", "/profiles/me", { role: undefined }), 400, `${PROTECTED_PREFIX}role`);
 });
 

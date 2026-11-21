@@ -22,6 +22,7 @@ export const PRACTICE_LIMIT_MESSAGES = {
     pdfSize: `Los PDF de la práctica pueden pesar hasta ${PRACTICE_LIMITS.maxPdfBytes / MEGABYTE} MB.`,
     avatarSize: `La imagen debe tener un tamano maximo de ${PRACTICE_LIMITS.maxAvatarBytes / 1024}KB en la practica`,
     totalBytes: `La práctica alcanzó su límite de ${PRACTICE_LIMITS.maxTotalBytes / MEGABYTE} MB de datos. Reinicia la práctica para liberar espacio.`,
+    saveFailed: "No se pudo guardar tu práctica en este navegador. Reinicia la práctica o inténtalo de nuevo.",
     ownPosts: `En la práctica puedes crear hasta ${PRACTICE_LIMITS.maxOwnPosts} publicaciones. Reinicia la práctica para empezar de cero.`,
     ownComments: `En la práctica puedes crear hasta ${PRACTICE_LIMITS.maxOwnComments} comentarios. Reinicia la práctica para empezar de cero.`,
 } as const;

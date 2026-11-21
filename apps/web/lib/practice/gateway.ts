@@ -37,8 +37,9 @@ type PracticeSession = {
     state: Promise<PracticeState> | null;
     // Cola de peticiones del usuario: cada una espera a la anterior, así una reversión nunca pisa otra escritura.
     queue: Promise<unknown>;
-    // URL temporales de descarga por id de adjunto; se revocan al retirar el adjunto o al reiniciar.
-    objectUrls: Map<string, string[]>;
+    // URL temporal de descarga por id de adjunto, reutilizada en la sesión; se revoca al retirar el adjunto,
+    // al reiniciar o al cerrar sesión.
+    objectUrls: Map<string, string>;
 };
 
 const CREATE_POST_ROUTE = "POST /posts";
@@ -135,7 +136,8 @@ const restoreState = (session: PracticeSession, snapshot: PracticeState): void =
 };
 
 const revokeAttachmentUrls = (session: PracticeSession, attachmentId: string): void => {
-    for (const url of session.objectUrls.get(attachmentId) ?? []) {
+    const url = session.objectUrls.get(attachmentId);
+    if (url !== undefined) {
         URL.revokeObjectURL(url);
     }
     session.objectUrls.delete(attachmentId);
@@ -165,15 +167,24 @@ const discardBlob = async (storage: PracticeStorage, attachmentId: string): Prom
 // Descarga: el binario guardado o, si el adjunto es de la semilla, el generado. Devuelve una URL blob: local.
 const attachmentDownload = async (
     session: PracticeSession,
+    state: PracticeState,
     attachmentId: string,
 ): Promise<{ url: string; expiresAt: string }> => {
+    const expiresAt = new Date(Date.now() + DOWNLOAD_TTL_MS).toISOString();
+    const existing = session.objectUrls.get(attachmentId);
+    if (existing !== undefined) {
+        return { url: existing, expiresAt };
+    }
     const blob = (await session.storage.getBlob(attachmentId)) ?? seedBlobFor(attachmentId);
     if (blob === null) {
         throw new PracticeRequestError(404, "El post no tiene adjunto");
     }
-    const url = URL.createObjectURL(blob);
-    session.objectUrls.set(attachmentId, [...(session.objectUrls.get(attachmentId) ?? []), url]);
-    return { url, expiresAt: new Date(Date.now() + DOWNLOAD_TTL_MS).toISOString() };
+    // El tipo sale del adjunto validado en el estado, no del que traiga el binario guardado.
+    const mimeType = state.posts.find((post) => post.attachment?.id === attachmentId)?.attachment?.mimeType;
+    const typed = mimeType === undefined || blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+    const url = URL.createObjectURL(typed);
+    session.objectUrls.set(attachmentId, url);
+    return { url, expiresAt };
 };
 
 // Tope total: el estado serializado más el tamaño declarado de los adjuntos propios.
@@ -211,6 +222,10 @@ const discardReplacedTickets = (snapshot: PracticeState, state: PracticeState): 
     }
 };
 
+// Cuota agotada del navegador: solo entonces se culpa al tope de espacio; otros fallos tienen su propio texto.
+const isQuotaError = (error: unknown): boolean =>
+    typeof error === "object" && error !== null && (error as { name?: unknown }).name === "QuotaExceededError";
+
 // Guarda una escritura confirmada. Orden: tope, binario nuevo, estado y, solo después, borrado de los binarios
 // liberados. Si el tope o el guardado fallan, el estado vuelve a la copia previa, el binario nuevo se borra y el
 // archivo vuelve al stash para que el reintento funcione. Las escrituras de contenido no degradan a memoria.
@@ -242,7 +257,7 @@ const persistWrite = async (
             blobStored = true;
         }
         await storage.save(state);
-    } catch {
+    } catch (error) {
         restoreState(session, snapshot);
         if (blobStored && created !== null) {
             await discardBlob(storage, created.attachmentId);
@@ -250,7 +265,10 @@ const persistWrite = async (
         if (created !== null && file !== null) {
             stashPracticeFile(created.uploadId, file);
         }
-        throw new PracticeRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes);
+        throw new PracticeRequestError(
+            507,
+            isQuotaError(error) ? PRACTICE_LIMIT_MESSAGES.totalBytes : PRACTICE_LIMIT_MESSAGES.saveFailed,
+        );
     }
 
     discardReplacedTickets(snapshot, state);
@@ -268,7 +286,7 @@ const executeRequest = async (session: PracticeSession, input: PracticeInput): P
     // La descarga se valida con el enrutador (sin escribir) y después se entrega la URL del binario.
     if (route === ATTACHMENT_DOWNLOAD_ROUTE) {
         const { attachmentId } = routePracticeRequestDetailed(request, state).result as { attachmentId: string };
-        return attachmentDownload(session, attachmentId);
+        return attachmentDownload(session, state, attachmentId);
     }
 
     // Confirmar una subida pendiente exige su archivo en el stash antes de enrutar. El archivo no se consume
@@ -283,17 +301,25 @@ const executeRequest = async (session: PracticeSession, input: PracticeInput): P
         throw new PracticeRequestError(404, "Subida no encontrada");
     }
 
-    const snapshot = structuredClone(state);
+    // Las lecturas (GET) no escriben: no se copia el estado completo.
+    const snapshot = input.method.toUpperCase() === "GET" ? null : structuredClone(state);
     let outcome: PracticeOutcome;
     try {
         outcome = routePracticeRequestDetailed(request, state);
     } catch (error) {
-        restoreState(session, snapshot);
+        if (snapshot !== null) {
+            restoreState(session, snapshot);
+        }
         throw error;
     }
-    // Las lecturas no escriben: sin cambios no hay guardado.
+    // Sin cambios no hay guardado.
     if (!outcome.wrote) {
         return outcome.result;
+    }
+    if (snapshot === null) {
+        // Una lectura que escribe no debería existir; sin copia para revertir se descarta el estado y se falla cerrado.
+        session.state = null;
+        throw new PracticeRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE);
     }
 
     const attachmentId = pendingUploadId === null ? null : attachmentCreatedFrom(state, pendingUploadId);
@@ -309,8 +335,16 @@ export const runPracticeRequest = async (input: PracticeInput): Promise<unknown>
     if (typeof input.method !== "string" || typeof input.path !== "string") {
         throw new PracticeRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE);
     }
+    // La red serializa el cuerpo como JSON: se normaliza igual (una clave con valor undefined desaparece).
+    let body: unknown;
+    try {
+        const serialized = input.body === undefined ? undefined : JSON.stringify(input.body);
+        body = serialized === undefined ? undefined : JSON.parse(serialized);
+    } catch {
+        throw new PracticeRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE);
+    }
     const session = await sessionFor(input.userId);
-    return runExclusive(session, () => executeRequest(session, input));
+    return runExclusive(session, () => executeRequest(session, { ...input, body }));
 };
 
 // Borra el almacén del usuario, sus binarios de descarga y sus archivos pendientes, y olvida el estado memorizado.

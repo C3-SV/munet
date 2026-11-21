@@ -174,16 +174,20 @@ export const makeSeedPdf = (): Uint8Array<ArrayBuffer> => {
 
 let seedPng: Uint8Array<ArrayBuffer> | null = null;
 let seedPdf: Uint8Array<ArrayBuffer> | null = null;
+let seedPngBlob: Blob | null = null;
+let seedPdfBlob: Blob | null = null;
 
-// Blob del adjunto sembrado, o null si el id no es de la semilla. Los binarios se generan una vez.
+// Blob del adjunto sembrado, o null si el id no es de la semilla. Los binarios y sus Blob se generan una vez.
 export const seedBlobFor = (attachmentId: string): Blob | null => {
     if (attachmentId === SEED_IMAGE_ATTACHMENT_ID) {
         seedPng ??= makeSeedPng();
-        return new Blob([seedPng], { type: "image/png" });
+        seedPngBlob ??= new Blob([seedPng], { type: "image/png" });
+        return seedPngBlob;
     }
     if (attachmentId === SEED_PDF_ATTACHMENT_ID) {
         seedPdf ??= makeSeedPdf();
-        return new Blob([seedPdf], { type: "application/pdf" });
+        seedPdfBlob ??= new Blob([seedPdf], { type: "application/pdf" });
+        return seedPdfBlob;
     }
     return null;
 };
