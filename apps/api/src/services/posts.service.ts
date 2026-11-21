@@ -4,6 +4,14 @@ import { POST_SELECT, type PostRow } from '../types/posts.types';
 import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug, mapPost } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
+import {
+  abortClaim,
+  attachAttachmentsToPosts,
+  attachClaimedUpload,
+  claimUploadForPost,
+  completeClaim,
+  type ClaimedUpload,
+} from './attachments.service';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
 type PollStatus = 'OPEN' | 'CLOSED';
@@ -307,7 +315,12 @@ const buildPostResponseById = async (params: {
     eventId: params.eventId,
     membership: params.membership,
   });
-  const [enriched] = await attachCommentCounts({ posts: [withPoll], eventId: params.eventId });
+  const [withCounts] = await attachCommentCounts({ posts: [withPoll], eventId: params.eventId });
+  const [enriched] = await attachAttachmentsToPosts({
+    posts: [withCounts],
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
 
   return enriched;
 };
@@ -445,12 +458,17 @@ export const getPostsByWall = async (params: {
   });
 
   const postsWithCounts = await attachCommentCounts({ posts: postsWithPolls, eventId: params.eventId });
+  const postsWithAttachments = await attachAttachmentsToPosts({
+    posts: postsWithCounts,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
 
   return {
     status: 200,
     body: {
       wall: wallView,
-      posts: postsWithCounts,
+      posts: postsWithAttachments,
     },
   };
 };
@@ -461,6 +479,8 @@ export const createPostService = async (payload: {
   content?: string;
   postType?: string;
   pollOptions?: string[];
+  // Intento de subida iniciado con POST /posts/attachments/init (adjunto opcional).
+  uploadId?: unknown;
   eventId: string;
   membership: AuthMembership;
 }) => {
@@ -520,6 +540,40 @@ export const createPostService = async (payload: {
     };
   }
 
+  // Adjunto: se reclama el intento, se verifica el objeto y se copia a su ruta final ANTES de
+  // crear el post. Así nunca existe una referencia a un objeto que no está.
+  let claim: ClaimedUpload | null = null;
+
+  if (payload.uploadId !== undefined && payload.uploadId !== null) {
+    const outcome = await claimUploadForPost({
+      eventId,
+      membership,
+      wallId: matchedWall.id,
+      uploadId: payload.uploadId,
+    });
+
+    if (outcome.kind === 'error') {
+      return outcome.result;
+    }
+
+    if (outcome.kind === 'replay') {
+      // Reintento del cliente tras un corte: devuelve el post ya creado en vez de duplicarlo.
+      const existing = await buildPostResponseById({ postId: outcome.postId, eventId, membership });
+
+      return existing
+        ? { status: 200, body: { post: existing } }
+        : { status: 404, body: { error: 'Post no encontrado' } };
+    }
+
+    claim = outcome.claim;
+  }
+
+  const abortAttachment = async () => {
+    if (claim) {
+      await abortClaim(claim);
+    }
+  };
+
   const { data: insertedPost, error: insertError } = await supabaseAdmin
     .from('posts')
     .insert({
@@ -535,10 +589,25 @@ export const createPostService = async (payload: {
     .single();
 
   if (insertError || !insertedPost) {
+    await abortAttachment();
     return {
       status: 400,
       body: { error: insertError?.message ?? 'No se pudo crear el post' },
     };
+  }
+
+  if (claim) {
+    const attachError = await attachClaimedUpload({ claim, postId: insertedPost.id, membership });
+
+    if (attachError) {
+      // Compensación: sin adjunto no hay post. Se borra el post y el objeto final, y se libera el intento.
+      await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
+      return {
+        status: 400,
+        body: { error: 'No se pudo guardar el adjunto. Intenta de nuevo.' },
+      };
+    }
   }
 
   if (postType === 'TEXT') {
@@ -570,6 +639,7 @@ export const createPostService = async (payload: {
     if (pollError || !pollData) {
       // Rollback manual del post para no dejar publicación huérfana sin encuesta.
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
       return {
         status: 400,
         body: { error: pollError?.message ?? 'No se pudo crear la encuesta' },
@@ -590,6 +660,7 @@ export const createPostService = async (payload: {
       // Si fallan opciones, revertimos poll y post para mantener consistencia.
       await supabaseAdmin.from('polls').delete().eq('id', pollData.id);
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
       return {
         status: 400,
         body: { error: optionsError.message ?? 'No se pudieron crear las opciones de la encuesta' },
@@ -604,6 +675,11 @@ export const createPostService = async (payload: {
       outcome: 'SUCCESS',
       reason: `Encuesta creada en muro ${matchedWall.id} para post ${insertedPost.id}`,
     });
+  }
+
+  if (claim) {
+    // El post y el adjunto ya existen: se cierra el intento y se limpia el objeto temporal.
+    await completeClaim(claim, insertedPost.id);
   }
 
   const post = await buildPostResponseById({
@@ -1006,7 +1082,8 @@ export const deletePostService = async (params: {
   return {
     status: 200,
     body: {
-      post: postWithPoll,
+      // Un post eliminado no sirve su adjunto.
+      post: { ...postWithPoll, attachment: null },
     },
   };
 };

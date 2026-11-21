@@ -14,6 +14,15 @@ function load(file, imports) {
   return module.exports;
 }
 
+// Estas pruebas no ejercitan adjuntos: el servicio de adjuntos se sustituye por uno vacío.
+const NO_ATTACHMENTS = {
+  attachAttachmentsToPosts: async ({ posts }) => posts.map(post => ({ ...post, attachment: null })),
+  claimUploadForPost: async () => assert.fail(),
+  attachClaimedUpload: async () => assert.fail(),
+  completeClaim: async () => assert.fail(),
+  abortClaim: async () => assert.fail(),
+};
+
 test('feed selecciona y expone fijados y ordena antes de los posts recientes', async () => {
   const types = load(__dirname + '/../types/posts.types.ts', {});
   const utils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } });
@@ -28,6 +37,7 @@ test('feed selecciona y expone fijados y ordena antes de los posts recientes', a
     '../utils/audit.logger': { logAudit() { assert.fail(); } },
     '../utils/posts.utils': utils,
     '../utils/rbac.utils': { isAdminRole: () => false },
+    './attachments.service': NO_ATTACHMENTS,
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });
@@ -60,6 +70,7 @@ test('feed incluye commentCount con comentarios visibles por post', async () => 
     '../utils/audit.logger': { logAudit() { assert.fail(); } },
     '../utils/posts.utils': utils,
     '../utils/rbac.utils': { isAdminRole: () => false },
+    './attachments.service': NO_ATTACHMENTS,
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });

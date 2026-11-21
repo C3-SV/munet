@@ -10,6 +10,7 @@ import { Button } from "../../../../components/ui/Button";
 import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
+import { AttachmentUploadError } from "../../../../lib/attachment-upload";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
@@ -18,6 +19,20 @@ import type { EventWall, Post } from "../../../../types/common";
 // Mensajes humanos: el detalle técnico no llega al participante.
 const FEED_LOAD_ERROR = "No se pudieron cargar las publicaciones. Revisa tu conexión e inténtalo de nuevo.";
 const FEED_PUBLISH_ERROR = "No se pudo publicar tu publicación. Tu texto sigue en el editor; revisa tu conexión e inténtalo de nuevo.";
+const FEED_PUBLISH_ATTACHMENT_ERROR = "No se pudo publicar con el archivo adjunto. Tu texto y el archivo siguen en el editor; inténtalo de nuevo.";
+
+// Con adjunto, los errores de la API sobre el archivo (tipo, tamaño, límites) se muestran tal cual.
+const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
+    if (error instanceof AttachmentUploadError) {
+        return error.message;
+    }
+
+    if (hasAttachment && error instanceof ApiError && error.status >= 400 && error.status < 500) {
+        return error.message;
+    }
+
+    return hasAttachment ? FEED_PUBLISH_ATTACHMENT_ERROR : FEED_PUBLISH_ERROR;
+};
 
 const Feed = () => {
     const params = useParams();
@@ -274,7 +289,7 @@ const Feed = () => {
         content: string;
         postType: "TEXT" | "POLL";
         pollOptions?: string[];
-        // Adjunto elegido en el editor. `publishFeedPost` aún no lo envía: falta soporte de API y Storage.
+        // Adjunto elegido en el editor: se sube a almacenamiento y luego se crea el post.
         attachment?: File;
     }) => {
         // Publica y actualiza estado local optimistamente con el post retornado.
@@ -289,13 +304,14 @@ const Feed = () => {
                 content: draft.content,
                 postType: draft.postType,
                 pollOptions: draft.pollOptions,
+                attachment: draft.attachment,
                 token,
                 eventId,
             });
 
             setPosts((currentPosts) => [newPost, ...currentPosts]);
         } catch (submitError) {
-            setPublishError(FEED_PUBLISH_ERROR);
+            setPublishError(publishErrorMessage(submitError, Boolean(draft.attachment)));
             throw submitError;
         }
     };

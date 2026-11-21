@@ -27,6 +27,20 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Un nivel de respuesta. Anuncios solo para administración. |
 | `DELETE /posts/:postId/comments/:commentId` | — | Autor o administración. |
 
+### Adjuntos (planificado, no implementado)
+
+Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md) y [plan-adjuntos-r2.md](../04-desarrollo/plan-adjuntos-r2.md). No existe en el código.
+
+| Método y ruta | Entrada | Regla principal |
+|---|---|---|
+| `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 5 MB o PDF ≤ 20 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 3 intentos sin consumir o más de 20 por hora. |
+| `POST /posts` con `upload_id` | Los campos actuales más `upload_id` | Verifica el objeto, lo copia a su ruta final y crea post y adjunto. Un intento solo se usa una vez; un reintento devuelve el mismo post. |
+| `GET /posts/:postId/attachment/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. |
+| `DELETE /posts/:postId/attachment` | — | El autor retira su adjunto. |
+| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
+
+`GET /posts` incluirá `attachment` (`id`, `name`, `mimeType`, `size`, `canRemove`) sin URL. `canRemove` es verdadero solo para el autor del post.
+
 ## Perfiles
 
 | Método y ruta | Entrada | Regla principal |
@@ -84,7 +98,8 @@ Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como 
 | Método y ruta | Entrada principal | Uso en web |
 |---|---|---|
 | `GET /admin/moderation/walls` | `event_id` | Selector de muro con `visible_posts` y `pinned_posts`. |
-| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original y datos de borrado. |
+| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original, datos de borrado y `attachment` (`id`, `name`, `mimeType`, `size`, o `null`), también en posts eliminados hasta la purga. |
+| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Botón «Retirar adjunto» de la tarjeta. Retira el adjunto sin borrar el post. 404 si ya no hay adjunto. Audita `MODERATE_DELETE_ATTACHMENT`. |
 | `GET /admin/moderation/posts/:postId/comments` | `status?` | Comentarios al expandir un post. La web pide `ALL`. |
 | `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |
 | `POST /admin/moderation/comments/:commentId/delete` | `reason` (3–500) | Igual que el anterior. |

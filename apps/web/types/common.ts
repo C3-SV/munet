@@ -21,7 +21,7 @@ export interface Post {
     deletedByActorType?: "AUTHOR" | "ADMIN" | null;
     canDelete?: boolean;
     poll?: PollData | null;
-    // Cero o un adjunto por publicación. La API todavía no lo devuelve.
+    // Cero o un adjunto por publicación. Sin URL: se pide a demanda al abrirlo.
     attachment?: PostAttachment | null;
     // Total de comentarios visibles; lo calcula la API.
     commentCount?: number;
@@ -33,7 +33,8 @@ export interface PostAttachment {
     name: string;
     mimeType: string;
     size: number;
-    url: string;
+    // Solo el autor puede retirar su adjunto desde el feed.
+    canRemove: boolean;
 }
 
 export interface PollOption {

@@ -7,14 +7,17 @@ import {
     listModerationComments,
     MAX_PINNED_POSTS,
     pinPost,
+    removeModerationAttachment,
     unpinPost,
     type ModerationComment,
     type ModerationDetail,
     type ModerationPost,
 } from "../../lib/api/moderation";
+import { formatFileSize, isImageAttachment } from "../../lib/attachments";
 import { formatDateTime } from "../../lib/format-datetime";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { IconFile } from "../ui/icons";
 import { PersonLabel } from "../ui/PersonLabel";
 import { AdminReasonDialog } from "./AdminReasonDialog";
 
@@ -32,7 +35,29 @@ type ModerationPostCardProps = {
 
 type DeleteTarget =
     | { kind: "post" }
+    | { kind: "attachment" }
     | { kind: "comment"; comment: ModerationComment };
+
+const DIALOG_COPY: Record<DeleteTarget["kind"], { title: string; description: string; confirmLabel: string }> = {
+    post: {
+        title: "¿Eliminar esta publicación?",
+        description:
+            "El contenido dejará de verse para los participantes. Quedará registrado quién lo eliminó y por qué.",
+        confirmLabel: "Eliminar",
+    },
+    comment: {
+        title: "¿Eliminar este comentario?",
+        description:
+            "El contenido dejará de verse para los participantes. Quedará registrado quién lo eliminó y por qué.",
+        confirmLabel: "Eliminar",
+    },
+    attachment: {
+        title: "¿Retirar este adjunto?",
+        description:
+            "El archivo dejará de estar disponible y no se puede recuperar. La publicación y su texto se conservan. Quedará registrado quién lo retiró y por qué.",
+        confirmLabel: "Retirar adjunto",
+    },
+};
 
 const TYPE_LABELS: Record<ModerationPost["post_type"], string | null> = {
     TEXT: null,
@@ -190,6 +215,10 @@ export const ModerationPostCard = ({
                 await deleteModerationPost(token, post.id, reason);
                 setDeleteTarget(null);
                 onChanged("Publicación eliminada.");
+            } else if (deleteTarget.kind === "attachment") {
+                await removeModerationAttachment(token, post.id, reason);
+                setDeleteTarget(null);
+                onChanged("Adjunto retirado.");
             } else {
                 await deleteModerationComment(token, deleteTarget.comment.id, reason);
                 setDeleteTarget(null);
@@ -235,6 +264,42 @@ export const ModerationPostCard = ({
             >
                 {post.content}
             </p>
+
+            {post.attachment && (
+                <div
+                    className="mt-3 flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5"
+                    style={{ border: "1px solid var(--border-color)" }}
+                >
+                    <span style={{ color: "var(--text-accent)" }}>
+                        <IconFile size={22} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span
+                            className="block truncate text-sm font-semibold font-heading"
+                            style={{ color: "var(--text-primary)" }}
+                            title={post.attachment.name}
+                        >
+                            {post.attachment.name}
+                        </span>
+                        <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                            {isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} ·{" "}
+                            {formatFileSize(post.attachment.size)}
+                        </span>
+                    </span>
+                    <Button
+                        variant="danger-text"
+                        size="sm"
+                        onClick={() => {
+                            setDialogError(null);
+                            setDeleteTarget({ kind: "attachment" });
+                        }}
+                        disabled={busy || actionsBlocked}
+                        aria-label={`Retirar adjunto ${post.attachment.name}`}
+                    >
+                        Retirar adjunto
+                    </Button>
+                </div>
+            )}
 
             {isDeleted && (
                 <DeletionInfo
@@ -358,13 +423,9 @@ export const ModerationPostCard = ({
 
             {deleteTarget && (
                 <AdminReasonDialog
-                    title={
-                        deleteTarget.kind === "post"
-                            ? "¿Eliminar esta publicación?"
-                            : "¿Eliminar este comentario?"
-                    }
-                    description="El contenido dejará de verse para los participantes. Quedará registrado quién lo eliminó y por qué."
-                    confirmLabel="Eliminar"
+                    title={DIALOG_COPY[deleteTarget.kind].title}
+                    description={DIALOG_COPY[deleteTarget.kind].description}
+                    confirmLabel={DIALOG_COPY[deleteTarget.kind].confirmLabel}
                     tone="danger"
                     loading={busy}
                     error={dialogError}

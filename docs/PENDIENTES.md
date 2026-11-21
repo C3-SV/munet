@@ -14,7 +14,7 @@ Los IDs B, S, D, W, Q y A vienen de los [planes del equipo web](04-desarrollo/pl
 | 4 | Completar el ciclo del evento: borrador, cierre, archivo y reapertura; solo lectura uniforme; decidir si el panel ofrece borrar comités. | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
 | 5 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
 | 6 | Definir el mínimo de moderación para MUN ESEN (mesa, motivos, acciones sobre contenido y cuentas). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
-| 7 | Adjuntos de publicaciones: contrato de API, bucket privado y activación de la interfaz ya construida. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
+| 7 | Adjuntos de publicaciones en Cloudflare R2 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](04-desarrollo/plan-adjuntos-r2.md)). Aprobado el 20 de noviembre de 2026; en curso. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
 
 ## 2. Decisiones de producto
 
@@ -43,16 +43,22 @@ Estado verificado el 20 de noviembre de 2026 con consultas de solo lectura:
 - La tabla `attachments` existe con 0 filas. Difiere del snapshot en `CHECK size_bytes >= 0` (migración 001).
 - El único bucket es `profile-images` (público, avatares). No existe un bucket privado para adjuntos.
 - La API no tiene endpoints de adjuntos.
-- La web ya valida y muestra el adjunto en el editor y en la tarjeta (`apps/web/lib/attachments.ts`), pero `ATTACHMENTS_BACKEND_READY = false` y el archivo no se envía.
+- Al 20 de noviembre de 2026 la API (endpoints, orden de operaciones y compensaciones) y la web (envío en pasos, descarga a demanda y retiro por el autor) están implementadas en la rama, con pruebas de unidad. La migración 003 está aplicada y el recorrido real en el evento demo (subida desde el navegador, descarga, retiro por el autor y por moderación, rechazos y auditoría) pasó el 20 de noviembre de 2026; el detalle está en el [plan](04-desarrollo/plan-adjuntos-r2.md). Falta probar el origen de producción contra el CORS del bucket y archivos grandes desde el navegador. La bandera `ATTACHMENTS_BACKEND_READY` se eliminó: la web envía el archivo siempre. Sin la 003 y las variables `STORAGE_*` en el servidor, publicar con adjunto falla y el texto se conserva en el editor.
+- El panel de moderación muestra el adjunto de cada post y ofrece «Retirar adjunto» con motivo (verificado el 20 de noviembre de 2026 en el evento demo).
 
 Reglas vigentes ([RN-11](01-producto/reglas-de-negocio.md), REQ-16): cero o un adjunto por post, JPG/PNG ≤ 5 MB o PDF ≤ 20 MB, permisos heredados del post y retiro auditable.
 
-Trabajo pendiente (se planifica aparte):
+Decisiones del 20 de noviembre de 2026 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md)): almacenamiento en Cloudflare R2 (bucket privado) detrás de una interfaz compatible con S3; subida directa con URL firmada; descarga a demanda; un adjunto por post con índice único; moderación puede retirar con motivo; adjuntos de posts eliminados se conservan 30 días salvo retención; solo JPG, PNG y PDF; la API corre en Vercel.
 
-1. Contrato de API: carga, lectura con URL temporal y retiro; validación de tipo, tamaño y evento.
-2. Bucket privado y políticas de Storage.
-3. Enviar el archivo desde `publishFeedPost`, devolver `attachment` en los posts y poner `ATTACHMENTS_BACKEND_READY = true`.
-4. Pruebas de API y de aislamiento entre eventos. Depende de Q03.
+Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
+
+0. Cuenta, bucket privado, token, CORS y ciclo de vida de R2, a cargo del dueño de la cuenta. Variables `STORAGE_*` en `apps/api/.env` y en Vercel.
+1. Documentación y migración `003_adjuntos_un_por_post.sql`: hechas. La 003 se aplicó el 20 de noviembre de 2026 y quedó verificada.
+2. Módulo de almacenamiento (`lib/storage`) y pruebas.
+3. API: inicio de subida, creación de post con adjunto, descarga, retiro, moderación, auditoría y script de conciliación y purga.
+4. Web: envío en pasos, descarga a demanda y retiro por el autor (hecho, sin verificar con sesión). El botón de retiro por moderación en el panel también está hecho.
+5. Aplicar la 003 y verificar en el evento demo con dos cuentas. Pruebas de aislamiento entre eventos. Depende de Q03.
+- Pendiente de confirmar: umbrales de límites por membresía (3 intentos sin consumir, 20 por hora).
 
 ## 4. API, base de datos y seguridad
 

@@ -93,7 +93,7 @@ test('listados de moderacion: muros activos, paginacion, autor y ultimo motivo d
   assert.ok(walls.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'ACTIVE'));
 
   const row = { id: 'post', status: 'DELETED', content: 'Contenido original', deleted_by_membership_uuid: 'moderator', author_membership_id: 'author', author: { id: 'author', participant_code: 'ABC', delegation_code: '#123', profiles: [{ first_name: 'Ana', last_name: 'Perez', alias: 'AnaP' }], committees: { id: 'committee', name: 'Consejo', code: 'CS' } } };
-  const h = harness([{ data: [row], count: 21 }, { data: { first_name: 'Mod', last_name: 'Uno' } }, { data: { reason: 'Motivo mas reciente' } }]);
+  const h = harness([{ data: [row], count: 21 }, { data: { first_name: 'Mod', last_name: 'Uno' } }, { data: { reason: 'Motivo mas reciente' } }, { data: [{ id: 'att', post_id: 'post', file_name: 'acta.pdf', mime_type: 'application/pdf', size_bytes: '2048' }] }]);
   h.req.query = { wall_id: 'wall', status: 'ALL', page: '2', limit: '10' };
   await h.controller.listModerationPosts(h.req, h.res);
   assert.equal(h.res.statusCode, 200);
@@ -103,6 +103,11 @@ test('listados de moderacion: muros activos, paginacion, autor y ultimo motivo d
   assert.equal(h.res.body.posts[0].deleted_by_name, 'Mod Uno');
   assert.equal(h.res.body.posts[0].deletion_reason, 'Motivo mas reciente');
   assert.equal(h.res.body.posts[0].content, 'Contenido original');
+  assert.deepEqual(JSON.parse(JSON.stringify(h.res.body.posts[0].attachment)), { id: 'att', name: 'acta.pdf', mimeType: 'application/pdf', size: 2048 });
+  const attachmentsCall = h.calls[3];
+  assert.equal(attachmentsCall.table, 'attachments');
+  assert.ok(attachmentsCall.steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
+  assert.ok(attachmentsCall.steps.some(s => s[0] === 'in' && s[1] === 'post_id' && s[2][0] === 'post'));
   assert.deepEqual(JSON.parse(JSON.stringify(h.res.body.pagination)), { page: 2, limit: 10, total: 21, total_pages: 3 });
   assert.ok(h.calls[0].steps.some(s => s[0] === 'range' && s[1] === 10 && s[2] === 19));
   assert.ok(!h.calls[0].steps.some(s => s[0] === 'is' && s[1] === 'deleted_at'));
@@ -225,6 +230,19 @@ test('listados rechazan filtros invalidos y aplican VISIBLE con pagina 1 y limit
   comments.req.query.status = 'INVALID';
   await comments.controller.listModerationComments(comments.req, comments.res);
   assert.equal(comments.res.statusCode, 400);
+});
+
+test('listado de posts: sin adjunto devuelve null y un fallo al leer adjuntos es 500', async () => {
+  const noAttachment = harness([{ data: [{ id: 'post', status: 'VISIBLE', author_membership_id: 'author', author: null }], count: 1 }, { data: [] }]);
+  noAttachment.req.query.wall_id = 'wall';
+  await noAttachment.controller.listModerationPosts(noAttachment.req, noAttachment.res);
+  assert.equal(noAttachment.res.statusCode, 200);
+  assert.equal(noAttachment.res.body.posts[0].attachment, null);
+
+  const failing = harness([{ data: [{ id: 'post', status: 'VISIBLE', author_membership_id: 'author', author: null }], count: 1 }, { error: { message: 'fallo' } }]);
+  failing.req.query.wall_id = 'wall';
+  await failing.controller.listModerationPosts(failing.req, failing.res);
+  assert.equal(failing.res.statusCode, 500);
 });
 
 test('comentarios no se truncan en el primer lote y filtran siempre por evento', async () => {

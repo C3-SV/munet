@@ -26,7 +26,7 @@ async function attempt(limiter, { userId = 'user', ip = '127.0.0.1', code = 'ABC
 
 test('cada limitador permite N intentos y devuelve 429 JSON con headers draft-7 en N+1', async () => {
   const { limiters } = harness();
-  for (const [name, limit] of [['authParticipantLimiter', 10], ['authIpLimiter', 30], ['createPostLimiter', 10], ['createCommentLimiter', 20], ['sendDmLimiter', 30], ['moderationWriteLimiter', 60]]) {
+  for (const [name, limit] of [['authParticipantLimiter', 10], ['authIpLimiter', 30], ['createPostLimiter', 10], ['createCommentLimiter', 20], ['attachmentInitLimiter', 10], ['sendDmLimiter', 30], ['moderationWriteLimiter', 60]]) {
     for (let i = 0; i < limit; i++) assert.equal((await attempt(limiters[name])).passed, true, name);
     const { res, passed } = await attempt(limiters[name]);
     assert.equal(passed, false, name);
@@ -91,10 +91,11 @@ test('las rutas montan los limitadores despues de autenticar y solo en escritura
   const posts = routes('posts.routes.ts'), dm = routes('dm.routes.ts'), auth = routes('auth.routes.ts'), admin = routes('admin.routes.ts');
   assert.deepEqual(posts.get('post /'), ['requireAuth', 'createPostLimiter', 'createPost']);
   assert.deepEqual(posts.get('post /:postId/comments'), ['requireAuth', 'createCommentLimiter', 'createComment']);
+  assert.deepEqual(posts.get('post /attachments/init'), ['requireAuth', 'attachmentInitLimiter', 'initUpload']);
   assert.deepEqual(dm.get('post /conversations/:conversationId/messages'), ['requireAuth', 'sendDmLimiter', 'sendMessage']);
   for (const path of ['login', 'activate']) assert.deepEqual(auth.get(`post /${path}`).slice(0, 2), ['authIpLimiter', 'authParticipantLimiter']);
   const moderationWrites = [...admin].filter(([path]) => path.startsWith('post /moderation/'));
-  assert.equal(moderationWrites.length, 4);
+  assert.equal(moderationWrites.length, 5);
   for (const [, handlers] of moderationWrites) {
     assert.equal(handlers[0], 'requireAuth');
     assert.equal(handlers[2], 'moderationWriteLimiter');

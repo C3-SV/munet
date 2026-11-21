@@ -25,7 +25,8 @@ Las entidades siguientes reflejan el contrato usado por el código. Consulta el 
 | `post_comments` | Post, autor y comentario padre opcional, con un nivel de respuesta. |
 | `polls`, `poll_options`, `poll_votes` | Encuesta de un post, opciones ordenadas y voto por membresía. El snapshot documenta unicidad por encuesta y votante. |
 | `dm_conversations`, `dm_messages` | Pareja de membresías del evento y mensajes. El borrado usa `DELETED`. |
-| `attachments` | Tabla definida por migración 001. Carga, lectura y retiro todavía pendientes en la aplicación. |
+| `attachments` | Tabla definida por migración 001. Carga, lectura y retiro todavía pendientes en la aplicación. La migración 003 (redactada, sin aplicar) añade un índice único por `post_id` y por `storage_path`, y `retention_hold`. |
+| `attachment_uploads` | Planificada en la migración 003, sin aplicar. Un registro por intento de subida (`event_id`, `membership_id`, `wall_id`, `storage_key`, `expires_at`, `consumed_at`, `post_id`). Un solo uso. |
 | `audit_logs`, `auth_attempts` | Registro de acciones e intentos cuando la inserción se completa. |
 
 En `posts.deleted_by_membership_id` el valor histórico es la categoría `AUTHOR` o `ADMIN`. Posts y comentarios escriben además `deleted_by_membership_uuid`. DM guarda directamente la membresía en `deleted_by_membership_id`.
