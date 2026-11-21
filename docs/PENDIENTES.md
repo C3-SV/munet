@@ -1,20 +1,22 @@
 # Pendientes de MUNET
 
-Lista única de lo que falta por hacer, decidir o verificar. Reemplaza a `07-auditoria/pendientes.md` y a las listas dispersas de los planes. Última revisión: 20 de noviembre de 2026.
+Lista única de lo que falta por hacer, decidir o verificar. Reemplaza a `07-auditoria/pendientes.md` y a las listas dispersas de los planes. Última revisión: 21 de noviembre de 2026.
 
 Los IDs B, S, D, W, Q y A vienen de los [planes del equipo web](04-desarrollo/plan-web/README.md) y de la planilla externa del plan maestro, que no está en el repositorio.
 
 ## 1. Orden propuesto
 
-| Prioridad | Trabajo | Resultado verificable |
-|---|---|---|
-| 1 | Preparar una base aislada reproducible. Es la condición para casi toda la verificación pendiente. | Un entorno con datos ficticios, dos eventos y dos comités donde se pueden ejecutar los recorridos sin tocar producción. |
-| 2 | Completar el alta y mantenimiento de cuentas: unicidad o desambiguación del código de ingreso entre eventos y reactivación de una cuenta que nunca se activó. | Las colisiones de código tienen una resolución clara y el organizador entrega credenciales sin casos sin salida. |
-| 3 | Verificar y completar el código de delegación (migración 002) y el recorrido de importación CSV con resultados y credenciales. | Un lote con filas válidas y fallidas devuelve resultados y credenciales. Cada delegado ve su código y su comité. |
-| 4 | Completar el ciclo del evento: borrador, cierre, archivo y reapertura; solo lectura uniforme; decidir si el panel ofrece borrar comités. | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
-| 5 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
-| 6 | Definir el mínimo de moderación para MUN ESEN (mesa, motivos, acciones sobre contenido y cuentas). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
-| 7 | Adjuntos de publicaciones en Cloudflare R2 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](04-desarrollo/plan-adjuntos-r2.md)). Aprobado el 20 de noviembre de 2026; en curso. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
+Reordenado el 21 de noviembre de 2026 tras auditar cada pendiente contra el código de `main` (revisión de solo lectura, con un segundo revisor por informe). Ninguno de estos trabajos estaba hecho en el repositorio; el estado de la base real sigue sin la migración 002. Se ordena primero lo que no necesita decisión de producto.
+
+| Prioridad | Trabajo | Estado | Resultado verificable |
+|---|---|---|---|
+| 1 | Aplicar la migración 002 (código de delegación) en la base real, desde el SQL Editor, con las consultas de verificación del final del archivo. Revisada: sin defectos que corregir antes de ejecutarla. | Bloqueado solo por ejecutarla. | Existen `event_delegation_counters` y `assign_delegation_code`; las 20 membresías sin código lo reciben; un lote CSV mixto devuelve resultados, credenciales y código. |
+| 2 | Correcciones de seguridad y cuentas sin decisión de producto: Q01-H1 (comité de otro evento en `POST /admin/memberships`), Q01-H4 (UPDATE por id sin `event_id` en DM y comentarios), Q02-3, Q02-5, Q02-8 (`Cache-Control: no-store` en el reinicio de contraseña), Q02-4 (compensación al activar), callejón de la reactivación de una cuenta nunca activada y H3 (código sin uso). | Pendiente, implementable ya. | Pruebas de unidad por cada corrección; sin cambios de contrato HTTP. |
+| 3 | Código de ingreso entre eventos (B07, B14), H2 (`events-by-code` público) y Q02-2 (login que distingue 400 de 401). | Pendiente; requiere decisión de producto. | Las colisiones de código tienen una regla escrita y el login las resuelve sin casos sin salida. |
+| 4 | Ciclo del evento: borrador, cierre, archivo y reapertura; guarda central de solo lectura; borrar comités. | Pendiente; requiere decisiones (ver sección 2). | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
+| 5 | Moderación mínima para MUN ESEN: ocultar sin borrar, endurecer la suspensión, consulta de auditoría y, si se decide, expulsión. Ya existen: eliminar con motivo, retirar adjuntos, fijar, suspender y reactivar. | Parcial; requiere decisiones (ver sección 2). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
+| 6 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. Sin base aislada, se hace en el evento demo de la base real. | Pendiente, con el equipo. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
+| Hecho | Adjuntos de publicaciones en Cloudflare R2 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](04-desarrollo/plan-adjuntos-r2.md)), fusionado en el PR 9 y verificado en el evento demo. | Hecho; queda probar un PDF cercano a 20 MB y el origen de producción. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
 
 ## 2. Decisiones de producto
 
