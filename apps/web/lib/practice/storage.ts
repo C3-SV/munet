@@ -38,17 +38,28 @@ export const createMemoryStorage = (): PracticeStorage => {
     };
 };
 
-// Solo se reutiliza un estado si coincide la versión, el usuario y la persona.
+const isPlainObject = (value: unknown): boolean =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+// Solo se reutiliza un estado si coincide la versión, el usuario y la forma completa de la versión 2.
 const isStoredState = (value: unknown, userId: string): value is PracticeState => {
-    if (typeof value !== "object" || value === null) {
+    if (!isPlainObject(value)) {
         return false;
     }
     const candidate = value as Partial<PracticeState>;
     return (
         candidate.version === PRACTICE_STATE_VERSION &&
         candidate.userId === userId &&
-        typeof candidate.persona === "object" &&
-        candidate.persona !== null
+        isPlainObject(candidate.persona) &&
+        Number.isInteger(candidate.seq) &&
+        Array.isArray(candidate.people) &&
+        Array.isArray(candidate.posts) &&
+        Array.isArray(candidate.comments) &&
+        Array.isArray(candidate.conversations) &&
+        Array.isArray(candidate.messages) &&
+        Array.isArray(candidate.uploads) &&
+        isPlainObject(candidate.profile) &&
+        isPlainObject(candidate.replyCounts)
     );
 };
 

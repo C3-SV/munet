@@ -15,10 +15,10 @@ test("identificadores fijos del modo práctica", () => {
     assert.equal(PRACTICE_DB_PREFIX, "munet-practice-");
 });
 
-test("la versión de estado es el entero 1", () => {
+test("la versión de estado es el entero 2", () => {
     assert.equal(Number.isInteger(PRACTICE_STATE_VERSION), true);
     assert.ok(PRACTICE_STATE_VERSION > 0);
-    assert.equal(PRACTICE_STATE_VERSION, 1);
+    assert.equal(PRACTICE_STATE_VERSION, 2);
 });
 
 test("detecta solo el evento de práctica con comparación estricta", () => {

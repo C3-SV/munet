@@ -58,6 +58,55 @@ test("valores basura o sin forma valida reinician el estado", async () => {
     }
 });
 
+test("un estado de la versión 1 se reinicia y no se reutiliza", async () => {
+    const storage = createMemoryStorage();
+    const v1 = {
+        version: 1,
+        userId: "user-1",
+        createdAt: NOW.toISOString(),
+        persona: createInitialState("user-1", NOW).persona,
+    };
+    await storage.save(v1);
+    const clear = mock.method(storage, "clear");
+    const result = await loadOrInitState(storage, "user-1", LATER);
+    assert.equal(result.wasReset, true);
+    assert.equal(clear.mock.callCount(), 1);
+    assert.equal(result.state.version, PRACTICE_STATE_VERSION);
+    assert.ok(Array.isArray(result.state.posts));
+    assert.equal(result.state.createdAt, LATER.toISOString());
+});
+
+test("un estado v2 al que le faltan arreglos o objetos obligatorios se reinicia", async () => {
+    const complete = createInitialState("user-1", NOW);
+    const broken = [
+        { ...complete, people: undefined },
+        { ...complete, posts: "no es un arreglo" },
+        { ...complete, comments: null },
+        { ...complete, conversations: {} },
+        { ...complete, messages: undefined },
+        { ...complete, uploads: 0 },
+        { ...complete, profile: null },
+        { ...complete, replyCounts: [] },
+        { ...complete, seq: undefined },
+    ];
+    for (const raw of broken) {
+        const storage = { ...createMemoryStorage(), load: async () => raw };
+        const clear = mock.method(storage, "clear");
+        const result = await loadOrInitState(storage, "user-1", LATER);
+        assert.equal(result.wasReset, true, `faltan campos en ${JSON.stringify(Object.keys(raw))}`);
+        assert.equal(clear.mock.callCount(), 1);
+    }
+});
+
+test("un estado v2 completo y válido se reutiliza sin reinicio", async () => {
+    const storage = createMemoryStorage();
+    const stored = createInitialState("user-1", NOW);
+    await storage.save(stored);
+    const result = await loadOrInitState(storage, "user-1", LATER);
+    assert.equal(result.wasReset, false);
+    assert.deepEqual(result.state, stored);
+});
+
 test("si load lanza, reinicia el estado sin propagar el error", async () => {
     const storage = {
         ...createMemoryStorage(),
