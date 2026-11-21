@@ -21,7 +21,7 @@ El panel administrativo y otros elementos cargan SVG de Tabler Icons desde `cdn.
 
 ## Integraciones ausentes
 
-No hay evidencia de correo transaccional, SMS/push, almacenamiento de adjuntos de publicaciones, analítica, monitoreo o servicios de moderación automática.
+Storage solo se usa para avatares (bucket público `profile-images`, verificado el 20 de noviembre de 2026 con una consulta de solo lectura). No hay evidencia de correo transaccional, SMS/push, almacenamiento de adjuntos de publicaciones (no existe bucket privado), analítica, monitoreo o servicios de moderación automática.
 
 El CSV se procesa en la API sin un servicio de terceros. Consulta [el contrato CSV](../03-referencia/api.md#contrato-csv).
 

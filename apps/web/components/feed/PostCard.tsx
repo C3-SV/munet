@@ -353,6 +353,7 @@ export const PostCard = ({
                 eventId={eventId}
                 disabled={!canComment || Boolean(post.isDeleted)}
                 showAuthorCommittee={showAuthorCommittee}
+                initialCount={post.commentCount}
             />
 
             <ConfirmDialog

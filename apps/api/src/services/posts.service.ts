@@ -55,6 +55,7 @@ type NormalizedPost = ReturnType<typeof mapPost> & {
   canDelete: boolean;
   postType: PostType;
   poll: PollView | null;
+  commentCount: number;
 };
 
 // Normaliza el tipo de post para soportar valores legacy sin romper la API.
@@ -93,6 +94,7 @@ const normalizePost = (post: PostRow, membership: AuthMembership): NormalizedPos
     ...mapped,
     postType: normalizePostType(post.post_type),
     poll: null,
+    commentCount: 0,
     canDelete: isAdmin || post.author_membership_id === membership.id,
   };
 };
@@ -115,6 +117,32 @@ const logPollAudit = async (params: {
     outcome: params.outcome,
     reason: params.reason,
   });
+};
+
+// Añade el total de comentarios visibles de cada post con una sola consulta por lote.
+const attachCommentCounts = async <T extends { id: string }>(params: { posts: T[]; eventId: string }) => {
+  if (params.posts.length === 0) {
+    return params.posts.map((post) => ({ ...post, commentCount: 0 }));
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('post_comments')
+    .select('post_id')
+    .eq('event_id', params.eventId)
+    .eq('status', 'VISIBLE')
+    .is('deleted_at', null)
+    .in('post_id', params.posts.map((post) => post.id));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const counts = new Map<string, number>();
+  ((data ?? []) as { post_id: string }[]).forEach((row) => {
+    counts.set(row.post_id, (counts.get(row.post_id) ?? 0) + 1);
+  });
+
+  return params.posts.map((post) => ({ ...post, commentCount: counts.get(post.id) ?? 0 }));
 };
 
 // Enriquece posts tipo encuesta con opciones, votos y estado del voto propio.
@@ -273,12 +301,13 @@ const buildPostResponseById = async (params: {
   }
 
   const mapped = normalizePost(post as PostRow, params.membership);
-  const [enriched] = await attachPollDataToPosts({
+  const [withPoll] = await attachPollDataToPosts({
     posts: [mapped],
     sourcePosts: [post as PostRow],
     eventId: params.eventId,
     membership: params.membership,
   });
+  const [enriched] = await attachCommentCounts({ posts: [withPoll], eventId: params.eventId });
 
   return enriched;
 };
@@ -415,11 +444,13 @@ export const getPostsByWall = async (params: {
     membership: params.membership,
   });
 
+  const postsWithCounts = await attachCommentCounts({ posts: postsWithPolls, eventId: params.eventId });
+
   return {
     status: 200,
     body: {
       wall: wallView,
-      posts: postsWithPolls,
+      posts: postsWithCounts,
     },
   };
 };

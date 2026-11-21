@@ -8,15 +8,11 @@ export const isMembershipRole = (role: unknown): boolean =>
 export const normalizeRole = (role: string | null | undefined) =>
   (role ?? '').trim().toUpperCase();
 
-// Determina si el rol tiene privilegios administrativos.
+// Determina si el rol tiene privilegios administrativos: solo los dos administradores del enum.
 export const isAdminRole = (role: string | null | undefined) => {
   const normalizedRole = normalizeRole(role);
 
-  return (
-    normalizedRole.includes('ADMIN') ||
-    normalizedRole.includes('COORDINADOR') ||
-    normalizedRole.includes('ORGANIZADOR')
-  );
+  return normalizedRole === 'ADMIN_MUN' || normalizedRole === 'ADMIN_TECH';
 };
 
 // Los roles nuevos se comparan por valor exacto para no ampliar privilegios.

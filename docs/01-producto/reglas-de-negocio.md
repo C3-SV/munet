@@ -87,4 +87,4 @@ La fuente alterna entre “equipo coordinador” y permisos exclusivos de Admin 
 
 ## Decisiones abiertas
 
-Formato/desambiguación del código, prueba de identidad, permisos finales por rol, supervisión de DM, retención, representación de mensajes borrados, reapertura de encuestas, privacidad/consentimiento y estado de desactivación se conservan en [pendientes](../07-auditoria/pendientes.md).
+Formato/desambiguación del código, prueba de identidad, permisos finales por rol, supervisión de DM, retención, representación de mensajes borrados, reapertura de encuestas, privacidad/consentimiento y estado de desactivación se conservan en [pendientes](../PENDIENTES.md).

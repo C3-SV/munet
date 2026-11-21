@@ -84,7 +84,7 @@ Sobre el commit `3c8feb6`, con cambios solo en `apps/web` y sin cambios en `apps
   - `npm test -w api`: 129 pruebas correctas, cero fallos.
   - `impeccable detect --json app components`: un único hallazgo `side-tab` en `components/ui/Card.tsx:29`, ya registrado arriba.
 
-Pendiente, sin ejecutar: los pasos 3 a 5 de la Tarea 13 (detector sobre `/login`, `/guia` y `/select-event` a 390×844 y 1440×900; recorrido manual en claro y oscuro; `/impeccable critique` sobre el muro). Requieren navegador y una sesión con datos ficticios. Los puntos 1 a 6 de Review Focus del plan no tienen evidencia. Siguen abiertos hasta que el dueño acepte formalmente su diferimiento y se registren como deuda en `docs/07-auditoria/pendientes.md`.
+Pendiente, sin ejecutar: los pasos 3 a 5 de la Tarea 13 (detector sobre `/login`, `/guia` y `/select-event` a 390×844 y 1440×900; recorrido manual en claro y oscuro; `/impeccable critique` sobre el muro). Requieren navegador y una sesión con datos ficticios. Los puntos 1 a 6 de Review Focus del plan no tienen evidencia. Siguen abiertos hasta que el dueño acepte formalmente su diferimiento y se registren como deuda en `docs/../PENDIENTES.md`.
 
 ## Ronda 2 de corrección de la Tarea 13 (20 de noviembre de 2026)
 
@@ -103,7 +103,7 @@ impeccable detect --json --viewport 1440x900 http://localhost:3000/<ruta>
 | `/select-event` | sin hallazgos | sin hallazgos |
 | `/guia` | `overused-font` (advertencia, aceptada por la especificación) y 12 `straggler` (advertencias informativas) | `overused-font` (advertencia), `line-length` (advertencia: unos 110 caracteres en párrafos de tarjeta) y 6 `straggler` (informativas) |
 
-Ninguna de las reglas que el paso 3 exige ausentes (`low-contrast`, `undersized-ui-text`, `hero-eyebrow-chip`, `numbered-section-labels`, `bounce-easing`) aparece en las cuatro mediciones. `/select-event` sin sesión solo muestra su estado de entrada; su vista autenticada no fue medida. El `line-length` de `/guia` a 1440 px no pertenece a la lista de la especificación y queda registrado en `docs/07-auditoria/pendientes.md` sin corregirse en esta ronda.
+Ninguna de las reglas que el paso 3 exige ausentes (`low-contrast`, `undersized-ui-text`, `hero-eyebrow-chip`, `numbered-section-labels`, `bounce-easing`) aparece en las cuatro mediciones. `/select-event` sin sesión solo muestra su estado de entrada; su vista autenticada no fue medida. El `line-length` de `/guia` a 1440 px no pertenece a la lista de la especificación y queda registrado en `docs/../PENDIENTES.md` sin corregirse en esta ronda.
 
 Pasos no ejecutados, con su motivo:
 
@@ -111,7 +111,7 @@ Pasos no ejecutados, con su motivo:
 - Paso 5 (`/impeccable critique` sobre el muro): el muro está detrás de autenticación, así que no hay página que evaluar. El puntaje 20/40 sigue sin medirse.
 - Puntos 1 a 6 de Review Focus del plan: sin evidencia en navegador. Siguen abiertos.
 
-El diferimiento de estos pasos queda registrado como deuda en `docs/07-auditoria/pendientes.md`, marcado como pendiente de aceptación formal del dueño.
+El diferimiento de estos pasos queda registrado como deuda en `docs/../PENDIENTES.md`, marcado como pendiente de aceptación formal del dueño.
 
 Comprobaciones de la ronda: `git status --short` y `git diff --check` sobre los archivos tocados.
 
@@ -140,7 +140,7 @@ Pendiente, sin cambios en esta ronda:
 
 - Pasos 4 y 5 de la Tarea 13 y `/impeccable critique` sobre el muro: requieren sesión autenticada y datos ficticios en un entorno aislado. No hay autorización para crear cuentas (ver ronda 2).
 - Verificación visual en navegador de los puntos 3 a 6, en claro y oscuro, a 390 y 1440 px.
-- T13-R0-1 sigue abierto hasta que el dueño acepte formalmente el diferimiento registrado en `docs/07-auditoria/pendientes.md`.
+- T13-R0-1 sigue abierto hasta que el dueño acepte formalmente el diferimiento registrado en `docs/../PENDIENTES.md`.
 
 ## Ronda 4 de corrección de la Tarea 13 (20 de noviembre de 2026)
 
@@ -154,7 +154,7 @@ Hallazgo T13-R0-1: sin cambios de evidencia. Los pasos 4 y 5 siguen sin ejecutar
 Decisión pendiente del dueño, una de dos opciones:
 
 1. Autorizar un entorno aislado con datos ficticios para ejecutar los pasos 4 y 5 y registrar sus resultados.
-2. Aceptar formalmente el diferimiento y confirmarlo en la sección «Verificación diferida de la Tarea 13» de `docs/07-auditoria/pendientes.md`.
+2. Aceptar formalmente el diferimiento y confirmarlo en la sección «Verificación diferida de la Tarea 13» de `docs/../PENDIENTES.md`.
 
 Hasta que se resuelva una de las dos, la Tarea 13 no se considera cerrada.
 
@@ -167,11 +167,11 @@ Sobre la base `d29437b`, con cambios solo en documentación. No se modificó có
 Hallazgo T13-R0-1: sin cambios de evidencia. Los pasos 4 y 5 siguen sin ejecutarse; el paso 3 conserva la medición de la ronda 2.
 
 - Pasos 4 y 5: requieren una sesión autenticada con Supabase y datos ficticios. La base real está marcada como de producción (Q03), y crear cuentas exige autorización expresa del dueño. Esta ronda no la recibió, así que no se crearon cuentas ni se usó la base.
-- Aceptación del diferimiento: no se registra en esta ronda. Corresponde al dueño confirmarla en «Verificación diferida de la Tarea 13» de `docs/07-auditoria/pendientes.md`.
+- Aceptación del diferimiento: no se registra en esta ronda. Corresponde al dueño confirmarla en «Verificación diferida de la Tarea 13» de `docs/../PENDIENTES.md`.
 
 Decisión de esta ronda (Ruling): el hallazgo no se marca como cerrado, porque cerrarlo sin evidencia o sin aceptación del dueño sería registrar una verificación que no ocurrió. Costo si es incorrecto: la Tarea 13 sigue abierta una ronda más; si el dueño considera que el commit de esta ronda equivale a aceptación, el diferimiento quedaría sin confirmación escrita.
 
-Pendiente de decisión del dueño: una de las dos opciones de la ronda 4 (autorizar el entorno aislado o aceptar el diferimiento en `pendientes.md`).
+Pendiente de decisión del dueño: una de las dos opciones de la ronda 4 (autorizar el entorno aislado o aceptar el diferimiento en `../PENDIENTES.md`).
 
 Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre el archivo tocado.
 
@@ -179,7 +179,7 @@ Comprobaciones de la ronda: `git diff --check` y `git status --short` sobre el a
 
 Sobre el árbol de trabajo con el cambio de `apps/web/components/ui/Card.tsx` (variante `official` con borde de 1 px en `--signal`), sin cambios en `apps/api`, migraciones ni dependencias. Se usó el servidor de desarrollo `npm run dev -w web` en `http://localhost:3000`, reiniciado porque el proceso anterior servía un bundle obsoleto.
 
-- Paso 3 (detector), repetido: `/login` y `/select-event` sin hallazgos a 390×844 y 1440×900. `/select-event` sin sesión redirige a `/login`, así que esa medición corresponde a la página de entrada. `/guia` mantiene los `straggler` (informativos) y, a 1440 px, `line-length` ya registrado en `docs/07-auditoria/pendientes.md`.
+- Paso 3 (detector), repetido: `/login` y `/select-event` sin hallazgos a 390×844 y 1440×900. `/select-event` sin sesión redirige a `/login`, así que esa medición corresponde a la página de entrada. `/guia` mantiene los `straggler` (informativos) y, a 1440 px, `line-length` ya registrado en `docs/../PENDIENTES.md`.
 - Desbordamiento horizontal sin sesión (`scrollWidth` frente a `innerWidth`): `/login`, `/guia` y `/select-event` (este último redirigido a `/login`) sin desbordamiento a 375 px; `/login` y `/guia` sin desbordamiento a 1024 px. Medido en pestaña nueva.
 - Consola en `/login`, pestaña nueva: sin errores. Antes del reinicio, la pestaña anterior mostraba `ReferenceError: EyeIcon is not defined` y errores 500 de HMR. El código actual importa `IconEye` e `IconEyeOff` y no contiene `EyeIcon`; el error venía de un bundle obsoleto del servidor, no del código.
 - Modo oscuro: la captura de `/login` a escritorio muestra la paleta oscura sin desbordamiento.
@@ -190,4 +190,4 @@ No ejecutado en esta ronda, porque requiere sesión autenticada con Supabase, da
 - Paso 5 (`/impeccable critique` sobre el muro).
 - Puntos 3 a 6 de Review Focus en navegador con datos reales de la interfaz autenticada.
 
-T13-R0-1 sigue abierto hasta que el dueño autorice el entorno aislado o acepte formalmente el diferimiento en `docs/07-auditoria/pendientes.md`.
+T13-R0-1 sigue abierto hasta que el dueño autorice el entorno aislado o acepte formalmente el diferimiento en `docs/../PENDIENTES.md`.

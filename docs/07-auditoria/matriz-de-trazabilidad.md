@@ -19,7 +19,7 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 | REQ-13 | RF-14/28; retiro/ocultación | `deletePostService`; migración 001 | El borrado lógico registra categoría y UUID. Puede quedar un marcador. | Parcial / divergente | Faltan ocultación diferenciada y motivo. |
 | REQ-14 | RF-15; comentarios un nivel | comments service/controller | Un nivel y eliminación; anuncio admin | Parcial | Auditoría no garantizada |
 | REQ-15 | RF-12.1; encuesta/voto/cierre | posts controller/service | 2–10, reemplazo y cierre | Parcial | Unicidad/transacción/auditoría inciertas |
-| REQ-16 | RF-47–51; adjunto de post | Migración 001 | Tabla `attachments` sin flujo de API ni UI. | Pendiente | Definir carga, lectura y retiro. |
+| REQ-16 | RF-47–51; adjunto de post | Migración 001 | Tabla `attachments` existe en la base (0 filas). Interfaz en `PostEditor`/`PostCard` y validación en `lib/attachments.ts` (con pruebas); sin API ni bucket privado. | Parcial | Contrato de API, bucket privado, carga, lectura y retiro. |
 | REQ-17 | RF-17/21; DM 1:1 reutilizable | dm routes/services/pages | Mismo evento, conversaciones/historial/realtime | Parcial | Sin paginación ni unicidad demostrada |
 | REQ-18 | RF-18–20; mensaje y borrado | Controlador y servicios DM | Texto y borrado del autor con estado `DELETED`. | Parcial | Verificar persistencia, entrega y auditoría. |
 | REQ-19 | RF-22/RN-35–37; supervisión fail-closed | Sin ruta/UI | No existe | Documentado, no implementado | Roles, privacidad y retención abiertos |
@@ -49,4 +49,4 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 
 ## Funcionalidades propuestas o postergadas
 
-El alta individual, el cambio de comité, la API de CSV y la pantalla de moderación del Sprint 3 tienen evidencia en código y en pruebas contra la API local. La interfaz CSV, el panel general de asignaciones, los adjuntos y la marca «Fijado» en el feed siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](pendientes.md).
+El alta individual, el cambio de comité, la API de CSV y la pantalla de moderación del Sprint 3 tienen evidencia en código y en pruebas contra la API local. La interfaz CSV, el panel general de asignaciones, los adjuntos y la marca «Fijado» en el feed siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](../PENDIENTES.md).

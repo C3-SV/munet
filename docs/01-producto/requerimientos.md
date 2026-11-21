@@ -19,7 +19,7 @@ Se conservan los identificadores históricos. La última columna refleja la [rev
 | REQ-13 | Autor/moderación retira u oculta post lógicamente, auditable y sin marcador al participante. | Parcial / divergente |
 | REQ-14 | Comentar/responder un nivel; eliminación lógica por autor/moderación, sin edición. | Parcial |
 | REQ-15 | Crear encuesta en muro autorizado, voto único reemplazable y cierre por creador auditado. | Parcial |
-| REQ-16 | Un adjunto por post: JPG/PNG ≤5 MB o PDF ≤20 MB, metadata, permisos heredados y retiro. | Documentado, no implementado |
+| REQ-16 | Un adjunto por post: JPG/PNG ≤5 MB o PDF ≤20 MB, metadata, permisos heredados y retiro. | Parcial: interfaz web sin guardado; sin API ni Storage |
 | REQ-17 | Reutilizar conversación 1:1 entre miembros activos del mismo evento, con bandeja/historial. | Parcial |
 | REQ-18 | Enviar texto/enlaces; autor/hora/conversación; solo autor elimina lógicamente; sin adjuntos/edición. | Parcial |
 | REQ-19 | Supervisión DM de solo lectura, permiso/motivo y auditoría previa fail-closed. | Documentado, no implementado |
@@ -58,4 +58,4 @@ Las pruebas deben declarar dataset, concurrencia, red, punto de medición y peri
 
 ## Decisiones que impiden cerrar aceptación
 
-Formato y desambiguación de código, prueba de identidad, roles finales, protocolo/retención de DM, límites de contenido, consentimiento —especialmente si hay menores—, recuperación, RTO/RPO y estados de evento requieren aprobación. Véase [pendientes](../07-auditoria/pendientes.md).
+Formato y desambiguación de código, prueba de identidad, roles finales, protocolo/retención de DM, límites de contenido, consentimiento —especialmente si hay menores—, recuperación, RTO/RPO y estados de evento requieren aprobación. Véase [pendientes](../PENDIENTES.md).

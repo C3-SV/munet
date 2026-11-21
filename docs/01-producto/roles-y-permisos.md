@@ -1,6 +1,6 @@
 # Roles y permisos
 
-La membresía vincula a una persona con un evento, su rol y, cuando corresponde, su comité. El [snapshot](../../supabase/schema.sql) enumera `PARTICIPANT`, `MODERATOR`, `ADMIN_MUN` y `ADMIN_TECH`. El código determina si un rol es administrativo buscando `ADMIN`, `COORDINADOR` u `ORGANIZADOR` en el texto normalizado. El catálogo válido en la base del entorno requiere confirmación.
+La membresía vincula a una persona con un evento, su rol y, cuando corresponde, su comité. El [snapshot](../../supabase/schema.sql) enumera `PARTICIPANT`, `MODERATOR`, `ADMIN_MUN` y `ADMIN_TECH`. La base del entorno usa esos cuatro valores (confirmado el 20 de noviembre de 2026). El código reconoce como administrativos solo `ADMIN_MUN` y `ADMIN_TECH` (`isAdminRole`). La API rechaza con 400 cualquier otro valor al crear cuentas o membresías y al filtrar. En pantalla se muestran como Delegado, Moderador, Administrador MUN y Administrador técnico, y los formularios usan un select.
 
 | Capacidad | Participante o moderador activo | Administración activa |
 |---|---|---|
@@ -17,7 +17,7 @@ La membresía vincula a una persona con un evento, su rol y, cuando corresponde,
 | Crear eventos | Sin permiso | Solo `ADMIN_TECH` activo. `ADMIN_MUN` recibe 403 |
 | Revisar reportes o supervisar DM | Pendiente | Pendiente |
 
-`MODERATOR` puede asignarse en la importación y con `PATCH /admin/participants/:membershipId/role`. En el panel solo ve Moderación; no crea cuentas, no cambia comités, no edita el evento ni publica en anuncios. Su acceso transversal a muros de comité está en `canAccessCommitteeWall`, cuya prueba unitaria (`rbac.utils.test.mjs`) sigue esperando lo contrario: véase [pendientes](../07-auditoria/pendientes.md). Para el comportamiento normativo histórico, consulta [reglas de negocio](reglas-de-negocio.md).
+`MODERATOR` puede asignarse en la importación y con `PATCH /admin/participants/:membershipId/role`. En el panel solo ve Moderación; no crea cuentas, no cambia comités, no edita el evento ni publica en anuncios. Su acceso transversal a muros de comité está en `canAccessCommitteeWall`, cuya prueba unitaria (`rbac.utils.test.mjs`) sigue esperando lo contrario: véase [pendientes](../PENDIENTES.md). Para el comportamiento normativo histórico, consulta [reglas de negocio](reglas-de-negocio.md).
 
 ## Aplicación del contexto
 

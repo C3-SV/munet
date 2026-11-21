@@ -47,7 +47,7 @@ Anota también errores, rollback, auditoría y rutas alternativas.
 
 ## Preparar un cambio futuro
 
-Determina primero si es implementación de requisito, resolución de discrepancia o propuesta. Las decisiones abiertas de [pendientes](../07-auditoria/pendientes.md) requieren autoridad del producto. Un cambio de arquitectura significativo debe actualizar o crear un ADR.
+Determina primero si es implementación de requisito, resolución de discrepancia o propuesta. Las decisiones abiertas de [pendientes](../PENDIENTES.md) requieren autoridad del producto. Un cambio de arquitectura significativo debe actualizar o crear un ADR.
 
 ## Validar que no contradice decisiones
 

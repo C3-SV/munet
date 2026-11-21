@@ -21,7 +21,7 @@ No existe una guía formal de estilo más allá de ESLint, Prettier y Biome del 
 
 - Ubica el requisito en [requerimientos](../01-producto/requerimientos.md).
 - Comprueba la regla correspondiente en [reglas de negocio](../01-producto/reglas-de-negocio.md).
-- Revisa [discrepancias](../07-auditoria/discrepancias.md) y [pendientes](../07-auditoria/pendientes.md).
+- Revisa [discrepancias](../07-auditoria/discrepancias.md) y [pendientes](../PENDIENTES.md).
 - Sigue frontend, contrato, backend y tabla; no modifiques solo una capa por intuición.
 - Si afecta datos, exige primero esquema/migración/RLS versionados o evidencia externa autorizada.
 

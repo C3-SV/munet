@@ -8,7 +8,7 @@
 
 **Tecnología** · Next.js, Zustand, Express, Supabase Storage privado y pruebas Node.
 
-**Especificación** · [Alcance web e insumos](README.md), [reglas](../../01-producto/reglas-de-negocio.md) y [pendientes de producto](../../07-auditoria/pendientes.md).
+**Especificación** · [Alcance web e insumos](README.md), [reglas](../../01-producto/reglas-de-negocio.md) y [pendientes de producto](../../PENDIENTES.md).
 
 ## Restricciones
 
@@ -76,11 +76,11 @@
 
 **W05 · Fotos en el muro general (evidencia estática).** No hay implementación de adjuntos en posts: el editor solo admite texto y encuesta (`PostEditor.tsx:3-7, 62-66`), el cliente API y las rutas no tienen campos ni endpoints de archivos (`feed.ts:26-67`; `posts.routes.ts:18-25`), y `createPostService` no toca Storage (`posts.service.ts:489-501`). Storage solo se usa para avatares de perfil (`profiles.controller.ts:85-86, 379`). La tabla `attachments` existe en la migración 001 (`001_alias_codigo_fijados_archivos.sql:44-61`), con RLS sin políticas; el bucket privado no está versionado. Hallazgos:
 - `RN-11` (`docs/01-producto/reglas-de-negocio.md:46`) fija JPG/PNG ≤ 5 MB **o PDF ≤ 20 MB**. El plan propone solo JPG/PNG y dice "menor alcance aprobado" (`04-condicionadas.md:17`); ningún documento de decisión respalda ese alcance.
-- B03 y B04 no aparecen en `pendientes.md` ni en `reglas-de-negocio.md`: no hay registro de decisión.
+- B03 y B04 no aparecen en `../../PENDIENTES.md` ni en `reglas-de-negocio.md`: no hay registro de decisión.
 
 **W06 · Tour (evidencia estática).** `apps/web/app/guia/page.tsx` tiene cuatro secciones (primeros pasos, participantes, organizadores, FAQ) sin video, iframe ni reproductor. No hay guion, subtítulos ni archivos de video en `apps/web/public`. B11 vive en la planilla externa `MUNET_Plan_Maestro_Unificado_2026-11-18.xlsx`, que no está en el repositorio.
 
-**Q04 · Mantenimiento posterior (evidencia estática).** REQ-20 (reportes) y REQ-22 (avisos persistentes) figuran como "documentado, no implementado; postergado" (`requerimientos.md:26, 28`; `matriz-de-trazabilidad.md:26, 28`). S3-11 y S3-08 no tienen definición en el repositorio. Ninguna condición previa de Q04 (demo terminada, producto estable, listado aprobado) consta como cumplida. B15 no tiene ID en `pendientes.md`; su equivalente es la decisión sobre supervisión, bloqueo y expulsión de DM, sin ADR.
+**Q04 · Mantenimiento posterior (evidencia estática).** REQ-20 (reportes) y REQ-22 (avisos persistentes) figuran como "documentado, no implementado; postergado" (`requerimientos.md:26, 28`; `matriz-de-trazabilidad.md:26, 28`). S3-11 y S3-08 no tienen definición en el repositorio. Ninguna condición previa de Q04 (demo terminada, producto estable, listado aprobado) consta como cumplida. B15 no tiene ID en `../../PENDIENTES.md`; su equivalente es la decisión sobre supervisión, bloqueo y expulsión de DM, sin ADR.
 
 **IDs de decisión sin registro en el repositorio:** B03, B04, B07, B11, B14, B15, S2-13, S3-08 y S3-11. Aparecen solo en los planes o en la planilla externa. Esto impide cerrar W05, W07 y W06 hasta que MUN ESEN o el equipo admin las registren.
 

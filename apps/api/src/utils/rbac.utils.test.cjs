@@ -17,10 +17,14 @@ test('roles exactos normalizados y compatibilidad de administradores', () => {
     assert.equal(rbac.isModeratorRole(role), false);
     assert.equal(rbac.canModerateRole(role), false);
   }
-  for (const role of ['ADMIN_TECH', 'ADMIN_MUN', 'ADMIN', 'COORDINADOR', 'ORGANIZADOR']) {
+  for (const role of ['ADMIN_TECH', 'ADMIN_MUN', ' admin_mun ']) {
     assert.equal(rbac.isAdminRole(role), true);
     assert.equal(rbac.canModerateRole(role), true);
     assert.equal(rbac.canPublishInAnnouncements(role), true);
+  }
+  // Textos antiguos que ya no existen en el enum no dan privilegios.
+  for (const role of ['ADMIN', 'COORDINADOR', 'ORGANIZADOR', 'XADMIN_TECH', null, undefined, '']) {
+    assert.equal(rbac.isAdminRole(role), false);
   }
   assert.equal(rbac.isSuperAdminRole(' admin_tech '), true);
   for (const role of ['ADMIN_MUN', 'XADMIN_TECH', 'MODERATOR', null]) assert.equal(rbac.isSuperAdminRole(role), false);

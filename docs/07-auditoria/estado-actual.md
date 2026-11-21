@@ -18,7 +18,7 @@ La [lista de funcionalidades](../01-producto/funcionalidades.md) recoge el estad
 3. La generación de `#` depende de la migración 002. El código de login admite colisión entre eventos al dar de alta, pero el login rechaza códigos activos asociados a usuarios distintos.
 4. `CLOSED` se puede guardar. El alta de comité lo respeta, pero no existe una guarda general que impida escribir en el evento cerrado.
 
-Consulta [discrepancias](discrepancias.md) para el contraste con reglas y esquema, y [pendientes](pendientes.md) para el orden propuesto de trabajo.
+Consulta [discrepancias](discrepancias.md) para el contraste con reglas y esquema, y [pendientes](../PENDIENTES.md) para el orden propuesto de trabajo.
 
 ## Inventario del repositorio
 
