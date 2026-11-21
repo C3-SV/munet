@@ -19,7 +19,7 @@
 
 ## Autorización
 
-La autorización fina está mayormente dentro de controladores y servicios. Los helpers `requireEventMembership` y `requireRole` existen, pero no están montados en las rutas revisadas. `requireEventAdmin` exige una membresía administrativa activa del evento objetivo. La colección de eventos usa `requireAdmin` y el controlador del listado acota los resultados. Véase [autenticación](../03-referencia/autenticacion.md).
+La autorización fina está mayormente dentro de controladores y servicios. El helper `requireRole` existe, pero no está montado en las rutas revisadas (`requireEventMembership` se eliminó el 21 de noviembre de 2026 por no tener consumidores). `requireEventAdmin` exige una membresía administrativa activa del evento objetivo. La colección de eventos usa `requireAdmin` y el controlador del listado acota los resultados. Véase [autenticación](../03-referencia/autenticacion.md).
 
 ## Persistencia
 

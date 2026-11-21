@@ -1347,6 +1347,14 @@ export const suspendParticipant = async (
     if (existing.account_status === 'SUSPENDED') {
       return res.status(400).json({ error: 'La cuenta ya está suspendida' });
     }
+    if (existing.account_status === 'PENDING_ACTIVATION') {
+      // Reactivar escribe ACTIVE, y una cuenta que nunca se activó no tiene usuario de
+      // acceso: quedaría activa pero sin salida. Para frenar su acceso basta no entregarle
+      // la contraseña inicial, y para volver a darla existe restablecerla.
+      return res.status(400).json({
+        error: 'La cuenta aún no se ha activado, así que no se puede suspender. Restablece su contraseña inicial si necesita acceso.'
+      });
+    }
 
     const { data: membership, error } = await supabaseAdmin
       .from('event_memberships')
@@ -1457,6 +1465,9 @@ export const resetParticipantPassword = async (
   res: Response
 ) => {
   try {
+    // La respuesta lleva la contrasena temporal: ni el navegador ni un proxy deben guardarla.
+    res.setHeader('Cache-Control', 'no-store');
+
     const actorUserId = req.auth?.userId ?? null;
     const { membershipId } = req.params;
 

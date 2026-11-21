@@ -548,3 +548,29 @@ test('events-by-code ya no devuelve el rol de las membresias pendientes', async 
   assert.equal(item.event.id, 'event');
   assert.equal('role' in item, false);
 });
+
+test('restablecer contraseña marca la respuesta como no cacheable en cada rama (Q02-8)', async () => {
+  const pendingRow = { id: 'm1', event_id: 'event', user_id: 'u1', account_status: 'PENDING_ACTIVATION', participant_code: 'C1' };
+  const activeRow = { ...pendingRow, account_status: 'ACTIVE' };
+  for (const results of [
+    [{ data: pendingRow }, { data: null }],
+    [{ data: activeRow }, { data: { supabase_auth_user_id: 'auth1' } }],
+    [{ data: { ...pendingRow, account_status: 'SUSPENDED' } }],
+    [{ data: null }],
+  ]) {
+    const h = harness(results);
+    h.supabaseAuthUpdates = [];
+    await h.controller.resetParticipantPassword({ params: { membershipId: 'm1' } }, h.res);
+    assert.equal(h.res.headers['cache-control'], 'no-store', `estado ${h.res.statusCode}`);
+  }
+});
+
+test('no suspende una cuenta que nunca se activó y explica qué hacer (reactivación sin salida)', async () => {
+  const h = harness([{ data: { id: 'm1', event_id: 'event', user_id: 'u1', account_status: 'PENDING_ACTIVATION' } }]);
+  await h.controller.suspendParticipant({ params: { membershipId: 'm1' }, body: { reason: 'motivo' } }, h.res);
+  assert.equal(h.res.statusCode, 400);
+  assert.match(h.res.body.error, /no se ha activado/);
+  assert.match(h.res.body.error, /Restablece su contraseña inicial/);
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.audits.length, 0);
+});

@@ -434,6 +434,8 @@ export const deletePostComment = async (params: {
       updated_by_membership_id: params.membership.id,
     })
     .eq('id', params.commentId)
+    // Defensa en profundidad: el comentario ya se valido por evento arriba.
+    .eq('event_id', params.eventId)
     .select(COMMENT_SELECT)
     .single();
   // Devolvemos comentario actualizado para sincronizar UI sin recargar todo el post.

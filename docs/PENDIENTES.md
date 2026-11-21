@@ -11,7 +11,7 @@ Reordenado el 21 de noviembre de 2026 tras auditar cada pendiente contra el cód
 | Prioridad | Trabajo | Estado | Resultado verificable |
 |---|---|---|---|
 | 1 | Migración 002 (código de delegación): aplicada y verificada el 21 de noviembre de 2026. Falta probar un lote CSV mixto de punta a punta. | Hecho; queda la prueba del CSV. | Existen `event_delegation_counters` y `assign_delegation_code`; las 13 membresías vigentes tienen código; un lote CSV mixto devuelve resultados, credenciales y código. |
-| 2 | Correcciones de seguridad y cuentas sin decisión de producto. Hechas el 21 de noviembre de 2026: Q01-H1 (comité en `POST /admin/memberships`) y `role` fuera de `events-by-code`. Pendientes: Q01-H4 (UPDATE por id sin `event_id` en DM y comentarios), Q02-3, Q02-5, Q02-8 (`Cache-Control: no-store` en el reinicio de contraseña), Q02-4 (compensación al activar), callejón de la reactivación de una cuenta nunca activada y H3 (código sin uso). | Parcial, implementable ya. | Pruebas de unidad por cada corrección; sin cambios de contrato HTTP. |
+| 2 | Correcciones de seguridad y cuentas sin decisión de producto. Hechas el 21 de noviembre de 2026: Q01-H1, Q01-H4, H3 (middleware sin uso eliminado), Q02-3, Q02-4 (compensación al activar), Q02-5, Q02-8, la reactivación sin salida (ya no se suspende una cuenta nunca activada) y `role` fuera de `events-by-code`. | Hecho; queda verificar en el evento demo. | Pruebas de unidad por cada corrección (289 en la API); sin cambios de contrato HTTP. |
 | 3 | Código de ingreso entre eventos (B07, B14). Hecho el 21 de noviembre de 2026: un código solo puede repetirse entre eventos si es la misma persona; las altas nuevas (individual, CSV y vinculación) rechazan con 409 el código de otra persona, y `events-by-code` tiene límite por IP. Pendiente: confirmar la regla con MUN ESEN (B07), selección de evento con varias membresías (B14) y Q02-2 (login que distingue 400 de 401). | Implementado; pendiente de confirmar la regla. | Las colisiones de código tienen una regla escrita y el login las resuelve sin casos sin salida. |
 | 4 | Ciclo del evento: borrador, cierre, archivo y reapertura; guarda central de solo lectura; borrar comités. | Pendiente; requiere decisiones (ver sección 2). | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
 | 5 | Moderación mínima para MUN ESEN: ocultar sin borrar, endurecer la suspensión, consulta de auditoría y, si se decide, expulsión. Ya existen: eliminar con motivo, retirar adjuntos, fijar, suspender y reactivar. | Parcial; requiere decisiones (ver sección 2). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
@@ -69,20 +69,20 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 - Ejecutar en QA fixtures, cambio de comité, suspensión, retiro de contenido y Realtime. Requiere dos cuentas de participante de prueba; el sondeo de solo lectura ya está preparado y no se ejecutó.
 - H1: `POST /admin/memberships` no valida que el comité pertenezca al evento.
 - H2: `GET /auth/events-by-code/:participant_code` es público y devuelve `membership_id`.
-- H3: `requireEventMembership` está exportado y sin uso.
-- H4: UPDATEs por id sin `event_id` en DM y comentarios (defensa en profundidad).
+- ~~H3: `requireEventMembership` sin uso.~~ Resuelto el 21 de noviembre de 2026: el middleware se eliminó.
+- ~~H4: UPDATEs por id sin `event_id` en DM y comentarios.~~ Resuelto el 21 de noviembre de 2026.
 - H5: `POST /admin/events` y `GET /admin/events` usan `requireAdmin` global; decisión de producto.
 
 ### Q02 · Autenticación y auditoría
 
 - Límite de intentos: el Sprint 3 añadió `rate-limit.ts`. Falta decidir la persistencia del contador (hoy en memoria), el umbral de bloqueo y la política de auditoría ante fallo.
 - Enumeración: el login distingue 400 de 401 (Q02-2).
-- `logAuthAttempt` ignora el error de Supabase (Q02-3).
-- Activación sin compensación si falla tras crear la cuenta de Auth (Q02-4).
-- `last_login_at` sin revisar errores (Q02-5).
+- ~~`logAuthAttempt` ignora el error de Supabase (Q02-3).~~ Resuelto el 21 de noviembre de 2026: se registra en consola sin cortar el flujo.
+- ~~Activación sin compensación si falla tras crear la cuenta de Auth (Q02-4).~~ Resuelto el 21 de noviembre de 2026: se borra el usuario de Auth creado, se revierte `users` y la cuenta sigue pendiente con su contraseña inicial.
+- ~~`last_login_at` sin revisar errores (Q02-5).~~ Resuelto el 21 de noviembre de 2026: el error se registra y no impide el login.
 - Denegaciones de middleware sin auditar (Q02-6).
 - `logAudit` es best effort (Q02-7).
-- `initial_password` y `temporary_password` viajan en respuestas JSON; el handler de reset no fija `Cache-Control: no-store` (Q02-8).
+- `initial_password` y `temporary_password` viajan en respuestas JSON (Q02-8). El handler de reset ya fija `Cache-Control: no-store` (resuelto el 21 de noviembre de 2026); las otras respuestas con contraseñas ya lo tenían.
 - Sesión completa en `localStorage` (Q02-10).
 - Pruebas con reloj simulado, sin ejecutar.
 

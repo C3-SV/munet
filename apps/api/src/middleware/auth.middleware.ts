@@ -67,42 +67,6 @@ export const requireAuth = async (
   }
 };
 
-// Middleware de contexto por evento.
-// Permite identificar la membership activa para el event_id solicitado.
-// No hay acceso transversal: incluso un rol admin debe tener su propia
-// membership en el evento solicitado (ver ADR-004 / P-01).
-export const requireEventMembership = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const eventId =
-    req.headers['x-event-id'] ||
-    req.body?.event_id ||
-    req.query?.event_id;
-
-  if (!eventId || typeof eventId !== 'string') {
-    return res.status(400).json({ error: 'event_id es requerido' });
-  }
-
-  const memberships = req.auth?.memberships ?? [];
-
-  const membership = memberships.find(
-    (m) => m.eventId === eventId
-  );
-
-  if (!membership) {
-    return res.status(403).json({ error: 'No perteneces a este evento' });
-  }
-
-  if (membership.accountStatus !== 'ACTIVE') {
-    return res.status(403).json({ error: 'Membership no activa' });
-  }
-
-  req.auth!.currentMembership = membership;
-  return next();
-};
-
 // Resuelve el event_id objetivo de una peticion admin a partir de donde
 // cada ruta lo transporte hoy (param, body o query). Devuelve null si no
 // esta presente.
