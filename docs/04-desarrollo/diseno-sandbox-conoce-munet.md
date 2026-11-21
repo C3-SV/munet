@@ -128,6 +128,21 @@ El evento sembrado se mantiene solo para organizadores, con **12 cuentas** que s
 2. **Superficies:** muro (publicaciones, encuestas, comentarios, adjuntos locales con límites), directorio, perfil y mensajes directos con respuestas simuladas.
 3. **Entrenamiento de organizadores:** reducir el evento del servidor a unas 12 cuentas, retirar las sobrantes, regenerar el Excel y actualizar la guía.
 
+### Estado de la entrega 1
+
+Entrega 1 implementada el 21 de noviembre de 2026 (rama `feat/modo-practica-nucleo`, sin publicar). Plan: [plan-modo-practica-entrega-1.md](plan-modo-practica-entrega-1.md). Código en `apps/web/lib/practice/` (constantes, catálogo, almacén con versión, IndexedDB con respaldo en memoria, enrutador local con falla cerrada, pasarela y membresía), el desvío en `requestApi` y la interfaz en `components/practice/PracticeBanner.tsx`, el menú lateral y el layout `(main)`.
+
+Verificado el 21 de noviembre de 2026: 61 pruebas de `lib/practice`, `tsc` y `eslint --max-warnings 0` sin errores, 326 pruebas de la API. Recorrido real en el navegador con la web apuntando a la API local y la cuenta de un participante demo: «Modo práctica» muestra el aviso, los muros Avisos, General y el del comité de la persona (vacíos); durante la práctica no salió ninguna petición a la API ni a R2 y no se abrió ningún WebSocket; al recargar se vuelve al evento real y `localStorage` no contiene ids de práctica; «Reiniciar práctica» borra y re-siembra el estado; «Salir de la práctica» restaura el evento real; existe la base `munet-practice-<id>` en IndexedDB con los almacenes `state` y `blobs`.
+
+Límites conocidos de esta entrega, para las siguientes:
+
+- Las superficies que escriben (publicar, encuestas, comentarios, adjuntos, mensajes directos, directorio, perfil editable) responden «No disponible en modo práctica» (501) hasta la entrega 2. El formulario de publicar sí se ve.
+- Rutas que no pasan por el desvío porque no llevan el evento en `requestApi`: `lib/api/admin.ts`, `moderation.ts` y `participants.ts` (el id va en la ruta) y `lib/api/auth.ts` (`fetch` directo). Hoy no son alcanzables desde la interfaz de práctica; la entrega 2 debe cerrarlas o comprobarlo de nuevo.
+- `hydrateAuth` pone `practice: false` y lo llaman los layouts `(admin)`, login y selector de evento: abrir esas rutas (por ejemplo con el botón «atrás») sale de la práctica. El layout `(main)` solo hidrata si aún no está hidratado.
+- `refreshContext` hace una petición a la API real aunque la práctica esté activa; hoy nadie lo llama.
+- `setPracticeStorageFactory` (solo para pruebas) queda exportada en el paquete de producción.
+- El store de autenticación y el desvío de `client.ts` no tienen pruebas automáticas dentro del repositorio (solo verificación manual y guiones fuera del repositorio).
+
 ## Qué queda a criterio de quien construye
 
 - Estructura exacta de las tablas del almacén local y su migración entre versiones.
