@@ -3,12 +3,14 @@ export type DmProfileRecord =
       first_name: string;
       last_name: string;
       display_name: string | null;
+      alias?: string | null;
       profile_image_path: string | null;
     }
   | {
       first_name: string;
       last_name: string;
       display_name: string | null;
+      alias?: string | null;
       profile_image_path: string | null;
     }[]
   | null;
