@@ -28,6 +28,7 @@ import {
     type PracticeRouteContext,
 } from "./router-shared.ts";
 import {
+    handleAttachmentDownloadCheck,
     handleAttachmentInit,
     handleAttachmentRemove,
     handlePollClose,
@@ -272,6 +273,7 @@ const ROUTES: readonly Route[] = [
     { method: "POST", pattern: ["posts", "attachments", "init"], handle: handleAttachmentInit },
     { method: "DELETE", pattern: ["posts", ":postId"], handle: handlePostDelete },
     { method: "DELETE", pattern: ["posts", ":postId", "attachment"], handle: handleAttachmentRemove },
+    { method: "GET", pattern: ["posts", ":postId", "attachment", "download"], handle: handleAttachmentDownloadCheck },
     { method: "POST", pattern: ["posts", ":postId", "poll", "vote"], handle: handlePollVote },
     { method: "POST", pattern: ["posts", ":postId", "poll", "close"], handle: handlePollClose },
     { method: "POST", pattern: ["posts", ":postId", "comments"], handle: handleCommentCreate },
@@ -375,3 +377,18 @@ export const routePracticeRequest = (
     state: PracticeState,
     options?: { now?: Date },
 ): unknown => routePracticeRequestDetailed(request, state, options).result;
+
+// Clave "MÉTODO /ruta/:parametro" de la entrada de la tabla que atiende la petición, o null si ninguna la atiende.
+// La pasarela la usa para tratar aparte las rutas que necesitan binarios; sale de la misma tabla, sin duplicarla.
+export const practiceRouteOf = (request: PracticeRequest): string | null => {
+    const parsed = parsePath(request.path);
+    if (parsed === null) {
+        return null;
+    }
+    const method = request.method.toUpperCase();
+    const route = ROUTES.find(
+        (candidate) =>
+            candidate.method === method && matchPattern(candidate.pattern, parsed.segments) !== null,
+    );
+    return route === undefined ? null : `${route.method} /${route.pattern.join("/")}`;
+};

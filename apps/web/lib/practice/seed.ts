@@ -1,5 +1,6 @@
 import { PRACTICE_COMMITTEES } from "./catalog.ts";
 import { PRACTICE_MEMBERSHIP_ID } from "./constants.ts";
+import { SEED_IMAGE_ATTACHMENT_ID, SEED_PDF_ATTACHMENT_ID } from "./seed-files.ts";
 import type {
     PracticeAttachment,
     PracticeComment,
@@ -171,7 +172,7 @@ export const buildSeed = (persona: PracticePersona, now: Date): PracticeSeed => 
         minutes: 1200,
         content: "Mapa de la sala para la práctica: ubicación de cada delegación y de la presidencia.",
         attachment: {
-            id: "practice-seed-att-image",
+            id: SEED_IMAGE_ATTACHMENT_ID,
             name: "ejemplo-imagen.png",
             mimeType: "image/png",
             size: 184320,
@@ -183,7 +184,7 @@ export const buildSeed = (persona: PracticePersona, now: Date): PracticeSeed => 
         minutes: 720,
         content: "Procedimiento de debate en versión de práctica. Revísenlo antes de la primera sesión.",
         attachment: {
-            id: "practice-seed-att-pdf",
+            id: SEED_PDF_ATTACHMENT_ID,
             name: "procedimiento-de-debate.pdf",
             mimeType: "application/pdf",
             size: 262144,

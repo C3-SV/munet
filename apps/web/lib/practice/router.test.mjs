@@ -4,7 +4,9 @@ import { PRACTICE_COMMITTEES, buildPracticeWalls } from "./catalog.ts";
 import {
     PRACTICE_UNAVAILABLE_MESSAGE,
     PracticeRequestError,
+    practiceRouteOf,
     routePracticeRequest,
+    routePracticeRequestDetailed,
 } from "./router.ts";
 import { createInitialState } from "./state.ts";
 
@@ -127,7 +129,6 @@ test("falla cerrada: caminos no simulados lanzan 501", () => {
         ["GET", "/admin/participants"],
         ["POST", "/auth/login"],
         ["PATCH", "/profiles/practice-membership"],
-        ["GET", "/posts/abc/attachment/download"],
         ["GET", ""],
     ];
     for (const [method, path] of requests) {
@@ -137,6 +138,40 @@ test("falla cerrada: caminos no simulados lanzan 501", () => {
             `${method} ${path}`,
         );
     }
+});
+
+test("descarga: el enrutador solo valida y devuelve el id del adjunto, sin escribir", () => {
+    const imagePost = STATE.posts.find((post) => post.attachment?.id === "practice-seed-att-image");
+    const detailed = routePracticeRequestDetailed(
+        { method: "GET", path: `/posts/${imagePost.id}/attachment/download` },
+        STATE,
+    );
+    assert.equal(detailed.wrote, false);
+    assert.deepEqual(detailed.released, []);
+    assert.equal(detailed.result.attachmentId, "practice-seed-att-image");
+});
+
+test("practiceRouteOf: nombra la entrada de la tabla que atiende la petición, o null", () => {
+    assert.equal(practiceRouteOf({ method: "post", path: "/posts" }), "POST /posts");
+    assert.equal(practiceRouteOf({ method: "POST", path: "/posts/" }), "POST /posts");
+    assert.equal(
+        practiceRouteOf({ method: "GET", path: "/posts/practice-post-1/attachment/download?x=1" }),
+        "GET /posts/:postId/attachment/download",
+    );
+    assert.equal(practiceRouteOf({ method: "PUT", path: "/posts" }), null);
+    assert.equal(practiceRouteOf({ method: "GET", path: "sin-barra" }), null);
+});
+
+test("descarga: post inexistente o sin adjunto dan sus errores del contrato", () => {
+    assert.throws(
+        () => get("/posts/abc/attachment/download"),
+        isRequestError(404, "Post no encontrado en este evento"),
+    );
+    const withoutAttachment = STATE.posts.find((post) => post.attachment === null && !post.deleted);
+    assert.throws(
+        () => get(`/posts/${withoutAttachment.id}/attachment/download`),
+        isRequestError(404, "El post no tiene adjunto"),
+    );
 });
 
 test("falla cerrada: identificadores que no coinciden lanzan 501", () => {

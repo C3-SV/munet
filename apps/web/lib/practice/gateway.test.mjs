@@ -7,11 +7,14 @@ import {
     runPracticeRequest,
     setPracticeStorageFactory,
 } from "./gateway.ts";
+import { PRACTICE_LIMIT_MESSAGES, PRACTICE_LIMITS } from "./limits.ts";
 import { PRACTICE_UNAVAILABLE_MESSAGE, PracticeRequestError } from "./router.ts";
-import { personaFor } from "./state.ts";
+import { createInitialState, personaFor } from "./state.ts";
 import { createMemoryStorage } from "./storage.ts";
+import { clearPracticeFiles, peekPracticeFile, stashPracticeFile } from "./uploads.ts";
 
 const run = (userId, method, path) => runPracticeRequest({ userId, method, path });
+const call = (userId, method, path, body) => runPracticeRequest({ userId, method, path, body });
 
 const isRequestError = (status, message) => (error) =>
     error instanceof PracticeRequestError && error.status === status && error.message === message;
@@ -27,8 +30,80 @@ const perUserStores = () => {
     return { stores, factory };
 };
 
+// Almacén en memoria que anota cada escritura en `log`. `failSaves` cuenta cuántos guardados rechazan y
+// `failPutBlob` hace rechazar los binarios. Así se comprueba el orden de las escrituras y las reversiones.
+const spyStorage = () => {
+    const inner = createMemoryStorage();
+    const log = [];
+    const storage = {
+        log,
+        failSaves: 0,
+        failPutBlob: false,
+        load: () => inner.load(),
+        save: async (state) => {
+            log.push("save");
+            if (storage.failSaves > 0) {
+                storage.failSaves -= 1;
+                throw new Error("cuota excedida");
+            }
+            await inner.save(state);
+        },
+        putBlob: async (id, blob) => {
+            log.push(`putBlob:${id}`);
+            if (storage.failPutBlob) {
+                throw new Error("cuota de binarios excedida");
+            }
+            await inner.putBlob(id, blob);
+        },
+        getBlob: (id) => inner.getBlob(id),
+        deleteBlob: async (id) => {
+            log.push(`deleteBlob:${id}`);
+            await inner.deleteBlob(id);
+        },
+        clear: () => inner.clear(),
+    };
+    return storage;
+};
+
+const spyPerUser = () => {
+    const storages = new Map();
+    const factory = async (userId) => {
+        const storage = spyStorage();
+        storages.set(userId, storage);
+        return storage;
+    };
+    return { storages, factory };
+};
+
+const pngFile = (name = "mapa.png") =>
+    new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], name, { type: "image/png" });
+
+// Ticket de subida en el muro general; el archivo todavía no está en el stash.
+const initUpload = async (userId, overrides = {}) => {
+    const { upload } = await call(userId, "POST", "/posts/attachments/init", {
+        muro: "general",
+        file_name: "mapa.png",
+        mime_type: "image/png",
+        size: 1000,
+        ...overrides,
+    });
+    return upload;
+};
+
+// Sube el archivo al stash, confirma la publicación con su ticket y devuelve todo para comprobarlo.
+const publishWithAttachment = async (userId, content = "Mapa de la sala", file = pngFile()) => {
+    const upload = await initUpload(userId);
+    stashPracticeFile(upload.id, file);
+    const { post } = await call(userId, "POST", "/posts", { muro: "general", content, upload_id: upload.id });
+    return { post, upload, file };
+};
+
 const originalFetch = globalThis.fetch;
+const originalCreateObjectUrl = URL.createObjectURL;
+const originalRevokeObjectUrl = URL.revokeObjectURL;
 let fetchCalls = 0;
+let createdUrls = [];
+let revokedUrls = [];
 
 beforeEach(() => {
     fetchCalls = 0;
@@ -37,11 +112,25 @@ beforeEach(() => {
         fetchCalls += 1;
         throw new Error("fetch prohibido");
     };
+    // URL blob: simuladas: cada una guarda el blob al que apunta para compararlo después.
+    createdUrls = [];
+    revokedUrls = [];
+    URL.createObjectURL = (blob) => {
+        const url = `blob:practice/${createdUrls.length + 1}`;
+        createdUrls.push({ url, blob });
+        return url;
+    };
+    URL.revokeObjectURL = (url) => {
+        revokedUrls.push(url);
+    };
 });
 
 afterEach(() => {
     setPracticeStorageFactory(null);
     globalThis.fetch = originalFetch;
+    URL.createObjectURL = originalCreateObjectUrl;
+    URL.revokeObjectURL = originalRevokeObjectUrl;
+    clearPracticeFiles();
 });
 
 test("walls: devuelve los tres muros accesibles de la persona del usuario", async () => {
@@ -146,4 +235,311 @@ test("si clear rechaza, resetPractice resuelve y la práctica sigue en un estado
 
     const { profile } = await run("u1", "GET", "/profiles/me");
     assert.equal(profile.participantCode, "PRACTICA");
+});
+
+test("una escritura se guarda: load() devuelve el estado con la publicación nueva", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const { post } = await call("u1", "POST", "/posts", { muro: "general", content: "Mensaje persistido" });
+
+    const saved = await storages.get("u1").load();
+    assert.ok(saved.posts.some((item) => item.id === post.id && item.content === "Mensaje persistido"));
+});
+
+test("una lectura no guarda nada", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    storage.log.splice(0);
+
+    await run("u1", "GET", "/profiles/me");
+    await run("u1", "GET", "/posts?muro=general");
+    await run("u1", "GET", "/dm/conversations");
+    await run("u1", "GET", "/events/practice-local/participants?page=1");
+    assert.deepEqual(storage.log, []);
+});
+
+test("publicar con adjunto: el binario se guarda antes que el estado y getBlob lo devuelve", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    storage.log.splice(0);
+
+    const { post, upload, file } = await publishWithAttachment("u1");
+    const attachmentId = post.attachment.id;
+    assert.equal(await storage.getBlob(attachmentId), file);
+
+    const putAt = storage.log.indexOf(`putBlob:${attachmentId}`);
+    assert.ok(putAt >= 0, "se guardó el binario");
+    assert.ok(storage.log.indexOf("save", putAt + 1) > putAt, "el estado se guarda después del binario");
+    assert.equal(peekPracticeFile(upload.id), null, "el archivo ya no está en el stash");
+    assert.equal(fetchCalls, 0);
+});
+
+test("reintento con el mismo upload_id: mismo post, sin 404 aunque el archivo ya se consumió", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const { post, upload } = await publishWithAttachment("u1");
+    const replay = await call("u1", "POST", "/posts", {
+        muro: "general",
+        content: "Mapa de la sala",
+        upload_id: upload.id,
+    });
+    assert.deepEqual(replay.post, post);
+});
+
+test("borrar la publicación con adjunto borra el binario después de guardar", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    const storage = storages.get("u1");
+    const attachmentId = post.attachment.id;
+    storage.log.splice(0);
+
+    await call("u1", "DELETE", `/posts/${post.id}`);
+    assert.equal(await storage.getBlob(attachmentId), null);
+    const saveAt = storage.log.indexOf("save");
+    assert.ok(saveAt >= 0, "se guardó el estado");
+    assert.ok(storage.log.indexOf(`deleteBlob:${attachmentId}`) > saveAt, "el binario se borra después de guardar");
+});
+
+test("retirar el adjunto borra el binario después de guardar y revoca su URL", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    const storage = storages.get("u1");
+    const attachmentId = post.attachment.id;
+    const download = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+    storage.log.splice(0);
+
+    const removed = await call("u1", "DELETE", `/posts/${post.id}/attachment`);
+    assert.deepEqual(removed, { removed: true, postId: post.id, attachmentId });
+    assert.equal(await storage.getBlob(attachmentId), null);
+    const saveAt = storage.log.indexOf("save");
+    assert.ok(storage.log.indexOf(`deleteBlob:${attachmentId}`) > saveAt, "el binario se borra después de guardar");
+    assert.ok(revokedUrls.includes(download.url));
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.equal(posts.find((item) => item.id === post.id).attachment, null);
+});
+
+test("descarga: devuelve una URL blob: con el binario del adjunto, sin guardar nada", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post, file } = await publishWithAttachment("u1");
+    const storage = storages.get("u1");
+    storage.log.splice(0);
+
+    const before = Date.now();
+    const download = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+    assert.match(download.url, /^blob:/);
+    assert.equal(createdUrls.at(-1).url, download.url);
+    assert.equal(createdUrls.at(-1).blob, file);
+    const ttl = Date.parse(download.expiresAt) - before;
+    assert.ok(ttl > 55_000 && ttl <= 60_000 + 1_000, `vigencia de 60 s, con ${ttl} ms`);
+    assert.deepEqual(storage.log, []);
+    assert.equal(fetchCalls, 0);
+});
+
+test("descarga de un adjunto sembrado: genera el PNG de la semilla", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    const seeded = posts.find((post) => post.attachment?.name === "ejemplo-imagen.png");
+    assert.ok(seeded, "la semilla trae el ejemplo de imagen");
+
+    const download = await call("u1", "GET", `/posts/${seeded.id}/attachment/download`);
+    assert.match(download.url, /^blob:/);
+    const { blob } = createdUrls.at(-1);
+    assert.equal(blob.type, "image/png");
+    assert.deepEqual([...new Uint8Array(await blob.arrayBuffer()).subarray(0, 8)], [
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+});
+
+test("descarga: errores del contrato de post sin adjunto, post inexistente y muro ajeno", async () => {
+    const { stores, factory } = perUserStores();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const saved = await stores.get("u1").load();
+    const foreignSlug = buildPracticeWalls(personaFor("u1").committeeId).find((wall) => !wall.canAccess).slug;
+
+    const withoutAttachment = saved.posts.find((post) => post.attachment === null && post.wallSlug === "general");
+    await assert.rejects(
+        () => call("u1", "GET", `/posts/${withoutAttachment.id}/attachment/download`),
+        isRequestError(404, "El post no tiene adjunto"),
+    );
+    await assert.rejects(
+        () => call("u1", "GET", "/posts/practice-post-999999/attachment/download"),
+        isRequestError(404, "Post no encontrado en este evento"),
+    );
+    const foreign = saved.posts.find((post) => post.wallSlug === foreignSlug);
+    await assert.rejects(
+        () => call("u1", "GET", `/posts/${foreign.id}/attachment/download`),
+        isRequestError(403, "No tienes acceso a este post"),
+    );
+    assert.equal(createdUrls.length, 0);
+});
+
+test("upload_id sin archivo en el stash: 404 Subida no encontrada y no se crea la publicación", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const upload = await initUpload("u1");
+    await assert.rejects(
+        () => call("u1", "POST", "/posts", { muro: "general", content: "Sin archivo", upload_id: upload.id }),
+        isRequestError(404, "Subida no encontrada"),
+    );
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(!posts.some((post) => post.content === "Sin archivo"));
+    assert.equal(fetchCalls, 0);
+});
+
+test("save que rechaza: la escritura responde 507 y el estado en memoria queda como antes", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    storages.get("u1").failSaves = 1;
+
+    await assert.rejects(
+        () => call("u1", "POST", "/posts", { muro: "general", content: "Se pierde" }),
+        isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes),
+    );
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(!posts.some((post) => post.content === "Se pierde"));
+    assert.ok(!(await storages.get("u1").load()).posts.some((post) => post.content === "Se pierde"));
+});
+
+test("save que rechaza al publicar con adjunto: el binario se borra, el archivo vuelve al stash y el reintento funciona", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    const upload = await initUpload("u1");
+    const file = pngFile();
+    stashPracticeFile(upload.id, file);
+    const body = { muro: "general", content: "Con adjunto", upload_id: upload.id };
+    storage.failSaves = 1;
+
+    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes));
+    const putId = storage.log.find((entry) => entry.startsWith("putBlob:")).slice("putBlob:".length);
+    assert.equal(await storage.getBlob(putId), null, "el binario que llegó a guardarse se borra");
+    assert.equal(peekPracticeFile(upload.id), file, "el archivo vuelve al stash");
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(!posts.some((post) => post.content === "Con adjunto"));
+
+    const { post } = await call("u1", "POST", "/posts", body);
+    assert.equal(post.attachment.name, "mapa.png");
+    assert.equal(await storage.getBlob(post.attachment.id), file);
+});
+
+test("putBlob que rechaza (cuota de binarios): 507, estado sin cambios y el archivo sigue en el stash", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    const upload = await initUpload("u1");
+    const file = pngFile();
+    stashPracticeFile(upload.id, file);
+    const body = { muro: "general", content: "Sin binario", upload_id: upload.id };
+    storage.log.splice(0);
+    storage.failPutBlob = true;
+
+    await assert.rejects(() => call("u1", "POST", "/posts", body), isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes));
+    assert.equal(storage.log.includes("save"), false, "no se guarda un estado sin su binario");
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(!posts.some((post) => post.content === "Sin binario"));
+    assert.equal(peekPracticeFile(upload.id), file);
+
+    storage.failPutBlob = false;
+    const { post } = await call("u1", "POST", "/posts", body);
+    assert.equal(await storage.getBlob(post.attachment.id), file);
+});
+
+test("tope total: si el estado supera maxTotalBytes la escritura responde 507 y no cambia nada", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const storage = storages.get("u1");
+    storage.log.splice(0);
+
+    await assert.rejects(
+        () =>
+            call("u1", "POST", "/posts", {
+                muro: "general",
+                content: "x".repeat(PRACTICE_LIMITS.maxTotalBytes),
+            }),
+        isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes),
+    );
+    assert.equal(storage.log.includes("save"), false);
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(posts.every((post) => post.content.length < 1000));
+});
+
+test("dos escrituras a la vez se atienden en orden: si la primera no se guarda, la segunda sí", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    storages.get("u1").failSaves = 1;
+
+    const [first, second] = await Promise.allSettled([
+        call("u1", "POST", "/posts", { muro: "general", content: "Primera" }),
+        call("u1", "POST", "/posts", { muro: "general", content: "Segunda" }),
+    ]);
+    assert.equal(first.status, "rejected");
+    assert.ok(isRequestError(507, PRACTICE_LIMIT_MESSAGES.totalBytes)(first.reason));
+    assert.equal(second.status, "fulfilled");
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.ok(!posts.some((post) => post.content === "Primera"));
+    assert.ok(posts.some((post) => post.content === "Segunda"));
+});
+
+test("dos usuarios no comparten binarios: cada descarga entrega el archivo de su propia cuenta", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const first = await publishWithAttachment("u1", "Del primero", pngFile("primero.png"));
+    const second = await publishWithAttachment("u2", "Del segundo", pngFile("segundo.png"));
+
+    assert.equal(await storages.get("u1").getBlob(first.post.attachment.id), first.file);
+    assert.equal(await storages.get("u2").getBlob(second.post.attachment.id), second.file);
+
+    await call("u2", "GET", `/posts/${second.post.id}/attachment/download`);
+    assert.equal(createdUrls.at(-1).blob, second.file);
+    await call("u1", "GET", `/posts/${first.post.id}/attachment/download`);
+    assert.equal(createdUrls.at(-1).blob, first.file);
+});
+
+test("resetPractice: borra binarios y archivos pendientes, y revoca las URL del usuario", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    const download = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+    const pending = await initUpload("u1");
+    stashPracticeFile(pending.id, pngFile("pendiente.png"));
+
+    await resetPractice("u1");
+    const storage = storages.get("u1");
+    assert.equal(await storage.load(), null);
+    assert.equal(await storage.getBlob(post.attachment.id), null);
+    assert.ok(revokedUrls.includes(download.url));
+    assert.equal(peekPracticeFile(pending.id), null);
+});
+
+test("estado cargado con una foto de perfil que no es imagen permitida se reinicia", async () => {
+    const storage = createMemoryStorage();
+    const state = createInitialState("u1", new Date());
+    await storage.save({ ...state, profile: { ...state.profile, avatar: "https://ejemplo.test/foto.png" } });
+    setPracticeStorageFactory(async () => storage);
+
+    await run("u1", "GET", "/profiles/me");
+    assert.equal((await storage.load()).profile.avatar, null);
+});
+
+test("estado cargado con una foto data URI permitida se conserva", async () => {
+    const avatar = "data:image/png;base64,iVBORw0KGgo=";
+    const storage = createMemoryStorage();
+    const state = createInitialState("u1", new Date());
+    await storage.save({ ...state, profile: { ...state.profile, avatar } });
+    setPracticeStorageFactory(async () => storage);
+
+    await run("u1", "GET", "/profiles/me");
+    assert.equal((await storage.load()).profile.avatar, avatar);
 });

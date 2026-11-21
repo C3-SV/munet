@@ -1,12 +1,11 @@
 import {
-    AttachmentUploadError,
     publishWithAttachment,
     putFileToStorage,
     type UploadTicket,
 } from "../attachment-upload";
 import type { Post } from "../../types/common";
 import { isPracticeEvent } from "../practice/constants";
-import { PRACTICE_UNAVAILABLE_MESSAGE } from "../practice/router";
+import { stashPracticeFile } from "../practice/uploads";
 import { ApiError, requestApi } from "./client";
 
 export type FeedResponse = {
@@ -99,10 +98,11 @@ export const publishFeedPost = async ({
 
             return payload.upload;
         },
-        upload: (ticket) => {
-            // En práctica no hay almacenamiento real: el archivo nunca sale del navegador hacia R2.
+        upload: async (ticket) => {
+            // En práctica no hay almacenamiento real: el archivo se guarda en el navegador al crear la publicación.
             if (isPracticeEvent(eventId)) {
-                throw new AttachmentUploadError(PRACTICE_UNAVAILABLE_MESSAGE);
+                stashPracticeFile(ticket.id, attachment);
+                return;
             }
             return putFileToStorage(ticket, attachment, (url, init) =>
                 fetch(url, { ...init, body: init.body as BodyInit }),

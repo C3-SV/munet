@@ -15,14 +15,15 @@ export interface PracticeStorage {
 
 export type LoadResult = { state: PracticeState; wasReset: boolean };
 
-// Almacén en memoria: el estado y los blobs viven solo mientras exista el objeto devuelto.
+// Almacén en memoria: el estado y los blobs viven solo mientras exista el objeto devuelto. El estado se copia
+// al guardar y al leer, como hace IndexedDB; así cambiar el objeto en memoria no altera lo guardado.
 export const createMemoryStorage = (): PracticeStorage => {
     let savedState: unknown | null = null;
     const blobs = new Map<string, Blob>();
     return {
-        load: async () => savedState,
+        load: async () => (savedState === null ? null : structuredClone(savedState)),
         save: async (state) => {
-            savedState = state;
+            savedState = structuredClone(state);
         },
         putBlob: async (id, blob) => {
             blobs.set(id, blob);
@@ -41,12 +42,24 @@ export const createMemoryStorage = (): PracticeStorage => {
 const isPlainObject = (value: unknown): boolean =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
+// Foto propia: null o una imagen data URI de los tipos que admite la subida. Cualquier otra cosa (incluido
+// undefined o un esquema http) invalida el estado guardado.
+const AVATAR_PREFIXES: readonly string[] = [
+    "data:image/png;base64,",
+    "data:image/jpeg;base64,",
+    "data:image/webp;base64,",
+];
+const isValidAvatar = (avatar: unknown): boolean =>
+    avatar === null ||
+    (typeof avatar === "string" && AVATAR_PREFIXES.some((prefix) => avatar.startsWith(prefix)));
+
 // Solo se reutiliza un estado si coincide la versión, el usuario y la forma completa de la versión 2.
 const isStoredState = (value: unknown, userId: string): value is PracticeState => {
     if (!isPlainObject(value)) {
         return false;
     }
     const candidate = value as Partial<PracticeState>;
+    const profile = candidate.profile as Record<string, unknown> | undefined;
     return (
         candidate.version === PRACTICE_STATE_VERSION &&
         candidate.userId === userId &&
@@ -58,7 +71,8 @@ const isStoredState = (value: unknown, userId: string): value is PracticeState =
         Array.isArray(candidate.conversations) &&
         Array.isArray(candidate.messages) &&
         Array.isArray(candidate.uploads) &&
-        isPlainObject(candidate.profile) &&
+        isPlainObject(profile) &&
+        isValidAvatar(profile?.avatar) &&
         isPlainObject(candidate.replyCounts)
     );
 };

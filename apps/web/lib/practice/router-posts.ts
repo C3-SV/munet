@@ -296,6 +296,17 @@ export const handleAttachmentRemove = (
     return { removed: true, postId: post.id, attachmentId };
 };
 
+// GET /posts/:postId/attachment/download: solo valida y devuelve el id del adjunto. No escribe; la pasarela
+// entrega el binario. Cualquiera con acceso al muro puede descargar, no solo el autor.
+export const handleAttachmentDownloadCheck = (context: PracticeRouteContext): { attachmentId: string } => {
+    const post = visiblePostOrThrow(context.state, requireParam(context.params, "postId"));
+    readableWallOrThrow(context.state, post.wallSlug, "No tienes acceso a este post");
+    if (post.attachment === null) {
+        throw new PracticeRequestError(404, "El post no tiene adjunto");
+    }
+    return { attachmentId: post.attachment.id };
+};
+
 // POST /posts/:postId/poll/vote: el voto reemplaza al anterior mientras la encuesta esté abierta.
 export const handlePollVote = (context: PracticeRouteContext): { post: PracticePostView } => {
     const { state } = context;
