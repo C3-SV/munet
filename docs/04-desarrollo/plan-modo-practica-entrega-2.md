@@ -222,7 +222,7 @@
 ### Task 8: Diferidos de la entrega 1 (aviso de reinicio, tiempo de espera, privacidad)
 
 **Archivos:**
-- Modificar: `apps/web/lib/practice/gateway.ts`, `apps/web/lib/practice/indexeddb-storage.ts`, `apps/web/components/practice/PracticeBanner.tsx`, `apps/web/components/layout/Sidebar.tsx`, `apps/web/stores/auth.store.ts`
+- Modificar: `apps/web/lib/practice/gateway.ts`, `apps/web/lib/practice/indexeddb-storage.ts`, `apps/web/components/practice/PracticeBanner.tsx`, `apps/web/components/layout/Sidebar.tsx`, `apps/web/stores/auth.store.ts`, `apps/web/app/(main)/chat/[id]/page.tsx`
 - Prueba: `apps/web/lib/practice/gateway.test.mjs`, `apps/web/lib/practice/indexeddb-storage.test.mjs`
 
 **Interfaces:**
@@ -231,6 +231,7 @@
   - `getPracticeStatus(userId): Promise<{ persistent: boolean; wasReset: boolean }>`: `wasReset` es verdadero cuando el estado de este navegador se reinició solo porque su versión no coincidía; `acknowledgePracticeReset(userId): void` lo vuelve a falso. El banner muestra, mientras sea verdadero, la línea «Actualizamos la práctica y empezó de cero» con un botón «Entendido» que llama a `acknowledgePracticeReset`.
   - `openPracticeStorage` abandona la apertura de IndexedDB tras **3 segundos** (`Promise.race` con un temporizador que se cancela) y cae a memoria con `persistent: false`; prueba con una fábrica que nunca llama a `onsuccess`.
   - `deletePracticeData(userId: string): Promise<void>` en `gateway.ts`: olvida la sesión, revoca URL, `clearPracticeFiles()` y borra la base `munet-practice-<userId>` con `indexedDB.deleteDatabase` (mejor esfuerzo; nunca rechaza). `auth.store.ts` `logout` la llama (sin esperar) con el id de usuario que cierra sesión, después de leerlo del estado y antes de limpiarlo.
+  - `chat/[id]/page.tsx`: en práctica, tras enviar un mensaje con éxito, la pantalla vuelve a leer los mensajes tras ~1200 ms (`refreshMessages(true)` o su equivalente) para que aparezca la respuesta simulada que el simulador guardó en la misma escritura; fuera de práctica no cambia nada (la condición es `isPracticeEvent(eventId)`; limpiar el temporizador al desmontar).
   - `Sidebar.tsx`: al empezar el efecto que carga muros y perfil por cambio de `activeEventId`, llama a `setWalls([])` y `setProfile(null)` para no mostrar nombre ni avatar reales unos instantes al entrar a la práctica.
 
 - [ ] **Paso 1: pruebas que fallan:** `gateway.test.mjs`: con un almacén que ya trae un estado v1, `getPracticeStatus` da `wasReset: true` y tras `acknowledgePracticeReset` da `false`; `deletePracticeData("u1")` llama `indexedDB.deleteDatabase` (fábrica simulada en `globalThis.indexedDB`) con `munet-practice-u1` y no rechaza aunque falle. `indexeddb-storage.test.mjs`: una apertura colgada cae a memoria en menos de 4 s (usar un tiempo de espera inyectable en la prueba para no esperar 3 s reales: parámetro opcional `timeoutMs`, por defecto 3000).
