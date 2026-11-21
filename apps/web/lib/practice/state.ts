@@ -1,22 +1,13 @@
 import { PRACTICE_COMMITTEES } from "./catalog.ts";
 import { PRACTICE_STATE_VERSION } from "./constants.ts";
+import type { PracticePersona, PracticeStateV2 } from "./model.ts";
+import { buildPracticeRoster } from "./people.ts";
+import { buildSeed } from "./seed.ts";
 
-export type PracticePersona = {
-    delegation: string;
-    number: number;
-    committeeId: string;
-    firstName: string;
-    lastName: string;
-    displayName: string;
-    delegationCode: string;
-};
+export type { PracticePersona, PracticeStateV2 };
 
-export type PracticeState = {
-    version: number;
-    userId: string;
-    createdAt: string;
-    persona: PracticePersona;
-};
+// Estado local de la práctica: la versión 2 completa (ver model.ts).
+export type PracticeState = PracticeStateV2;
 
 const PRACTICE_DELEGATIONS: readonly string[] = [
     "Brasil", "Japón", "Francia", "Kenia", "Canadá", "India",
@@ -57,12 +48,25 @@ export const personaFor = (userId: string): PracticePersona => {
     };
 };
 
-export const createInitialState = (userId: string, now: Date): PracticeState => ({
-    version: PRACTICE_STATE_VERSION,
-    userId,
-    createdAt: now.toISOString(),
-    persona: personaFor(userId),
-});
+export const createInitialState = (userId: string, now: Date): PracticeState => {
+    const persona = personaFor(userId);
+    const seed = buildSeed(persona, now);
+    return {
+        version: PRACTICE_STATE_VERSION,
+        userId,
+        createdAt: now.toISOString(),
+        persona,
+        seq: seed.seq,
+        people: buildPracticeRoster(persona),
+        posts: seed.posts,
+        comments: seed.comments,
+        conversations: seed.conversations,
+        messages: seed.messages,
+        profile: { displayName: null, alias: null, bio: "", avatar: null },
+        uploads: [],
+        replyCounts: {},
+    };
+};
 
 // El espacio de nombres SVG va escrito como referencia de carácter ("&#104;ttp") para que
 // el avatar no contenga la cadena "http": el SVG no pide ningún recurso externo.

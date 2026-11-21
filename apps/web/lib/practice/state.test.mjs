@@ -52,6 +52,19 @@ test("createInitialState crea el estado versionado con la persona derivada", () 
     assert.deepEqual(state.persona, personaFor("u1"));
 });
 
+test("createInitialState completa el estado v2: cohorte, contenido sembrado y perfil vacío", () => {
+    const state = createInitialState("u1", new Date("2026-11-21T00:00:00Z"));
+    assert.equal(state.version, 2);
+    assert.ok(Number.isInteger(state.seq) && state.seq > 0);
+    for (const key of ["people", "posts", "comments", "conversations", "messages", "uploads"]) {
+        assert.ok(Array.isArray(state[key]), key);
+    }
+    assert.ok(state.people.some((person) => person.role === "ADMIN_MUN"));
+    assert.ok(state.posts.length > 0);
+    assert.deepEqual(state.profile, { displayName: null, alias: null, bio: "", avatar: null });
+    assert.deepEqual(state.replyCounts, {});
+});
+
 test("avatarFor devuelve un SVG en data URI sin URLs externas", () => {
     const avatar = avatarFor("B1");
     assert.ok(avatar.startsWith("data:image/svg+xml"));

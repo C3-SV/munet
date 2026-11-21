@@ -7,6 +7,8 @@ import { createMemoryStorage } from "./storage.ts";
 export type StorageChoice = { storage: PracticeStorage; persistent: boolean };
 
 const DB_VERSION = 1;
+// Tiempo máximo para abrir la base antes de usar el respaldo en memoria.
+const OPEN_TIMEOUT_MS = 3000;
 const STATE_STORE = "state";
 const BLOB_STORE = "blobs";
 const STATE_KEY = "state";
@@ -103,18 +105,34 @@ export const createIndexedDbStorage = (userId: string): PracticeStorage =>
     createDatabaseStorage(() => openDatabase(indexedDB, userId));
 
 // Abre la base con la factoría indicada para comprobar que funciona antes de usarla. Si no hay
-// factoría o la apertura falla, devuelve el respaldo en memoria sin propagar el error.
+// factoría, la apertura falla o tarda más de timeoutMs, devuelve el respaldo en memoria sin propagar el error.
 export const openPracticeStorage = async (
     userId: string,
     indexedDbFactory?: IDBFactory | undefined,
+    timeoutMs = OPEN_TIMEOUT_MS,
 ): Promise<StorageChoice> => {
     if (!indexedDbFactory) {
         return { storage: createMemoryStorage(), persistent: false };
     }
+    const opening = openDatabase(indexedDbFactory, userId);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+    });
     try {
-        const db = await openDatabase(indexedDbFactory, userId);
+        const db = await Promise.race([opening, timeout]);
+        if (db === null) {
+            // Una apertura tardía no se usa: se cierra al llegar para no dejar la base retenida.
+            opening.then(
+                (late) => late.close(),
+                () => undefined,
+            );
+            return { storage: createMemoryStorage(), persistent: false };
+        }
         return { storage: createDatabaseStorage(() => Promise.resolve(db)), persistent: true };
     } catch {
         return { storage: createMemoryStorage(), persistent: false };
+    } finally {
+        clearTimeout(timer);
     }
 };

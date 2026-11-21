@@ -4,7 +4,9 @@ import { PRACTICE_COMMITTEES, buildPracticeWalls } from "./catalog.ts";
 import {
     PRACTICE_UNAVAILABLE_MESSAGE,
     PracticeRequestError,
+    practiceRouteOf,
     routePracticeRequest,
+    routePracticeRequestDetailed,
 } from "./router.ts";
 import { createInitialState } from "./state.ts";
 
@@ -27,7 +29,7 @@ beforeEach(() => {
     };
 });
 
-test("walls: evento, membresía y seis muros de la persona", () => {
+test("walls: evento, membresía y solo los tres muros accesibles de la persona", () => {
     const response = get("/events/practice-local/walls");
     assert.deepEqual(response.event, { id: "practice-local", name: "Práctica", slug: "practica" });
     assert.deepEqual(response.membership, {
@@ -35,8 +37,9 @@ test("walls: evento, membresía y seis muros de la persona", () => {
         role: "PARTICIPANT",
         committeeId: COMMITTEE_ID,
     });
-    assert.equal(response.walls.length, 6);
-    assert.deepEqual(response.walls, buildPracticeWalls(COMMITTEE_ID));
+    // Avisos, General y el comité propio; los muros de comités ajenos no se listan.
+    assert.equal(response.walls.length, 3);
+    assert.deepEqual(response.walls, buildPracticeWalls(COMMITTEE_ID).filter((wall) => wall.canAccess));
 });
 
 test("committees: cuatro comités con la forma EventCommittee", () => {
@@ -88,13 +91,13 @@ test("profiles/me: el avatar lleva la inicial de la delegación", () => {
     assert.ok(decodeURIComponent(profile.profile.avatar).includes(`>${initial}</text>`));
 });
 
-test("posts: general y avisos responden un feed vacío con su muro", () => {
+test("posts: general y avisos responden su muro con publicaciones de la semilla", () => {
     const general = get("/posts?muro=general");
-    assert.deepEqual(general.posts, []);
+    assert.ok(general.posts.length > 0);
     assert.equal(general.wall.slug, "general");
 
     const avisos = get("/posts?muro=avisos");
-    assert.deepEqual(avisos.posts, []);
+    assert.ok(avisos.posts.length > 0);
     assert.equal(avisos.wall.slug, "avisos");
 });
 
@@ -103,7 +106,7 @@ test("posts: el muro del comité propio es accesible", () => {
     const response = get(`/posts?muro=${slug}`);
     assert.equal(response.wall.slug, slug);
     assert.equal(response.wall.canAccess, true);
-    assert.deepEqual(response.posts, []);
+    assert.ok(response.posts.length > 0);
 });
 
 test("posts: muro de otro comité 403 y muro inexistente 404", () => {
@@ -115,18 +118,17 @@ test("posts: muro de otro comité 403 y muro inexistente 404", () => {
     assert.throws(() => get("/posts?muro=no-existe"), isRequestError(404, "Muro no encontrado"));
 });
 
-test("dm: sin conversaciones", () => {
-    assert.deepEqual(get("/dm/conversations"), { conversations: [] });
+test("dm: las dos conversaciones de la semilla", () => {
+    assert.equal(get("/dm/conversations").conversations.length, 2);
 });
 
 test("falla cerrada: caminos no simulados lanzan 501", () => {
     const requests = [
-        ["POST", "/posts"],
-        ["DELETE", "/posts/x"],
+        ["PUT", "/posts/practice-post-1"],
+        ["DELETE", "/profiles/me"],
         ["GET", "/admin/participants"],
         ["POST", "/auth/login"],
-        ["PATCH", "/profiles/me"],
-        ["GET", "/posts/abc/attachment/download"],
+        ["PATCH", "/profiles/practice-membership"],
         ["GET", ""],
     ];
     for (const [method, path] of requests) {
@@ -138,13 +140,45 @@ test("falla cerrada: caminos no simulados lanzan 501", () => {
     }
 });
 
+test("descarga: el enrutador solo valida y devuelve el id del adjunto, sin escribir", () => {
+    const imagePost = STATE.posts.find((post) => post.attachment?.id === "practice-seed-att-image");
+    const detailed = routePracticeRequestDetailed(
+        { method: "GET", path: `/posts/${imagePost.id}/attachment/download` },
+        STATE,
+    );
+    assert.equal(detailed.wrote, false);
+    assert.deepEqual(detailed.released, []);
+    assert.equal(detailed.result.attachmentId, "practice-seed-att-image");
+});
+
+test("practiceRouteOf: nombra la entrada de la tabla que atiende la petición, o null", () => {
+    assert.equal(practiceRouteOf({ method: "post", path: "/posts" }), "POST /posts");
+    assert.equal(practiceRouteOf({ method: "POST", path: "/posts/" }), "POST /posts");
+    assert.equal(
+        practiceRouteOf({ method: "GET", path: "/posts/practice-post-1/attachment/download?x=1" }),
+        "GET /posts/:postId/attachment/download",
+    );
+    assert.equal(practiceRouteOf({ method: "PUT", path: "/posts" }), null);
+    assert.equal(practiceRouteOf({ method: "GET", path: "sin-barra" }), null);
+});
+
+test("descarga: post inexistente o sin adjunto dan sus errores del contrato", () => {
+    assert.throws(
+        () => get("/posts/abc/attachment/download"),
+        isRequestError(404, "Post no encontrado en este evento"),
+    );
+    const withoutAttachment = STATE.posts.find((post) => post.attachment === null && !post.deleted);
+    assert.throws(
+        () => get(`/posts/${withoutAttachment.id}/attachment/download`),
+        isRequestError(404, "El post no tiene adjunto"),
+    );
+});
+
 test("falla cerrada: identificadores que no coinciden lanzan 501", () => {
     const requests = [
         "/events/otro-evento/walls",
         "/events/practice-local%2Fwalls",
         "/events/%E0%A4%A/walls",
-        "/posts",
-        "/posts?muro=",
     ];
     for (const path of requests) {
         assert.throws(
@@ -172,6 +206,6 @@ test("tolerancia: barra final, método en minúsculas y consulta en rutas sin pa
         "practice-local",
     );
     assert.equal(get("/posts/?muro=general").wall.slug, "general");
-    assert.deepEqual(get("/dm/conversations?limit=5"), { conversations: [] });
+    assert.equal(get("/dm/conversations?limit=5").conversations.length, 2);
     assert.equal(get("/profiles/me?x=1").profile.participantCode, "PRACTICA");
 });

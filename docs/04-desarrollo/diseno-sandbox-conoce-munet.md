@@ -136,12 +136,31 @@ Verificado el 21 de noviembre de 2026: 61 pruebas de `lib/practice`, `tsc` y `es
 
 Límites conocidos de esta entrega, para las siguientes:
 
-- Las superficies que escriben (publicar, encuestas, comentarios, adjuntos, mensajes directos, directorio, perfil editable) responden «No disponible en modo práctica» (501) hasta la entrega 2. El formulario de publicar sí se ve; al publicar, la persona lee ese mismo texto en el aviso del muro. Comentar, votar, eliminar y cerrar encuestas ya muestran el mensaje del error tal cual. Los borradores del editor no se guardan en la práctica.
-- El reinicio automático por versión «con aviso» (sección 3) no existe: la pasarela descarta el indicador `wasReset`. Es requisito de la entrega 2: cuando suba `PRACTICE_STATE_VERSION` debe avisarse en el banner de la práctica.
+- (Resuelto en la entrega 2) Las superficies que escriben respondían «No disponible en modo práctica» (501) hasta la entrega 2. El formulario de publicar sí se ve; al publicar, la persona lee ese mismo texto en el aviso del muro. Comentar, votar, eliminar y cerrar encuestas ya muestran el mensaje del error tal cual. Los borradores del editor no se guardan en la práctica.
+- (Resuelto en la entrega 2) El reinicio automático por versión ya avisa en el banner de la práctica.
 - Rutas que no pasan por el desvío porque no llevan el evento en `requestApi`: `lib/api/admin.ts`, `moderation.ts` y `participants.ts` (el id va en la ruta) y `lib/api/auth.ts` (`fetch` directo). Hoy no son alcanzables desde la interfaz de práctica; la entrega 2 debe cerrarlas o comprobarlo de nuevo.
 - `hydrateAuth` pone `practice: false` y lo llaman los layouts `(admin)`, login y selector de evento: abrir esas rutas (por ejemplo con el botón «atrás») sale de la práctica. El layout `(main)` solo hidrata si aún no está hidratado.
 - `setPracticeStorageFactory` (solo para pruebas) queda exportada en el paquete de producción.
 - El store de autenticación y el desvío de `client.ts` no tienen pruebas automáticas dentro del repositorio (solo verificación manual y guiones fuera del repositorio).
+
+### Estado de la entrega 2
+
+Entrega 2 implementada el 21 de noviembre de 2026 (rama `feat/modo-practica-superficies`, sobre la de la entrega 1, sin publicar). Plan: [plan-modo-practica-entrega-2.md](plan-modo-practica-entrega-2.md). El estado de práctica pasa a la versión 2 (`PRACTICE_STATE_VERSION = 2`) con una cohorte de personas de ejemplo (más la Secretaría General, que publica los avisos), contenido sembrado (avisos fijados, publicaciones por muro, una encuesta con votos, comentarios, dos conversaciones y dos adjuntos de ejemplo) y el contenido que crea la persona. El enrutador local (`lib/practice/router*.ts`) atiende, con los mismos mensajes de error que la API: lecturas de muros, publicaciones, comentarios, directorio, perfiles y mensajes directos; escrituras de publicaciones, encuestas (votar, cerrar), adjuntos, comentarios, perfil propio (nombre, alias, biografía, foto) y mensajes directos con una respuesta preparada por mensaje (tope de 3 por conversación). La pasarela (`gateway.ts`) guarda el estado tras cada escritura, guarda los adjuntos como binarios locales, sirve la descarga con una URL `blob:` y revierte la escritura si el navegador rechaza guardar.
+
+Límites locales vigentes: 2 adjuntos propios (imagen JPG o PNG hasta 2 MB, PDF hasta 5 MB), 30 publicaciones y 100 comentarios propios, foto de perfil hasta 256 KB y 25 MB en total. Si el navegador no puede guardar, la persona ve un mensaje claro (código 507) y el estado queda como estaba. Al subir la versión del estado, la práctica se reinicia sola y el aviso lo dice; el tiempo de espera para abrir IndexedDB es de 3 segundos (si se cuelga, la práctica sigue en memoria); cerrar sesión borra la base `munet-practice-<id>` de esa cuenta.
+
+Verificado el 21 de noviembre de 2026: 378 pruebas web, 326 de la API, `tsc`, `eslint --max-warnings 0` y `next build` sin errores. Recorrido real en el navegador con la web apuntando a la API local y la cuenta de un participante demo: publicar texto, publicar con una imagen adjunta (con vista previa local), votar una encuesta, escribir en una conversación y ver la respuesta preparada, buscar en el directorio, editar el alias del perfil, recargar y comprobar que lo hecho sigue en la práctica, reiniciar (borra lo propio, los binarios y el alias y vuelve a sembrar) y cerrar sesión (la base IndexedDB desaparece). Durante todo el recorrido no hubo ninguna petición a la API ni a R2, ningún WebSocket ni XHR. No se ejercitaron en el navegador (solo con pruebas automáticas): crear y cerrar una encuesta, comentar y responder, el tercer adjunto, abrir un PDF, filtrar el directorio por comité y abrir el perfil de otra persona.
+
+Límites conocidos, vigentes tras la entrega 2:
+
+- La regla «hasta 500 caracteres» de la sección 2.1 solo la aplica el editor de la web (`maxLength`); el simulador, igual que la API, no la valida.
+- Varias pestañas del mismo usuario comparten la base de práctica y la última escritura gana. Los tickets de subida no vencen aunque se devuelva `expiresAt`.
+- Cerrar sesión, incluido el cierre automático por una respuesta 401, borra la práctica local de esa cuenta.
+- El archivo de una subida pendiente vive en memoria y se indexa solo por el id del ticket (`practice-upload-<n>`): dos cuentas con una subida pendiente a la vez en la misma pestaña podrían confundirse. Los binarios guardados antes de que falle el estado (cierre de la pestaña a mitad de una escritura) no se limpian solos.
+- La validación del estado guardado es superficial (versión, usuario, forma de los arreglos y del avatar). Un almacén manipulado a mano puede romper la práctica hasta reiniciarla.
+- `lib/api/admin.ts`, `moderation.ts` y `participants.ts` (el id va en la ruta) y `lib/api/auth.ts` (`fetch` directo) siguen sin pasar por el desvío; no son alcanzables desde la interfaz de práctica. `hydrateAuth` sigue sacando de la práctica al abrir login, selector o administración.
+- El simulador sigue dentro del paquete de cualquier página que use la API (`client.ts` importa la pasarela de forma estática).
+- El estado del almacén, el store, `client.ts`, el banner, el menú y el chat no tienen pruebas automáticas dentro del repositorio.
 
 ## Qué queda a criterio de quien construye
 
