@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { closeFeedPoll, deleteFeedPost, voteOnFeedPoll } from "../../lib/api/feed";
+import {
+    closeFeedPoll,
+    deleteFeedPost,
+    getAttachmentDownloadUrl,
+    removeOwnAttachment,
+    voteOnFeedPoll,
+} from "../../lib/api/feed";
 import { formatFileSize, isImageAttachment } from "../../lib/attachments";
 import { formatDateTime } from "../../lib/format-datetime";
 import { PostComments } from "./PostComments";
@@ -50,7 +56,11 @@ export const PostCard = ({
     const [isClosingPoll, setIsClosingPoll] = useState(false);
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [confirmAction, setConfirmAction] = useState<"delete-post" | "close-poll" | null>(null);
+    const [confirmAction, setConfirmAction] = useState<
+        "delete-post" | "close-poll" | "remove-attachment" | null
+    >(null);
+    const [isOpeningAttachment, setIsOpeningAttachment] = useState(false);
+    const [isRemovingAttachment, setIsRemovingAttachment] = useState(false);
 
     const isOfficial = variant === "official";
     const isFlat = variant === "flat";
@@ -126,6 +136,58 @@ export const PostCard = ({
             setError(closeError instanceof Error ? closeError.message : "No se pudo cerrar la encuesta");
         } finally {
             setIsClosingPoll(false);
+        }
+    };
+
+    const handleOpenAttachment = async () => {
+        // La URL firmada dura 60 segundos: se pide al hacer clic, no al cargar el muro.
+        if (!post.attachment || isOpeningAttachment) {
+            return;
+        }
+
+        // La pestaña se abre de inmediato (dentro del clic) para que el navegador no la bloquee.
+        const tab = window.open("about:blank", "_blank");
+
+        if (tab) {
+            tab.opener = null;
+        }
+
+        try {
+            setError(null);
+            setIsOpeningAttachment(true);
+            const url = await getAttachmentDownloadUrl(post.id, { token, eventId });
+
+            if (tab) {
+                tab.location.href = url;
+            } else {
+                window.location.assign(url);
+            }
+        } catch (attachmentError) {
+            tab?.close();
+            setError(
+                attachmentError instanceof Error ? attachmentError.message : "No se pudo abrir el adjunto",
+            );
+        } finally {
+            setIsOpeningAttachment(false);
+        }
+    };
+
+    const handleRemoveAttachment = async () => {
+        if (!post.attachment?.canRemove || isRemovingAttachment) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setIsRemovingAttachment(true);
+            await removeOwnAttachment(post.id, { token, eventId });
+            onPostUpdated?.({ ...post, attachment: null });
+        } catch (removeError) {
+            setError(
+                removeError instanceof Error ? removeError.message : "No se pudo retirar el adjunto",
+            );
+        } finally {
+            setIsRemovingAttachment(false);
         }
     };
 
@@ -234,30 +296,45 @@ export const PostCard = ({
             )}
 
             {post.attachment && !post.isDeleted && (
-                <a
-                    href={post.attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 no-underline hover:bg-[var(--bg-surface-secondary)]"
-                    style={{ border: "1px solid var(--border-color)" }}
-                    aria-label={`Abrir adjunto ${post.attachment.name} en una pestaña nueva`}
-                >
-                    <span style={{ color: "var(--text-accent)" }}>
-                        <IconFile size={22} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                        <span
-                            className="block truncate text-sm font-semibold font-heading"
-                            style={{ color: "var(--text-primary)" }}
+                <div className="mt-4 flex items-stretch gap-2">
+                    <button
+                        type="button"
+                        onClick={() => void handleOpenAttachment()}
+                        disabled={isOpeningAttachment}
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-left hover:bg-[var(--bg-surface-secondary)] disabled:opacity-60"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        aria-label={`Abrir adjunto ${post.attachment.name} en una pestaña nueva`}
+                    >
+                        <span style={{ color: "var(--text-accent)" }}>
+                            <IconFile size={22} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span
+                                className="block truncate text-sm font-semibold font-heading"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                {post.attachment.name}
+                            </span>
+                            <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                {isOpeningAttachment
+                                    ? "Abriendo..."
+                                    : `${isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} · ${formatFileSize(post.attachment.size)}`}
+                            </span>
+                        </span>
+                    </button>
+                    {post.attachment.canRemove && (
+                        <Button
+                            variant="danger-text"
+                            size="sm"
+                            onClick={() => setConfirmAction("remove-attachment")}
+                            disabled={isRemovingAttachment}
+                            loading={isRemovingAttachment}
+                            aria-label={`Quitar adjunto ${post.attachment.name}`}
                         >
-                            {post.attachment.name}
-                        </span>
-                        <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                            {isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} ·{" "}
-                            {formatFileSize(post.attachment.size)}
-                        </span>
-                    </span>
-                </a>
+                            Quitar
+                        </Button>
+                    )}
+                </div>
             )}
 
             {post.postType === "POLL" && post.poll && (
@@ -366,6 +443,18 @@ export const PostCard = ({
                 onConfirm={() => {
                     setConfirmAction(null);
                     void handleDeletePost();
+                }}
+            />
+            <ConfirmDialog
+                open={confirmAction === "remove-attachment"}
+                title="¿Quitar el archivo adjunto?"
+                description="El archivo dejará de estar disponible para quienes leen esta publicación. El texto se conserva."
+                confirmLabel="Quitar archivo"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleRemoveAttachment();
                 }}
             />
             <ConfirmDialog

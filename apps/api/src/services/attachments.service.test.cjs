@@ -331,16 +331,26 @@ test('feed: adjunta metadatos sin URL y oculta el de posts eliminados', async ()
   const h = setup({
     db: (call) => { steps = call.steps; return { data: [{ id: ATTACHMENT, post_id: 'a', file_name: 'x.pdf', mime_type: 'application/pdf', size_bytes: '2048' }, { id: 'otro', post_id: 'b', file_name: 'y.png', mime_type: 'image/png', size_bytes: 1 }], error: null }; },
   });
-  const posts = await h.service.attachAttachmentsToPosts({ posts: [{ id: 'a' }, { id: 'b', isDeleted: true }, { id: 'c' }], eventId: EVENT });
+  const posts = await h.service.attachAttachmentsToPosts({
+    posts: [{ id: 'a', user: { id: MEMBER } }, { id: 'b', isDeleted: true }, { id: 'c' }],
+    eventId: EVENT,
+    membershipId: MEMBER,
+  });
 
-  assert.deepEqual(JSON.parse(JSON.stringify(posts.map((p) => p.attachment))), [{ id: ATTACHMENT, name: 'x.pdf', mimeType: 'application/pdf', size: 2048 }, null, null]);
+  assert.deepEqual(JSON.parse(JSON.stringify(posts.map((p) => p.attachment))), [{ id: ATTACHMENT, name: 'x.pdf', mimeType: 'application/pdf', size: 2048, canRemove: true }, null, null]);
   assert.ok(hasStep(steps, 'eq', 'event_id', EVENT));
   assert.equal(JSON.stringify(posts).includes('http'), false);
 });
 
+test('feed: solo el autor puede retirar su adjunto', async () => {
+  const h = setup({ db: () => ({ data: [{ id: ATTACHMENT, post_id: 'a', file_name: 'x.pdf', mime_type: 'application/pdf', size_bytes: 1 }], error: null }) });
+  const [post] = await h.service.attachAttachmentsToPosts({ posts: [{ id: 'a', user: { id: 'otro' } }], eventId: EVENT, membershipId: MEMBER });
+  assert.equal(post.attachment.canRemove, false);
+});
+
 test('feed: sin posts no consulta', async () => {
   const h = setup();
-  assert.equal((await h.service.attachAttachmentsToPosts({ posts: [], eventId: EVENT })).length, 0);
+  assert.equal((await h.service.attachAttachmentsToPosts({ posts: [], eventId: EVENT, membershipId: MEMBER })).length, 0);
   assert.deepEqual(h.events, []);
 });
 

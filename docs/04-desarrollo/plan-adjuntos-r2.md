@@ -122,7 +122,7 @@ Referencias verificadas: URLs firmadas (GET, HEAD, PUT, DELETE; hasta 7 días; s
 | 1 | Documentación primero: ADR de almacenamiento y de la excepción de subida directa, contrato de endpoints en `03-referencia`, `modelos-de-datos.md`, `PENDIENTES.md`. Redactar la migración 003 (sin aplicar). | Documentos y SQL revisados. |
 | 2 | Módulo `lib/storage` con interfaz y adaptador S3, validación de tipo, tamaño y firma de archivo, constructor de claves. | Pruebas unitarias en verde (adaptador con cliente simulado). |
 | 3 | API: `init` con límites, ampliación de `POST /posts` con el orden y las compensaciones de §2.2, metadatos en el feed, descarga a demanda, retiro, auditoría (`UPLOAD_ATTACHMENT`, `DELETE_ATTACHMENT`, entidad `ATTACHMENT`), script de conciliación. | Pruebas de controlador (ver abajo). |
-| 4 | Web: `publishFeedPost` en pasos (init, `PUT`, crear post) con progreso y errores, `PostCard` con descarga a demanda, retiro, `ATTACHMENTS_BACKEND_READY = true`. | Pruebas del cliente y lint sin advertencias. |
+| 4 | Web: `publishFeedPost` en pasos (init, `PUT`, crear post) con progreso y errores, `PostCard` con descarga a demanda y retiro por el autor. La bandera `ATTACHMENTS_BACKEND_READY` se eliminó. | Pruebas del cliente y lint sin advertencias. |
 | 5 | Aplicar la migración 003 y verificar en el evento demo con dos cuentas: subir JPG, PNG y PDF; ver desde otro comité con y sin acceso; retirar; archivo inválido o excedido; CORS desde el navegador. | Registro en `pruebas-y-validacion.md`. |
 
 Pruebas de controlador de la fase 3:

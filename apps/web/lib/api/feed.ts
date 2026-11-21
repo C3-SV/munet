@@ -1,5 +1,10 @@
+import {
+    publishWithAttachment,
+    putFileToStorage,
+    type UploadTicket,
+} from "../attachment-upload";
 import type { Post } from "../../types/common";
-import { requestApi } from "./client";
+import { ApiError, requestApi } from "./client";
 
 export type FeedResponse = {
     wall: {
@@ -28,6 +33,8 @@ type CreatePostInput = FeedRequestContext & {
     content: string;
     postType?: "TEXT" | "POLL";
     pollOptions?: string[];
+    // Cero o un archivo (JPG/PNG/PDF). Se sube directo al almacenamiento antes de crear el post.
+    attachment?: File;
 };
 
 export const getFeedPosts = async (
@@ -47,23 +54,83 @@ export const publishFeedPost = async ({
     content,
     postType,
     pollOptions,
+    attachment,
     token,
     eventId,
 }: CreatePostInput): Promise<Post> => {
-    // Publica texto o encuesta segun `post_type`.
-    const payload = await requestApi<{ post: Post }>("/posts", {
-        method: "POST",
-        token,
-        eventId,
-        body: {
-            muro,
-            content,
-            post_type: postType ?? "TEXT",
-            poll_options: pollOptions,
+    // Publica texto o encuesta segun `post_type`, con adjunto opcional.
+    const createPost = async (uploadId?: string) => {
+        const payload = await requestApi<{ post: Post }>("/posts", {
+            method: "POST",
+            token,
+            eventId,
+            body: {
+                muro,
+                content,
+                post_type: postType ?? "TEXT",
+                poll_options: pollOptions,
+                ...(uploadId ? { upload_id: uploadId } : {}),
+            },
+        });
+
+        return payload.post;
+    };
+
+    if (!attachment) {
+        return createPost();
+    }
+
+    return publishWithAttachment({
+        initUpload: async () => {
+            const payload = await requestApi<{ upload: UploadTicket }>("/posts/attachments/init", {
+                method: "POST",
+                token,
+                eventId,
+                body: {
+                    muro,
+                    file_name: attachment.name,
+                    mime_type: attachment.type,
+                    size: attachment.size,
+                },
+            });
+
+            return payload.upload;
         },
+        upload: (ticket) =>
+            putFileToStorage(ticket, attachment, (url, init) =>
+                fetch(url, { ...init, body: init.body as BodyInit }),
+            ),
+        createPost,
+        // Solo los cortes de red: la API es idempotente por `upload_id` y devuelve el mismo post.
+        isRetryable: (error) => !(error instanceof ApiError),
+    });
+};
+
+// Pide a la API una URL de descarga de 60 segundos. Se llama al abrir el adjunto, no al listar.
+export const getAttachmentDownloadUrl = async (
+    postId: string,
+    context: FeedRequestContext,
+): Promise<string> => {
+    const payload = await requestApi<{ url: string }>(`/posts/${postId}/attachment/download`, {
+        method: "GET",
+        token: context.token,
+        eventId: context.eventId,
+        cache: "no-store",
     });
 
-    return payload.post;
+    return payload.url;
+};
+
+// El autor retira el adjunto de su publicación.
+export const removeOwnAttachment = async (
+    postId: string,
+    context: FeedRequestContext,
+): Promise<void> => {
+    await requestApi<{ removed: boolean }>(`/posts/${postId}/attachment`, {
+        method: "DELETE",
+        token: context.token,
+        eventId: context.eventId,
+    });
 };
 
 export const deleteFeedPost = async (

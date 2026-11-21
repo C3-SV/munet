@@ -453,12 +453,22 @@ export const abortClaim = async (claim: ClaimedUpload) => {
 // ---------------------------------------------------------------------------
 // 3) Metadatos en el feed
 
-export type AttachmentView = { id: string; name: string; mimeType: string; size: number };
+export type AttachmentView = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  // Solo el autor puede retirar su adjunto desde el feed.
+  canRemove: boolean;
+};
 
 // Añade `attachment` (sin URL) a cada post con una sola consulta por lote.
-export const attachAttachmentsToPosts = async <T extends { id: string; isDeleted?: boolean }>(params: {
+export const attachAttachmentsToPosts = async <
+  T extends { id: string; isDeleted?: boolean; user?: { id: string } },
+>(params: {
   posts: T[];
   eventId: string;
+  membershipId: string;
 }): Promise<(T & { attachment: AttachmentView | null })[]> => {
   if (params.posts.length === 0) {
     return [];
@@ -474,7 +484,7 @@ export const attachAttachmentsToPosts = async <T extends { id: string; isDeleted
     throw new Error(error.message);
   }
 
-  const byPost = new Map<string, AttachmentView>();
+  const byPost = new Map<string, Omit<AttachmentView, 'canRemove'>>();
   ((data ?? []) as { id: string; post_id: string; file_name: string; mime_type: string; size_bytes: number }[]).forEach(
     (row) => {
       byPost.set(row.post_id, {
@@ -487,10 +497,14 @@ export const attachAttachmentsToPosts = async <T extends { id: string; isDeleted
   );
 
   // Un post eliminado no sirve su adjunto.
-  return params.posts.map((post) => ({
-    ...post,
-    attachment: post.isDeleted ? null : (byPost.get(post.id) ?? null),
-  }));
+  return params.posts.map((post) => {
+    const found = post.isDeleted ? undefined : byPost.get(post.id);
+
+    return {
+      ...post,
+      attachment: found ? { ...found, canRemove: post.user?.id === params.membershipId } : null,
+    };
+  });
 };
 
 // ---------------------------------------------------------------------------

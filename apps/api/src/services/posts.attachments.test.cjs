@@ -98,7 +98,7 @@ test('con adjunto: reclama, verifica, copia, crea el post, guarda la fila y cier
     'storage:delete:pending',
   ]);
   assert.equal(h.audits.includes('UPLOAD_ATTACHMENT'), true);
-  assert.deepEqual(JSON.parse(JSON.stringify(result.body.post.attachment)), { id: ATTACHMENT, name: 'acta.pdf', mimeType: 'application/pdf', size: 1000 });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.body.post.attachment)), { id: ATTACHMENT, name: 'acta.pdf', mimeType: 'application/pdf', size: 1000, canRemove: false });
   assert.equal(h.events.some((event) => event.startsWith('storage:delete:final')), false);
 });
 

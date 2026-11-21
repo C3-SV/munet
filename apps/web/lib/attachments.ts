@@ -5,10 +5,6 @@ const MB = 1024 * 1024;
 
 export const ATTACHMENT_ACCEPT = "image/jpeg,image/png,application/pdf";
 
-// La interfaz de adjuntos está lista; el guardado en servidor aún no existe.
-// Pasar a `true` cuando la API acepte el archivo y lo envíe `publishFeedPost`.
-export const ATTACHMENTS_BACKEND_READY = false;
-
 const LIMITS: Record<string, number> = {
     "image/jpeg": 5 * MB,
     "image/png": 5 * MB,

@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-    ATTACHMENT_ACCEPT,
-    ATTACHMENTS_BACKEND_READY,
-    formatFileSize,
-    validateAttachment,
-} from "../../lib/attachments";
+import { ATTACHMENT_ACCEPT, formatFileSize, validateAttachment } from "../../lib/attachments";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { IconClose, IconFile, IconPaperclip } from "../ui/icons";
@@ -326,13 +321,12 @@ export const PostEditor = ({
                                 </p>
                                 <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
                                     {formatFileSize(attachment.size)}
-                                    {!ATTACHMENTS_BACKEND_READY &&
-                                        " · El servidor aún no guarda adjuntos: se publicará sin el archivo."}
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 onClick={removeAttachment}
+                                disabled={isPublishing}
                                 aria-label={`Quitar adjunto ${attachment.name}`}
                                 className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] md:min-h-9 md:min-w-9"
                             >

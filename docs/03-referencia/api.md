@@ -39,7 +39,7 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `DELETE /posts/:postId/attachment` | — | El autor retira su adjunto. |
 | `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
 
-`GET /posts` incluirá `attachment` (`id`, `name`, `mimeType`, `size`) sin URL.
+`GET /posts` incluirá `attachment` (`id`, `name`, `mimeType`, `size`, `canRemove`) sin URL. `canRemove` es verdadero solo para el autor del post.
 
 ## Perfiles
 

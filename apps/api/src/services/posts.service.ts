@@ -316,7 +316,11 @@ const buildPostResponseById = async (params: {
     membership: params.membership,
   });
   const [withCounts] = await attachCommentCounts({ posts: [withPoll], eventId: params.eventId });
-  const [enriched] = await attachAttachmentsToPosts({ posts: [withCounts], eventId: params.eventId });
+  const [enriched] = await attachAttachmentsToPosts({
+    posts: [withCounts],
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
 
   return enriched;
 };
@@ -454,7 +458,11 @@ export const getPostsByWall = async (params: {
   });
 
   const postsWithCounts = await attachCommentCounts({ posts: postsWithPolls, eventId: params.eventId });
-  const postsWithAttachments = await attachAttachmentsToPosts({ posts: postsWithCounts, eventId: params.eventId });
+  const postsWithAttachments = await attachAttachmentsToPosts({
+    posts: postsWithCounts,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
 
   return {
     status: 200,
