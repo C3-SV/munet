@@ -6,7 +6,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 
 | Método y ruta | Entrada | Resultado |
 |---|---|---|
-| `GET /auth/events-by-code/:participant_code` | Público, código de participante | Membresías pendientes de activación. |
+| `GET /auth/events-by-code/:participant_code` | Público, código de participante; límite por IP (`authIpLimiter`) | Membresías pendientes de activación: `membership_id`, `participant_code`, `account_status` y el evento. Ya no devuelve el rol. |
 | `POST /auth/activate` | Público, `participant_code`, `event_id`, `initial_password`, `new_password` | Activa y devuelve `{ success: true }`. |
 | `POST /auth/login` | Público, `participant_code`, `password` | Token y contexto. 409 si el código activo identifica a usuarios distintos. |
 | `GET /auth/context` | JWT | Usuario y membresías activas. |
@@ -78,8 +78,8 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `POST /admin/committees` | `event_id`, `name`, `code`, `description?`, `sort_order?` | Alta con creación de muro. |
 | `PATCH /admin/committees/:committeeId` | `name?`, `code?`, `description?`, `sort_order?` | Edición. Actualiza nombre del muro cuando cambia el nombre. |
 | `DELETE /admin/committees/:committeeId` | — | Sin pantalla. Borrado lógico de comité e intento de borrar su muro. |
-| `POST /admin/memberships` | `event_id`, `user_id`, `role`, `participant_code`, campos opcionales de comité/delegación/institución | Sin pantalla. Vincula un usuario existente sin generar contraseña inicial ni perfil. |
-| `POST /admin/create-account` | `event_id`, `participant_code`, `role`, `first_name`, `last_name`, campos opcionales de comité y perfil | Alta individual. Devuelve `initial_password`, `delegation_code` y `warnings`. La pantalla muestra la contraseña. |
+| `POST /admin/memberships` | `event_id`, `user_id`, `role`, `participant_code`, campos opcionales de comité/delegación/institución | Sin pantalla. Vincula un usuario existente sin generar contraseña inicial ni perfil. Valida que el comité exista, sea del evento y no esté archivado (404 o 400). 409 si el código ya existe en el evento o si lo usa otra persona en otro evento. |
+| `POST /admin/create-account` | `event_id`, `participant_code`, `role`, `first_name`, `last_name`, campos opcionales de comité y perfil | Alta individual. Devuelve `initial_password`, `delegation_code` y `warnings`. La pantalla muestra la contraseña. 409 si el código ya existe en el evento o lo usa otra persona en otro evento. |
 | `GET /admin/participants` | `event_id`, `page?`, `limit?`, `committee_id?`, `role?`, `status?`, `q?` | Listado y filtros. La API admite búsqueda `q` por nombre, alias o códigos. |
 | `GET /admin/participants/:membershipId` | — | Ficha individual. |
 | `PATCH /admin/participants/:membershipId` | Rol, comité, delegación, institución y campos de perfil, incluido alias | Edición individual. Código de ingreso y evento fuera de los campos editables. La ficha carece de control de alias. |

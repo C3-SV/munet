@@ -14,8 +14,8 @@ Las entidades siguientes reflejan el contrato usado por el código. Consulta el 
 
 ### Dos códigos con usos distintos
 
-- `participant_code` lo proporciona la administración y sirve para activar e ingresar. El snapshot describe unicidad por evento. El CSV comprueba duplicados sin distinguir mayúsculas y minúsculas. El alta individual busca coincidencia exacta. El login no recibe evento y devuelve conflicto para coincidencias activas de usuarios distintos.
-- `delegation_code` es un identificador visible, como `#042`. La migración 001 agrega una columna nullable y un índice único por evento para códigos presentes. La 002 define el contador `event_delegation_counters`, la RPC idempotente `assign_delegation_code`, el trigger de inmutabilidad y la asignación a membresías existentes sin código. El contador asigna números atómicamente por evento, con al menos tres dígitos y posibles huecos. El código puede quedar vacío si falla la RPC de alta.
+- `participant_code` lo proporciona la administración y sirve para activar e ingresar. El snapshot describe unicidad por evento. El CSV comprueba duplicados sin distinguir mayúsculas y minúsculas. El alta individual busca coincidencia exacta. El login no recibe evento y devuelve conflicto para coincidencias activas de usuarios distintos. Para no generar ese conflicto, un código solo puede repetirse entre eventos si es la misma persona: el alta de una cuenta nueva y la importación CSV rechazan (409) un código que ya usa otra persona en otro evento, y `POST /admin/memberships` solo lo admite para el mismo `user_id`.
+- `delegation_code` es un identificador visible, como `#042`. La migración 001 agrega una columna nullable y un índice único por evento para códigos presentes. La 002 (aplicada el 21 de noviembre de 2026) define el contador `event_delegation_counters`, la RPC idempotente `assign_delegation_code`, el trigger de inmutabilidad y la asignación a membresías existentes sin código. El contador asigna números atómicamente por evento, con al menos tres dígitos y posibles huecos. El código puede quedar vacío si falla la RPC de alta.
 
 ## Comunicación y trazabilidad
 

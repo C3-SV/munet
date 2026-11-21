@@ -11,7 +11,7 @@ function harness(results, service = {}) {
   const audits = [];
   const serviceCalls = [];
   const searchCalls = [];
-  const participantService = Object.fromEntries(['createParticipantAccount', 'assignDelegationCode'].map(name => [name, async (...args) => {
+  const participantService = Object.fromEntries(['createParticipantAccount', 'assignDelegationCode', 'findCodeUsedByAnotherPerson'].map(name => [name, async (...args) => {
     serviceCalls.push({ name, args });
     assert.equal(typeof service[name], 'function', `Servicio inesperado: ${name}`);
     return service[name](...args);
@@ -308,17 +308,19 @@ test('createAccount devuelve credenciales, codigo y warnings sin cache y audita 
   assert.equal(audit.actorUserId, 'admin-user');
 });
 
+const freeElsewhere = async () => ({ error: null, conflict: null });
+
 for (const assignment of [{ code: '#002', error: null }, { code: null, error: 'RPC no disponible' }]) {
   test(`createMembership devuelve 200 con codigo ${assignment.code} y warnings correspondientes`, async () => {
     const h = harness([
       { data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }, { data: { id: 'm1' } },
-    ], { assignDelegationCode: async () => assignment });
+    ], { assignDelegationCode: async () => assignment, findCodeUsedByAnotherPerson: freeElsewhere });
     await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' } }, h.res);
     assert.equal(h.res.statusCode, 200);
     assert.equal(h.res.body.membership.delegation_code, assignment.code);
     assert.equal(h.res.body.warnings.length, assignment.error ? 1 : 0);
     if (assignment.error) assert.match(h.res.body.warnings[0], /no se pudo asignar/);
-    assert.deepEqual(h.serviceCalls, [{ name: 'assignDelegationCode', args: ['m1'] }]);
+    assert.deepEqual(h.serviceCalls.filter(call => call.name === 'assignDelegationCode'), [{ name: 'assignDelegationCode', args: ['m1'] }]);
     assert.equal(h.audits[0].actionType, 'CREATE_MEMBERSHIP');
   });
 }
@@ -452,7 +454,7 @@ test('acciones sobre participantes auditan actor y ambos identificadores del afe
 });
 
 test('createMembership audita actor y usuario de la membership creada', async () => {
-  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }, { data: { id: 'm1' } }], { assignDelegationCode: async () => ({ code: '#001' }) });
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }, { data: { id: 'm1' } }], { assignDelegationCode: async () => ({ code: '#001' }), findCodeUsedByAnotherPerson: freeElsewhere });
   const actor = { id: 'admin', role: 'ADMIN_MUN' };
   await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' }, auth: { currentMembership: actor } }, h.res);
   assert.equal(h.res.statusCode, 200);
@@ -466,4 +468,83 @@ test('todas las auditorias administrativas conservan la membership del actor', (
   const audits = [...source.matchAll(/await logAudit\(\{([\s\S]*?)\n    \}\);/g)];
   assert.ok(audits.length >= 11);
   for (const [, body] of audits) assert.match(body, /membership: req\.auth\?\.currentMembership/);
+});
+
+test('createMembership responde 409 si el codigo ya existe en el evento y no inserta', async () => {
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: { id: 'otra' } }]);
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' } }, h.res);
+  assert.equal(h.res.statusCode, 409);
+  assert.match(h.res.body.error, /ya existe en este evento/);
+  assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+  assert.equal(h.serviceCalls.length, 0);
+});
+
+test('createMembership vincula a la misma persona en otro evento, pasando su user_id a la comprobacion', async () => {
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }, { data: { id: 'm1' } }], {
+    findCodeUsedByAnotherPerson: async () => ({ error: null, conflict: null }),
+    assignDelegationCode: async () => ({ code: '#003' }),
+  });
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  const check = h.serviceCalls.find(call => call.name === 'findCodeUsedByAnotherPerson');
+  assert.deepEqual(JSON.parse(JSON.stringify(check.args)), [{ participantCode: 'COD001', eventId: 'event', userId: 'u1' }]);
+});
+
+test('createMembership responde 409 si el codigo es de otra persona en otro evento y no inserta', async () => {
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }], {
+    findCodeUsedByAnotherPerson: async () => ({ error: null, conflict: 'participant_code ya lo usa otra persona en otro evento.' }),
+  });
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' } }, h.res);
+  assert.equal(h.res.statusCode, 409);
+  assert.match(h.res.body.error, /otra persona/);
+  assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+  assert.equal(h.audits.length, 0);
+});
+
+test('createMembership responde 500 si falla la comprobacion del codigo en otros eventos', async () => {
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }], {
+    findCodeUsedByAnotherPerson: async () => ({ error: 'fallo', conflict: null }),
+  });
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' } }, h.res);
+  assert.equal(h.res.statusCode, 500);
+  assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+});
+
+for (const scenario of [
+  { name: 'inexistente', committee: null, status: 404, error: /no encontrado/ },
+  { name: 'de otro evento', committee: { id: 'c1', event_id: 'otro', status: 'ACTIVE' }, status: 400, error: /no pertenece/ },
+  { name: 'archivado', committee: { id: 'c1', event_id: 'event', status: 'ARCHIVED' }, status: 400, error: /archivado/ },
+]) {
+  test(`createMembership rechaza un comite ${scenario.name} antes de consultar el codigo (Q01-H1)`, async () => {
+    const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: scenario.committee }]);
+    await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1', committee_id: 'c1' } }, h.res);
+    assert.equal(h.res.statusCode, scenario.status);
+    assert.match(h.res.body.error, scenario.error);
+    assert.equal(h.calls.length, 3);
+    assert.equal(h.calls[2].table, 'committees');
+    assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+  });
+}
+
+test('createMembership acepta un comite activo del mismo evento', async () => {
+  const h = harness([
+    { data: { id: 'event' } }, { data: { id: 'u1' } }, { data: { id: 'c1', event_id: 'event', status: 'ACTIVE' } },
+    { data: null }, { data: { id: 'm1' } },
+  ], { findCodeUsedByAnotherPerson: freeElsewhere, assignDelegationCode: async () => ({ code: '#004' }) });
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1', committee_id: 'c1' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.calls[4].steps[0][1].committee_id, 'c1');
+});
+
+test('events-by-code ya no devuelve el rol de las membresias pendientes', async () => {
+  const h = harness([{ data: [{
+    id: 'm1', participant_code: 'COD001', account_status: 'PENDING_ACTIVATION', role: 'ADMIN_MUN', event_id: 'event',
+    events: { id: 'event', name: 'Evento', slug: 'evento', status: 'ACTIVE', deleted_at: null },
+  }] }]);
+  await h.controller.getEventsByParticipantCode({ params: { participant_code: 'COD001' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  const [item] = JSON.parse(JSON.stringify(h.res.body.events));
+  assert.equal(item.membership_id, 'm1');
+  assert.equal(item.event.id, 'event');
+  assert.equal('role' in item, false);
 });

@@ -51,7 +51,7 @@ Chat establece explícitamente el JWT de Realtime. Feed y comentarios no lo esta
 
 ## D-12 — Código de ingreso y activación
 
-La unicidad de `participant_code` documentada es por evento. El login no recibe evento y devuelve 409 ante códigos activos vinculados a usuarios diferentes. La activación usa un correo derivado del código si el usuario interno todavía no tiene correo. La colisión en el flujo completo debe reproducirse en una base aislada y resolverse como decisión de producto.
+La unicidad de `participant_code` documentada es por evento. El login no recibe evento y devuelve 409 ante códigos activos vinculados a usuarios diferentes. La activación usa un correo derivado del código si el usuario interno todavía no tiene correo. Desde el 21 de noviembre de 2026 las altas nuevas (individual, CSV y vinculación de membresías) rechazan con 409 un código que ya usa otra persona en otro evento, así que no se crean colisiones nuevas. Queda el caso existente `DEL01` (la misma persona en dos eventos: no genera conflicto) y la regla definitiva B07 como decisión de producto.
 
 ## D-13 — Versión de Node
 

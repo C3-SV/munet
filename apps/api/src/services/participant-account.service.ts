@@ -41,7 +41,7 @@ type Committee = { id: string; event_id: string; status?: string | null };
 const fail = (status: number, error: string): CreateParticipantAccountResult => ({ ok: false, status, error });
 
 // Asigna el codigo # de delegacion con la funcion SQL de la migracion 002.
-// Es atomica por evento (advisory lock) e idempotente. Si falla, la cuenta
+// Es atomica por evento (bloquea la fila de la membership y el contador del evento) e idempotente. Si falla, la cuenta
 // se conserva y se avisa: la funcion se puede volver a ejecutar despues.
 export const assignDelegationCode = async (
   membershipId: string
@@ -51,6 +51,35 @@ export const assignDelegationCode = async (
   });
   if (error) return { code: null, error: error.message };
   return { code: typeof data === 'string' ? data : null, error: null };
+};
+
+export const CODE_IN_USE_BY_OTHER_PERSON =
+  'participant_code ya lo usa otra persona en otro evento. Usa un codigo distinto o vincula a la misma persona.';
+
+// Un codigo de ingreso identifica a una persona: el login no recibe el evento, asi que
+// si dos personas distintas lo compartieran en eventos distintos ninguna podria entrar
+// (409). Puede repetirse entre eventos solo si pertenece al mismo usuario. Las membresias
+// borradas logicamente no cuentan. `conflict` trae el mensaje si hay otra persona.
+export const findCodeUsedByAnotherPerson = async (params: {
+  participantCode: string;
+  eventId: string;
+  userId?: string | null;
+}): Promise<{ error: string | null; conflict: string | null }> => {
+  const { data, error } = await supabaseAdmin
+    .from('event_memberships')
+    .select('user_id')
+    .eq('participant_code', params.participantCode)
+    .neq('event_id', params.eventId)
+    .is('deleted_at', null)
+    .limit(50);
+
+  if (error) return { error: error.message, conflict: null };
+
+  const usedByOther = ((data ?? []) as { user_id: string }[]).some(
+    (row) => !params.userId || row.user_id !== params.userId
+  );
+
+  return { error: null, conflict: usedByOther ? CODE_IN_USE_BY_OTHER_PERSON : null };
 };
 
 const rollback = async (ids: { userId?: string; membershipId?: string }) => {
@@ -97,6 +126,12 @@ export const createParticipantAccount = async (
     if (existingError) return fail(500, 'No se pudo validar el codigo de participante');
     if (existing) return fail(409, 'participant_code ya existe en este evento');
   }
+
+  // 1b. Cuenta nueva = persona nueva: el codigo no puede ser el de otra persona en otro
+  //     evento. Se comprueba siempre, tambien en la importacion CSV.
+  const otherPerson = await findCodeUsedByAnotherPerson({ participantCode: participant_code, eventId: event_id });
+  if (otherPerson.error) return fail(500, 'No se pudo validar el codigo de participante');
+  if (otherPerson.conflict) return fail(409, otherPerson.conflict);
 
   // 2. Comite: debe existir, ser del mismo evento y no estar archivado.
   if (committee_id) {

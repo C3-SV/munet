@@ -6,7 +6,11 @@ import bcrypt from 'bcrypt';
 import { validateCatalogBody } from '../utils/admin.validation';
 import { generateInitialPassword } from '../utils/password.utils';
 import { isAdminRole, isMembershipRole, MEMBERSHIP_ROLES } from '../utils/rbac.utils';
-import { assignDelegationCode, createParticipantAccount } from '../services/participant-account.service';
+import {
+  assignDelegationCode,
+  createParticipantAccount,
+  findCodeUsedByAnotherPerson
+} from '../services/participant-account.service';
 import { searchParticipants } from '../services/participant-search.service';
 
 // Helper para detectar si una propiedad viene explicitamente en el payload.
@@ -482,6 +486,29 @@ export const createMembership = async (
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    // 3b. el comité debe existir, ser del mismo evento y no estar archivado (Q01-H1)
+    if (committee_id) {
+      const { data: committee, error: committeeError } = await supabaseAdmin
+        .from('committees')
+        .select('id, event_id, status')
+        .eq('id', committee_id)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      if (committeeError) {
+        return res.status(500).json({ error: 'No se pudo validar el comite' });
+      }
+      if (!committee) {
+        return res.status(404).json({ error: 'Comite no encontrado' });
+      }
+      if (committee.event_id !== event_id) {
+        return res.status(400).json({ error: 'El comite no pertenece al evento indicado' });
+      }
+      if (committee.status === 'ARCHIVED') {
+        return res.status(400).json({ error: 'El comite esta archivado' });
+      }
+    }
+
     // 4. validar código único dentro del evento
     const { data: existingCode } = await supabaseAdmin
       .from('event_memberships')
@@ -492,9 +519,23 @@ export const createMembership = async (
       .maybeSingle();
 
     if (existingCode) {
-      return res.status(400).json({
+      return res.status(409).json({
         error: 'participant_code ya existe en este evento'
       });
+    }
+
+    // 4b. un código identifica a una persona: solo puede repetirse en otro evento si es la misma
+    const otherPerson = await findCodeUsedByAnotherPerson({
+      participantCode: participant_code,
+      eventId: event_id,
+      userId: user_id
+    });
+
+    if (otherPerson.error) {
+      return res.status(500).json({ error: 'No se pudo validar el codigo de participante' });
+    }
+    if (otherPerson.conflict) {
+      return res.status(409).json({ error: otherPerson.conflict });
     }
 
     // 5. crear membership
@@ -750,7 +791,6 @@ export const getEventsByParticipantCode = async (
         membership_id: item.id,
         participant_code: item.participant_code,
         account_status: item.account_status,
-        role: item.role,
         event: Array.isArray(item.events) ? item.events[0] : item.events
       }))
       .filter((item: any) => item.event && !item.event.deleted_at);

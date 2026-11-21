@@ -1,7 +1,8 @@
 -- 002 · Codigo # de delegacion generado por la base (tarea S2-03).
 --
--- NO APLICADA. Requiere la 001 (columna event_memberships.delegation_code).
--- Antes de ejecutarla:
+-- APLICADA en Supabase el 2026-11-21 (ejecutada desde el SQL Editor; verificada: contadores por evento, RLS, 13 membresias vigentes con codigo, sin duplicados).
+-- Se conserva como registro. Requiere la 001 (columna event_memberships.delegation_code).
+-- Antes de ejecutarla (ya hecho):
 --   1. Revision en Pull Request y aviso a Rober (la base es compartida y de produccion).
 --   2. Que nadie este importando participantes en ese momento (el backfill del final asigna codigos).
 --   3. Ejecutar el archivo completo en el SQL Editor de Supabase.
