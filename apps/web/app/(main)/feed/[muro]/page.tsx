@@ -28,6 +28,11 @@ const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
         return error.message;
     }
 
+    // El modo práctica responde 501 con un texto claro; la API real nunca devuelve 501.
+    if (error instanceof ApiError && error.status === 501) {
+        return error.message;
+    }
+
     if (hasAttachment && error instanceof ApiError && error.status >= 400 && error.status < 500) {
         return error.message;
     }
@@ -454,11 +459,12 @@ const Feed = () => {
                     </nav>
                 )}
 
-                {/* El borrador es por evento y muro: los slugs de muro se repiten entre eventos. */}
+                {/* El borrador es por evento y muro: los slugs de muro se repiten entre eventos.
+                    En la práctica no se guarda ninguno: sessionStorage es de la pestaña, no de la cuenta, y el reinicio no lo borraría. */}
                 {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
                         key={`${eventId ?? "sin-evento"}:${muroParam}`}
-                        draftKey={`${eventId ?? "sin-evento"}:${muroParam}`}
+                        draftKey={isPracticeEvent(eventId) ? undefined : `${eventId ?? "sin-evento"}:${muroParam}`}
                         onPublish={handlePublishPost}
                         disabled={isLoading}
                     />
