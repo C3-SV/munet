@@ -83,9 +83,9 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /admin/participants` | `event_id`, `page?`, `limit?`, `committee_id?`, `role?`, `status?`, `q?` | Listado y filtros. La API admite búsqueda `q` por nombre, alias o códigos. |
 | `GET /admin/participants/:membershipId` | — | Ficha individual. |
 | `PATCH /admin/participants/:membershipId` | Rol, comité, delegación, institución y campos de perfil, incluido alias | Edición individual. Código de ingreso y evento fuera de los campos editables. La ficha carece de control de alias. |
-| `POST /admin/participants/:membershipId/suspend` | `reason` | Suspensión. |
+| `POST /admin/participants/:membershipId/suspend` | `reason` | Suspensión. Rechaza (400) una cuenta ya suspendida y una que nunca se activó (`PENDING_ACTIVATION`): para esa última, restablecer la contraseña inicial. |
 | `POST /admin/participants/:membershipId/reactivate` | `reason` | Reactivación de una membresía suspendida. |
-| `POST /admin/participants/:membershipId/reset-password` | — | Devuelve `temporary_password`. |
+| `POST /admin/participants/:membershipId/reset-password` | — | Devuelve `temporary_password`, con `Cache-Control: no-store`. |
 | `PATCH /admin/participants/:membershipId/committee` | `committee_id` (ID o `null`), `reason?` | Sin cliente dedicado. La ficha usa el PATCH general. |
 | `PATCH /admin/participants/:membershipId/role` | `role` (`PARTICIPANT` o `MODERATOR`), `reason?` | Ficha y listado. Solo admin del evento. 400 si ya tiene el rol, 403 si la cuenta es administrativa. Devuelve `membership`. |
 | `POST /admin/participants/import/preview` | `event_id`, `csv` como texto | Sin pantalla. Separa `valid`, `invalid`, `duplicates`, sin alta. |

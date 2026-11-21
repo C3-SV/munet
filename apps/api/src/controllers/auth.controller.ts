@@ -11,6 +11,40 @@ type ActivateAccountBody = {
     new_password: string;
 };
 
+const ACTIVATION_FAILED = "No se pudo completar la activacion. Intenta de nuevo; tu contraseña inicial sigue vigente.";
+
+// Deshace lo creado por una activacion que fallo a medias: borra el usuario de Auth creado en
+// ESTA ejecucion (nunca uno previo) y revierte el vinculo en users, para que la cuenta siga
+// pendiente y se pueda reintentar con la misma contraseña inicial. Cada paso es de mejor
+// esfuerzo y solo registra su error: el cliente ya recibe un 500.
+const compensateActivation = async (params: {
+    authUserId: string;
+    userId: string;
+    previousEmail: string | null;
+    usersUpdated: boolean;
+}) => {
+    if (params.usersUpdated) {
+        const { error } = await supabaseAdmin
+            .from("users")
+            .update({
+                supabase_auth_user_id: null,
+                email: params.previousEmail,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", params.userId);
+
+        if (error) {
+            console.error("Compensacion: no se pudo revertir users", params.userId, error.message);
+        }
+    }
+
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(params.authUserId);
+
+    if (deleteError) {
+        console.error("Compensacion: no se pudo borrar el usuario de Auth", params.authUserId, deleteError.message);
+    }
+};
+
 // Flujo de activación:
 // 1) valida membership pendiente por código + evento
 // 2) verifica contraseña inicial de un solo uso
@@ -172,7 +206,14 @@ export const activateAccount = async (
             .eq("id", membership.user_id);
 
         if (userError) {
-            return res.status(400).json({ error: userError.message });
+            console.error("Activacion: no se pudo vincular el usuario de Auth", userError.message);
+            await compensateActivation({
+                authUserId,
+                userId: membership.user_id,
+                previousEmail: userRecord.email ?? null,
+                usersUpdated: false,
+            });
+            return res.status(500).json({ error: ACTIVATION_FAILED });
         }
 
         // 6. actualizar membership
@@ -187,9 +228,22 @@ export const activateAccount = async (
             .eq("id", membership.id);
 
         if (membershipUpdateError) {
-            return res
-                .status(400)
-                .json({ error: membershipUpdateError.message });
+            console.error("Activacion: no se pudo activar la membresia", membershipUpdateError.message);
+            await compensateActivation({
+                authUserId,
+                userId: membership.user_id,
+                previousEmail: userRecord.email ?? null,
+                usersUpdated: true,
+            });
+            await logAuthAttempt({
+                event_id,
+                participant_code,
+                event_membership_id: membership.id,
+                attempt_type: "ACTIVATION",
+                result: "FAILURE",
+                failure_reason: "ACTIVATION_ROLLED_BACK",
+            });
+            return res.status(500).json({ error: ACTIVATION_FAILED });
         }
 
         // 7. log intento
@@ -300,7 +354,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         }
 
         // 4. actualizar ultimo login
-        await supabaseAdmin
+        const { error: lastLoginError } = await supabaseAdmin
             .from("event_memberships")
             .update({
                 last_login_at: new Date().toISOString(),
@@ -310,6 +364,11 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
             .eq("user_id", user.id)
             .eq("account_status", "ACTIVE")
             .is("deleted_at", null);
+
+        if (lastLoginError) {
+            // Es telemetria: un fallo no debe impedir el login, pero no puede pasar en silencio.
+            console.error("No se pudo actualizar last_login_at", lastLoginError.message);
+        }
         // Actualizamos todas las memberships activas del usuario para telemetria de acceso.
 
         // 5. obtener contexto de eventos
