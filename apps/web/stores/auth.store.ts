@@ -10,7 +10,7 @@ import {
 } from "../lib/api/auth";
 import { PRACTICE_EVENT_ID, PRACTICE_MEMBERSHIP_ID } from "../lib/practice/constants";
 import {
-  shouldPersistActive,
+  isPracticeMembership,
   withoutPracticeMembership,
   withPracticeMembership,
 } from "../lib/practice/membership";
@@ -290,10 +290,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    // La práctica cambia solo el estado en memoria; no se escribe en localStorage.
-    if (shouldPersistActive(membership)) {
-      localStorage.setItem(ACTIVE_EVENT_KEY, membership.eventId);
-      localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, membership.id);
+    // La práctica tiene un único camino de entrada (mantiene `practice` y el contexto en sincronía).
+    if (isPracticeMembership(membership)) {
+      get().enterPractice();
+      return;
+    }
+
+    localStorage.setItem(ACTIVE_EVENT_KEY, membership.eventId);
+    localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, membership.id);
+
+    // Elegir un evento real estando en práctica la termina: se quita su membresía en memoria.
+    // Fuera de la práctica `memberships` no se toca para no cambiar referencias en eventos reales.
+    if (get().practice) {
+      set({
+        practice: false,
+        memberships: withoutPracticeMembership(get().memberships),
+        activeEventId: membership.eventId,
+        activeMembershipId: membership.id,
+      });
+      return;
     }
 
     set({
@@ -306,7 +321,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshContext: async () => {
     const { token } = get();
 
-    if (!token) {
+    // En práctica no hay nada que refrescar y no debe haber red: el contexto es local.
+    if (!token || get().practice) {
       return;
     }
 

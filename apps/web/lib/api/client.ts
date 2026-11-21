@@ -1,7 +1,7 @@
 import { useAuthStore } from "../../stores/auth.store";
 import { runPracticeRequest } from "../practice/gateway";
 import { isPracticeEvent } from "../practice/constants";
-import { PracticeRequestError } from "../practice/router";
+import { PRACTICE_UNAVAILABLE_MESSAGE, PracticeRequestError } from "../practice/router";
 import { API_URL, buildApiUrl } from "./base-url";
 
 export class ApiError extends Error {
@@ -30,9 +30,15 @@ export const requestApi = async <T>(
 ): Promise<T> => {
     // Modo práctica: el evento local se atiende en el navegador, sin red y sin token.
     if (isPracticeEvent(eventId)) {
+        // Sin usuario no hay base propia: se falla cerrado en vez de compartir una base anónima.
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) {
+            throw new ApiError(PRACTICE_UNAVAILABLE_MESSAGE, 501, { error: PRACTICE_UNAVAILABLE_MESSAGE });
+        }
+
         try {
             return (await runPracticeRequest({
-                userId: useAuthStore.getState().user?.id ?? "anonimo",
+                userId,
                 method,
                 path,
                 body,
