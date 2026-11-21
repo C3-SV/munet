@@ -12,7 +12,7 @@ import {
     type AdminEventPagination,
 } from "../../../../lib/api/admin";
 import { ApiError } from "../../../../lib/api/client";
-import { useAuthStore } from "../../../../stores/auth.store";
+import { isSuperAdminMembership, useAuthStore } from "../../../../stores/auth.store";
 import {
     IconAlertTriangle,
     IconCalendar,
@@ -129,6 +129,10 @@ const LoadingState = () => (
 
 export default function AdminEventsPage() {
     const token = useAuthStore((state) => state.token);
+    // Solo el equipo técnico crea eventos; la API responde 403 al resto.
+    const canCreateEvent = useAuthStore((state) =>
+        state.memberships.some(isSuperAdminMembership),
+    );
 
     const [events, setEvents] = useState<AdminEvent[]>([]);
     const [pagination, setPagination] = useState<AdminEventPagination | null>(null);
@@ -183,12 +187,14 @@ export default function AdminEventsPage() {
                 title="Eventos"
                 breadcrumb={[{ label: "Panel", href: "/admin" }, { label: "Eventos" }]}
                 action={
-                    <AdminButton
-                        href="/admin/events/new"
-                        icon={<IconPlus size={16} />}
-                    >
-                        Nuevo evento
-                    </AdminButton>
+                    canCreateEvent ? (
+                        <AdminButton
+                            href="/admin/events/new"
+                            icon={<IconPlus size={16} />}
+                        >
+                            Nuevo evento
+                        </AdminButton>
+                    ) : undefined
                 }
             />
 
@@ -223,14 +229,20 @@ export default function AdminEventsPage() {
                     <AdminEmptyState
                         icon={<IconCalendar size={32} />}
                         title="No hay eventos registrados"
-                        description="Crea el primer evento para empezar a configurar comités y participantes."
+                        description={
+                            canCreateEvent
+                                ? "Crea el primer evento para empezar a configurar comités y participantes."
+                                : "Solo el equipo técnico puede crear eventos."
+                        }
                         action={
-                            <AdminButton
-                                href="/admin/events/new"
-                                icon={<IconPlus size={16} />}
-                            >
-                                Crear primer evento
-                            </AdminButton>
+                            canCreateEvent ? (
+                                <AdminButton
+                                    href="/admin/events/new"
+                                    icon={<IconPlus size={16} />}
+                                >
+                                    Crear primer evento
+                                </AdminButton>
+                            ) : undefined
                         }
                     />
                 )}

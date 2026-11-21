@@ -41,7 +41,9 @@ El panel carece de pantalla de importación CSV y de borrado de comités. El inv
 
 ## Sesión y selección de evento
 
-El store conserva token, usuario, membresías y IDs activos. Cerrar sesión limpia el estado local y deja activa la sesión en Supabase. Los layouts redirigen según hidratación, token y membresía. Al elegir un evento, una membresía administrativa entra a `/admin` y una de participante a `/feed`. Con una única membresía no administrativa, login puede dirigir directamente al feed. El cliente común limpia la sesión al recibir un 401.
+El store conserva token, usuario, membresías y IDs activos. Cerrar sesión limpia el estado local y deja activa la sesión en Supabase. Los layouts redirigen según hidratación, token y membresía. Al elegir un evento, una membresía administrativa entra a `/admin` y una de participante o moderador a `/feed`; el moderador llega al panel por el enlace «Moderación» del sidebar. Con una única membresía no administrativa, login puede dirigir directamente al feed. El cliente común limpia la sesión al recibir un 401.
+
+La pantalla de moderación usa `ModerationPostCard` en lugar de `PostCard` porque este último está atado a la API del feed (votación, borrado propio, comentarios sin texto de borrados). Comparte con él `Card`, `PersonLabel`, `Button` y `formatDateTime`.
 
 El panel admin reutiliza la estética del sitio participante: sidebar fija en escritorio y drawer con barra superior en móvil, con cierre de sesión y cambio de tema accesibles.
 
@@ -52,5 +54,4 @@ Feed, comentarios y chat se suscriben a cambios para volver a consultar la API. 
 ## Hallazgos
 
 - Filtros, búsqueda y orden del feed se ejecutan en cliente sobre el conjunto ya cargado.
-- Los iconos administrativos dependen de jsDelivr/Tabler en tiempo de ejecución.
 - La carga de avatar admite JPEG, PNG o WebP en base64 hasta el límite aplicado por el backend.

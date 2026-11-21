@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
 import { AdminChangeCommitteeDialog } from "../../../../../../components/admin/AdminChangeCommitteeDialog";
+import { AdminReasonDialog } from "../../../../../../components/admin/AdminReasonDialog";
 import { AdminConfirmDialog } from "../../../../../../components/admin/AdminConfirmDialog";
 import {
     AdminCredentialsDialog,
@@ -25,6 +26,7 @@ import {
 import { ApiError } from "../../../../../../lib/api/client";
 import {
     changeParticipantCommittee,
+    changeParticipantRole,
     listParticipants,
     reactivateParticipant,
     resetParticipantPassword,
@@ -34,7 +36,7 @@ import {
     type ParticipantAccountStatus,
 } from "../../../../../../lib/api/participants";
 import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../lib/role-label";
-import { useAuthStore } from "../../../../../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../../../../../stores/auth.store";
 import { IconAlertTriangle, IconDirectory, IconPlus, IconRefresh, IconSearch, IconUpload } from "../../../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
@@ -45,7 +47,13 @@ type ParticipantFilters = {
     status: "" | ParticipantAccountStatus;
 };
 
-type ActionType = "committee" | "reset-password" | "suspend" | "reactivate";
+type ActionType =
+    | "committee"
+    | "reset-password"
+    | "suspend"
+    | "reactivate"
+    | "make-moderator"
+    | "remove-moderator";
 
 type CredentialsState = {
     title: string;
@@ -125,6 +133,19 @@ const ParticipantRow = ({
                       label: "Reiniciar contraseña",
                       onSelect: () => onAction(participant, "reset-password"),
                   },
+              ]),
+        ...(isAdminRole(participant.role)
+            ? []
+            : [
+                  participant.role.trim().toUpperCase() === "MODERATOR"
+                      ? {
+                            label: "Quitar moderador",
+                            onSelect: () => onAction(participant, "remove-moderator"),
+                        }
+                      : {
+                            label: "Hacer moderador",
+                            onSelect: () => onAction(participant, "make-moderator"),
+                        },
               ]),
         isSuspended
             ? {
@@ -306,6 +327,7 @@ export default function EventParticipantsPage() {
         null,
     );
     const [toast, setToast] = useState<ToastState | null>(null);
+    const [roleBlocked, setRoleBlocked] = useState(false);
 
     const committeeById = useMemo(
         () => new Map(committees.map((committee) => [committee.id, committee])),
@@ -518,6 +540,43 @@ export default function EventParticipantsPage() {
             refreshParticipants();
         } catch (actionFailure) {
             setActionError(getActionErrorMessage(actionFailure));
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleChangeRole = async (reason: string) => {
+        if (
+            !token ||
+            !actionParticipant ||
+            (actionType !== "make-moderator" && actionType !== "remove-moderator")
+        ) {
+            return;
+        }
+
+        setActionLoading(true);
+        setActionError(null);
+
+        try {
+            const response = await changeParticipantRole(
+                token,
+                actionParticipant.id,
+                actionType === "make-moderator" ? "MODERATOR" : "PARTICIPANT",
+                reason || undefined,
+            );
+
+            setToast({ type: "success", message: response.message });
+            setActionParticipant(null);
+            setActionType(null);
+            refreshParticipants();
+        } catch (actionFailure) {
+            setActionError(getActionErrorMessage(actionFailure));
+
+            // Ante un 429 se bloquea el botón unos segundos; no se reintenta solo.
+            if (actionFailure instanceof ApiError && actionFailure.status === 429) {
+                setRoleBlocked(true);
+                window.setTimeout(() => setRoleBlocked(false), 5000);
+            }
         } finally {
             setActionLoading(false);
         }
@@ -948,6 +1007,35 @@ export default function EventParticipantsPage() {
                     onConfirm={handleResetPassword}
                 />
             )}
+
+            {(actionType === "make-moderator" || actionType === "remove-moderator") &&
+                actionParticipant && (
+                    <AdminReasonDialog
+                        key={actionType}
+                        title={
+                            actionType === "make-moderator"
+                                ? "¿Hacer moderador a este participante?"
+                                : "¿Quitar el rol de moderador?"
+                        }
+                        description={
+                            actionType === "make-moderator"
+                                ? `${actionParticipantName} podrá ver y moderar todos los muros del evento, eliminar y fijar publicaciones. No podrá crear cuentas ni editar el evento.`
+                                : `${actionParticipantName} volverá a ser participante y perderá el acceso a Moderación.`
+                        }
+                        confirmLabel={
+                            actionType === "make-moderator"
+                                ? "Hacer moderador"
+                                : "Quitar moderador"
+                        }
+                        required={false}
+                        reasonLabel="Motivo (opcional)"
+                        loading={actionLoading}
+                        error={actionError}
+                        confirmDisabled={roleBlocked}
+                        onCancel={closeActionDialog}
+                        onConfirm={handleChangeRole}
+                    />
+                )}
 
             {credentials && (
                 <AdminCredentialsDialog

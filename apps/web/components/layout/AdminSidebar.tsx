@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { formatRoleLabel } from "../../lib/role-label";
 import { useTheme } from "../../lib/theme-context";
-import { useAuthStore } from "../../stores/auth.store";
+import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import {
     IconCalendar,
     IconClose,
@@ -14,6 +14,7 @@ import {
     IconDashboard,
     IconDirectory,
     IconMenu,
+    IconShield,
     IconTheme,
 } from "../ui/icons";
 
@@ -89,7 +90,21 @@ export const AdminSidebar = () => {
     const isParticipantsRoute = pathname?.includes("/participants") ?? false;
     const isCommitteesRoute = pathname?.includes("/committees") ?? false;
 
-    const navigation: AdminNavItem[] = [
+    const isAdmin = activeMembership ? isAdminRole(activeMembership.role) : false;
+    const moderationHref = activeEventId
+        ? `/admin/events/${activeEventId}/moderation`
+        : "/admin/events";
+    const isModerationRoute = pathname?.includes("/moderation") ?? false;
+
+    const moderationItem: AdminNavItem = {
+        name: "Moderación",
+        href: moderationHref,
+        icon: <IconShield size={20} />,
+        current: isModerationRoute,
+    };
+
+    // El moderador solo ve Moderación; el resto del panel es de administradores.
+    const navigation: AdminNavItem[] = !isAdmin ? [moderationItem] : [
         {
             name: "Inicio Panel",
             href: "/admin",
@@ -103,7 +118,8 @@ export const AdminSidebar = () => {
             current:
                 (pathname?.startsWith("/admin/events") ?? false) &&
                 !isParticipantsRoute &&
-                !isCommitteesRoute,
+                !isCommitteesRoute &&
+                !isModerationRoute,
         },
         {
             name: "Comités",
@@ -121,6 +137,7 @@ export const AdminSidebar = () => {
             icon: <IconDirectory size={20} />,
             current: isParticipantsRoute,
         },
+        moderationItem,
     ];
 
     return (
@@ -223,13 +240,15 @@ export const AdminSidebar = () => {
                         {activeEventName}
                     </p>
                     <div className="mt-3 flex flex-col gap-1.5">
-                        <Link
-                            href="/select-event"
-                            className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
-                            style={{ color: "var(--text-accent)" }}
-                        >
-                            Cambiar evento
-                        </Link>
+                        {isAdmin && (
+                            <Link
+                                href="/select-event"
+                                className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
+                                style={{ color: "var(--text-accent)" }}
+                            >
+                                Cambiar evento
+                            </Link>
+                        )}
                         <Link
                             href="/feed"
                             className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"

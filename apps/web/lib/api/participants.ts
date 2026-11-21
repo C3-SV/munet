@@ -243,6 +243,19 @@ export const updateParticipant = async (
         body,
     });
 
+// Da o quita el rol de moderador (S3-04). Solo admite PARTICIPANT o MODERATOR.
+export const changeParticipantRole = (
+    token: string,
+    membershipId: string,
+    role: "PARTICIPANT" | "MODERATOR",
+    reason?: string,
+): Promise<{ message: string; membership: ParticipantMembership }> =>
+    requestApi(`/admin/participants/${membershipId}/role`, {
+        method: "PATCH",
+        token,
+        body: { role, ...(reason?.trim() ? { reason: reason.trim() } : {}) },
+    });
+
 // Cambia el comité mediante el endpoint específico de S2-08.
 export const changeParticipantCommittee = async (
     token: string,

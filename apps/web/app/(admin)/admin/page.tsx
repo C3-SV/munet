@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useAuthStore } from "../../../stores/auth.store";
-import { IconCalendar, IconCommittees, IconDirectory } from "../../../components/ui/icons";
+import { IconCalendar, IconCommittees, IconDirectory, IconShield } from "../../../components/ui/icons";
 
 type AdminCard = {
     title: string;
@@ -43,7 +43,7 @@ const AdminDashboardCard = ({ card }: { card: AdminCard }) => (
 export default function AdminDashboard() {
     const activeEventId = useAuthStore((state) => state.activeEventId);
 
-    // Asignaciones y Moderación no tienen funciones todavía: no se listan aquí.
+    // Asignaciones no tiene funciones todavía: no se lista aquí.
     const cards: AdminCard[] = [
         {
             title: "Eventos",
@@ -66,6 +66,14 @@ export default function AdminDashboard() {
                 ? `/admin/events/${activeEventId}/participants`
                 : "/admin/events",
             icon: <IconDirectory size={24} />,
+        },
+        {
+            title: "Moderación",
+            description: "Revisa los muros del evento, fija publicaciones y elimina contenido con motivo.",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/moderation`
+                : "/admin/events",
+            icon: <IconShield size={24} />,
         },
     ];
 

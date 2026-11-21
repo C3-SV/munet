@@ -37,6 +37,21 @@ export const isAdminRole = (role: string | null | undefined) => {
   );
 };
 
+// El rol de moderador se compara por valor exacto para no ampliar privilegios.
+export const isModeratorRole = (role: string | null | undefined) =>
+  normalizeRole(role) === "MODERATOR";
+
+// Quien puede entrar al panel: administradores o moderadores del evento.
+export const canAccessAdminPanel = (role: string | null | undefined) =>
+  isAdminRole(role) || isModeratorRole(role);
+
+// Solo el equipo técnico crea eventos (ADR-005); se evalúa sobre membresías activas.
+export const isSuperAdminMembership = (
+  membership: Pick<MembershipSummary, "role" | "accountStatus">,
+) =>
+  normalizeRole(membership.role) === "ADMIN_TECH" &&
+  normalizeRole(membership.accountStatus) === "ACTIVE";
+
 // Regla central: solo admins pasan por select-event de forma obligatoria.
 const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   if (memberships.length === 0) {

@@ -2,13 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AdminReasonDialog } from "../../../../../../../components/admin/AdminReasonDialog";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
 import { AdminChangeCommitteeDialog } from "../../../../../../../components/admin/AdminChangeCommitteeDialog";
 import { AdminCredentialsDialog } from "../../../../../../../components/admin/AdminCredentialsDialog";
 import { AdminEmptyState } from "../../../../../../../components/admin/AdminEmptyState";
 import { AdminFormInput } from "../../../../../../../components/admin/AdminFormInput";
-import { AdminFormSelect } from "../../../../../../../components/admin/AdminFormSelect";
 import { AdminFormTextarea } from "../../../../../../../components/admin/AdminFormTextarea";
 import { AdminPageHeader } from "../../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../../components/admin/AdminStatusBadge";
@@ -20,6 +20,7 @@ import {
 import { ApiError } from "../../../../../../../lib/api/client";
 import {
     changeParticipantCommittee,
+    changeParticipantRole,
     getParticipant,
     reactivateParticipant,
     resetParticipantPassword,
@@ -28,13 +29,12 @@ import {
     type AdminParticipant,
     type UpdateParticipantBody,
 } from "../../../../../../../lib/api/participants";
-import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
-import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { formatRoleLabel } from "../../../../../../../lib/role-label";
+import { isAdminRole, useAuthStore } from "../../../../../../../stores/auth.store";
 import { ConfirmDialog } from "../../../../../../../components/ui/ConfirmDialog";
 import { IconAlertTriangle, IconBuilding, IconCheck, IconKey, IconRefresh, IconUserCheck, IconUserOff } from "../../../../../../../components/ui/icons";
 
 type FormState = {
-    role: string;
     delegation_name: string;
     institution_name: string;
     first_name: string;
@@ -49,7 +49,6 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 type LifecycleAction = "suspend" | "reactivate" | "reset-password";
 
 const EMPTY_FORM: FormState = {
-    role: "",
     delegation_name: "",
     institution_name: "",
     first_name: "",
@@ -60,7 +59,6 @@ const EMPTY_FORM: FormState = {
 };
 
 const toFormState = (participant: AdminParticipant): FormState => ({
-    role: participant.role,
     delegation_name: participant.delegation_name ?? "",
     institution_name: participant.institution_name ?? "",
     first_name: participant.profile?.first_name ?? "",
@@ -158,6 +156,10 @@ export default function ParticipantDetailPage() {
     );
 
     const [committeeDialogOpen, setCommitteeDialogOpen] = useState(false);
+    const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+    const [roleLoading, setRoleLoading] = useState(false);
+    const [roleError, setRoleError] = useState<string | null>(null);
+    const [roleBlocked, setRoleBlocked] = useState(false);
     const [committeeLoading, setCommitteeLoading] = useState(false);
     const [committeeError, setCommitteeError] = useState<string | null>(null);
 
@@ -258,15 +260,44 @@ export default function ParticipantDetailPage() {
         };
     }, [eventId, membershipId, reloadKey, token]);
 
-    // El rol actual se conserva en la lista aunque no sea uno de los sugeridos.
-    const currentRole = form.role.trim().toUpperCase();
-    const roleOptions = [
-        { value: "", label: "Selecciona un rol" },
-        ...(currentRole && !PARTICIPANT_ROLES.includes(currentRole)
-            ? [{ value: currentRole, label: formatRoleLabel(currentRole) }]
-            : []),
-        ...PARTICIPANT_ROLES.map((role) => ({ value: role, label: formatRoleLabel(role) })),
-    ];
+    const isModerator = participant?.role.trim().toUpperCase() === "MODERATOR";
+    const canChangeModerator = Boolean(participant) && !isAdminRole(participant?.role);
+
+    const handleChangeRole = async (reason: string) => {
+        if (!token || !participant) {
+            return;
+        }
+
+        setRoleLoading(true);
+        setRoleError(null);
+
+        try {
+            const response = await changeParticipantRole(
+                token,
+                participant.id,
+                isModerator ? "PARTICIPANT" : "MODERATOR",
+                reason || undefined,
+            );
+
+            setParticipant((previous) =>
+                previous
+                    ? { ...previous, role: response.membership.role }
+                    : previous,
+            );
+            setRoleDialogOpen(false);
+            setSuccess(response.message);
+        } catch (roleFailure) {
+            setRoleError(getActionErrorMessage(roleFailure));
+
+            // Ante un 429 se bloquea el botón unos segundos; no se reintenta solo.
+            if (roleFailure instanceof ApiError && roleFailure.status === 429) {
+                setRoleBlocked(true);
+                window.setTimeout(() => setRoleBlocked(false), 5000);
+            }
+        } finally {
+            setRoleLoading(false);
+        }
+    };
 
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -286,10 +317,6 @@ export default function ParticipantDetailPage() {
 
     const validate = (): FormErrors => {
         const validationErrors: FormErrors = {};
-
-        if (!form.role.trim()) {
-            validationErrors.role = "El rol es requerido.";
-        }
 
         if (!form.first_name.trim()) {
             validationErrors.first_name = "El nombre es requerido.";
@@ -312,7 +339,6 @@ export default function ParticipantDetailPage() {
 
         try {
             const body: UpdateParticipantBody = {
-                role: form.role.trim().toUpperCase(),
                 delegation_name: form.delegation_name.trim() || null,
                 institution_name: form.institution_name.trim() || null,
                 first_name: form.first_name.trim(),
@@ -331,7 +357,6 @@ export default function ParticipantDetailPage() {
 
                 return {
                     ...previous,
-                    role: body.role ?? previous.role,
                     delegation_name: body.delegation_name ?? null,
                     institution_name: body.institution_name ?? null,
                     profile: {
@@ -777,18 +802,37 @@ export default function ParticipantDetailPage() {
                             />
                         )}
 
-                        <AdminFormSelect
-                            id="participant-role"
-                            label="Rol"
-                            required
-                            value={form.role}
-                            onChange={(event) =>
-                                handleChange("role", event.target.value)
-                            }
-                            options={roleOptions}
-                            error={errors.role}
-                            disabled={saving}
-                        />
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p
+                                    className="text-xs font-bold font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Rol
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {formatRoleLabel(participant.role)}
+                                </p>
+                            </div>
+                            {canChangeModerator && (
+                                <AdminButton
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setRoleError(null);
+                                        setRoleDialogOpen(true);
+                                    }}
+                                    disabled={saving}
+                                >
+                                    {isModerator
+                                        ? "Quitar moderador"
+                                        : "Hacer moderador"}
+                                </AdminButton>
+                            )}
+                        </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <AdminFormInput
@@ -1013,6 +1057,29 @@ export default function ParticipantDetailPage() {
                     error={committeeError}
                     onCancel={closeCommitteeDialog}
                     onConfirm={handleChangeCommittee}
+                />
+            )}
+
+            {roleDialogOpen && participant && (
+                <AdminReasonDialog
+                    title={
+                        isModerator
+                            ? "¿Quitar el rol de moderador?"
+                            : "¿Hacer moderador a este participante?"
+                    }
+                    description={
+                        isModerator
+                            ? `${participantName} volverá a ser participante y perderá el acceso a Moderación.`
+                            : `${participantName} podrá ver y moderar todos los muros del evento, eliminar y fijar publicaciones. No podrá crear cuentas ni editar el evento.`
+                    }
+                    confirmLabel={isModerator ? "Quitar moderador" : "Hacer moderador"}
+                    required={false}
+                    reasonLabel="Motivo (opcional)"
+                    loading={roleLoading}
+                    error={roleError}
+                    confirmDisabled={roleBlocked}
+                    onCancel={() => setRoleDialogOpen(false)}
+                    onConfirm={handleChangeRole}
                 />
             )}
 

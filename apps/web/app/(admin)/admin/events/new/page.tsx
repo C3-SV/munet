@@ -136,7 +136,9 @@ export default function NewEventPage() {
         } catch (err) {
             const message =
                 err instanceof ApiError
-                    ? err.message
+                    ? err.status === 403
+                        ? "Solo el equipo técnico puede crear eventos"
+                        : err.message
                     : "Error al crear el evento. Intenta de nuevo.";
             setApiError(message);
         } finally {

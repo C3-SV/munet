@@ -22,6 +22,14 @@ El [plan del equipo web](../04-desarrollo/plan-web/README.md) detalla la secuenc
 
 La administración por evento se decidió el 29 de octubre de 2026 en [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md). Un rol transversal, si se pide, requerirá una decisión nueva.
 
+## Pendientes del Sprint 3 (frontend admin)
+
+- Marca «Fijado» en `PostCard` y mapeo de `isPinned`/`pinnedAt` del feed: componente compartido, lo toma el equipo de Fiore.
+- `rbac.utils.test.mjs` («un moderador no accede a comités ajenos solo por su rol») falla porque `canAccessCommitteeWall` deja pasar a `MODERATOR` según el contrato del Sprint 3. Debe alinearlo Christian (prueba o regla).
+- El moderador inicia sesión en `/feed` y llega al panel por el enlace «Moderación» del sidebar. Un moderador con varios eventos solo cambia de evento desde `/select-event`.
+- Moderación: si se elimina el último post de una página distinta de la primera, la lista queda vacía hasta volver a la anterior.
+- La ficha del participante ya no envía `role` en el `PATCH` general; el rol de moderador se cambia solo con `PATCH /admin/participants/:id/role`.
+
 ## Trabajo técnico y operativo posterior
 
 Completitud del DDL, políticas RLS y Storage, transacciones e idempotencia, auditoría y logging, paginación, contratos compartidos, cobertura de CI, accesibilidad, rendimiento, observabilidad, respaldos y preparación de producción. Los objetivos históricos se conservan en [requerimientos](../01-producto/requerimientos.md).

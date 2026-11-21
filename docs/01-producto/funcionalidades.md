@@ -16,7 +16,7 @@ Base de la clasificación: [revisión de main](../README.md). Para operar la pla
 | Muros, publicaciones y encuestas | Implementado | Muros existentes del evento, publicaciones de texto o encuesta, voto reemplazable, cierre por autor y borrado lógico. Fijado y adjuntos pendientes. |
 | Comentarios | Implementado | Comentarios, un nivel de respuesta y borrado lógico. En anuncios, escritura reservada a administración. |
 | Mensajes directos | Implementado | Texto individual dentro del evento, historial y borrado lógico por el autor. Grupos, adjuntos y bloqueo ausentes. |
-| Moderación | Parcial | Retiro de posts y comentarios desde los muros por administradores y suspensión desde la ficha. La pantalla de moderación es un marcador. |
+| Moderación | Parcial | Pantalla `/admin/events/:eventId/moderation` para administradores y moderadores: selector de muro con contadores, pestañas Visibles, Eliminados y Todos, fijar (máximo 3 por muro) y desfijar, y eliminación de posts y comentarios con motivo obligatorio. Rol `MODERATOR` asignable desde la ficha y el listado de participantes. Retiro desde los muros por administradores y suspensión desde la ficha. Falta la marca «Fijado» en el feed de participantes. Sin reportes ni sanciones. |
 | Reportes, notificaciones y consulta de auditoría | Pendiente | Realtime refresca vistas y el backend intenta registrar acciones. Faltan reportes y bandejas de notificaciones y auditoría. |
 
 La [referencia de API](../03-referencia/api.md) señala qué rutas tienen cliente web. Los casos que requieren confirmación en un entorno aislado figuran en [discrepancias](../07-auditoria/discrepancias.md).

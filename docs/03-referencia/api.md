@@ -51,7 +51,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 
 ## Administración
 
-`GET /admin/events` y `POST /admin/events` exigen alguna membresía administrativa activa. Las demás rutas exigen membresía administrativa activa del evento objetivo. El evento se obtiene de la URL, la consulta, el cuerpo o el recurso indicado. El encabezado `x-event-id` no reemplaza ese contexto.
+`GET /admin/events` exige alguna membresía administrativa activa. `POST /admin/events` exige `ADMIN_TECH` activo. Las demás rutas exigen membresía administrativa activa del evento objetivo. El evento se obtiene de la URL, la consulta, el cuerpo o el recurso indicado. El encabezado `x-event-id` no reemplaza ese contexto.
 
 | Método y ruta | Entrada principal | Uso en web |
 |---|---|---|
@@ -73,8 +73,22 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /admin/participants/:membershipId/reactivate` | `reason` | Reactivación de una membresía suspendida. |
 | `POST /admin/participants/:membershipId/reset-password` | — | Devuelve `temporary_password`. |
 | `PATCH /admin/participants/:membershipId/committee` | `committee_id` (ID o `null`), `reason?` | Sin cliente dedicado. La ficha usa el PATCH general. |
+| `PATCH /admin/participants/:membershipId/role` | `role` (`PARTICIPANT` o `MODERATOR`), `reason?` | Ficha y listado. Solo admin del evento. 400 si ya tiene el rol, 403 si la cuenta es administrativa. Devuelve `membership`. |
 | `POST /admin/participants/import/preview` | `event_id`, `csv` como texto | Sin pantalla. Separa `valid`, `invalid`, `duplicates`, sin alta. |
 | `POST /admin/participants/import/confirm` | `event_id`, `rows` del preview | Sin pantalla. Devuelve `summary`, `created` con credenciales iniciales y `failed` por fila. |
+
+### Moderación
+
+Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como `{ "error": "texto" }`; las escrituras tienen límite de frecuencia y pueden responder 429. Detalle de tipos en [SPRINT_3_FRONTEND_ADMIN.md](../SPRINT_3_FRONTEND_ADMIN.md); cliente en `apps/web/lib/api/moderation.ts`.
+
+| Método y ruta | Entrada principal | Uso en web |
+|---|---|---|
+| `GET /admin/moderation/walls` | `event_id` | Selector de muro con `visible_posts` y `pinned_posts`. |
+| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original y datos de borrado. |
+| `GET /admin/moderation/posts/:postId/comments` | `status?` | Comentarios al expandir un post. La web pide `ALL`. |
+| `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |
+| `POST /admin/moderation/comments/:commentId/delete` | `reason` (3–500) | Igual que el anterior. |
+| `POST /admin/moderation/posts/:postId/pin` y `/unpin` | — | Máximo 3 fijados por muro (409 al cuarto). Solo posts `VISIBLE`. |
 
 ### Contrato CSV
 
