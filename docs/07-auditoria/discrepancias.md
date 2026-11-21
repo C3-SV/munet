@@ -27,7 +27,7 @@ Los loggers intentan registrar las acciones e intentos. Un error de auditoría p
 
 ## D-06 — Funciones postergadas
 
-Reportes y notificaciones persisten como requisitos históricos. Los planes recientes postergan su desarrollo. Adjuntos y fijado tienen soporte de esquema, sin recorrido en UI ni API.
+Reportes y notificaciones persisten como requisitos históricos. Los planes recientes postergan su desarrollo. Adjuntos y fijado tienen soporte de esquema. Los adjuntos tienen además interfaz web (`ATTACHMENTS_BACKEND_READY = false` en `apps/web/lib/attachments.ts`), sin API ni bucket; el fijado carece de UI.
 
 ## D-07 — Diferencias entre API y panel
 

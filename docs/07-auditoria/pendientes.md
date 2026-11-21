@@ -101,7 +101,7 @@ Lista consolidada de lo no ejecutado o no resuelto en los planes del [equipo web
 ### Plan 04 · Condicionadas
 
 - W07: implementar la selección de evento según B14 (orden determinista de membresías, selector para participantes con varias, cambio de evento en sidebar). Alinear `flujos-funcionales.md` con el código actual. Conectar `refreshContext`, que hoy no tiene llamadas. Limpiar estado del evento anterior, y mapear el 409 en login.
-- W05: ningún código de adjuntos existe. Pendiente el contrato de API, el bucket privado, las políticas de Storage, el retiro, las URL temporales y las pruebas. La tabla `attachments` difiere entre el snapshot y la migración 001 (`CHECK size_bytes >= 0`). Depende de Q03.
+- W05: la interfaz de adjuntos existe (editor, tarjeta y validación JPG/PNG ≤ 5 MB o PDF ≤ 20 MB en `apps/web/lib/attachments.ts`), pero no se guarda nada. Verificado el 20 de noviembre de 2026 (solo lectura): la tabla `attachments` existe con 0 filas y el único bucket es `profile-images` (público). Pendiente el contrato de API, el bucket privado, las políticas de Storage, el retiro, las URL temporales y las pruebas. La tabla `attachments` difiere entre el snapshot y la migración 001 (`CHECK size_bytes >= 0`). Al activarlo: poner `ATTACHMENTS_BACKEND_READY = true`, enviar el archivo desde `publishFeedPost` y devolver `attachment` en los posts. Depende de Q03.
 - W06: contenido del tour y su enlace en `/guia`, tras aprobar B11.
 - Q04: limpieza técnica y reportes/notificaciones solo tras demo y producto estable.
 
@@ -137,3 +137,12 @@ Detectado el 2026-11-17 en la prueba manual del alta individual (Sprint 2). Es u
 - Causa probable (no confirmada): la migración `supabase/migrations/002_codigo_delegacion.sql` sigue sin aplicarse, así que la función y la tabla `event_delegation_counters` no existen. El error exacto está en el log de la API: `No se pudo asignar el codigo de delegacion <membershipId> <error>`.
 - Acción: revisar y aplicar la 002 siguiendo los pasos de su cabecera (PR, aviso a Rober, nadie importando en ese momento, verificación final). Su backfill asignará código a las cuentas ya creadas sin él, incluidas las de pruebas manuales.
 - Impacto: mientras tanto, todo participante nuevo queda con "Sin código" y la columna Código # de la tabla aparece vacía.
+
+### Pendientes tras la mejora de UX y la integración de sitio-admin (20 de noviembre de 2026)
+
+- Contador de comentarios: la API no devuelve el total, así que cada publicación carga sus comentarios al montar. Añadir el conteo al listado de posts y quitar esa carga.
+- `isAdminRole` (API y `auth.store`) aún reconoce `COORDINADOR` y `ORGANIZADOR`, que no existen en el enum. Decidir si se retiran.
+- Fallos de roles por texto en `dm.utils.ts`, `posts.utils.ts` y `comments.service.ts`: ahora el valor por defecto es `PARTICIPANT`; revisar los consumidores que comparaban con `DELEGADO`.
+- QA autenticado de la mejora de UX y del panel admin (eventos con iconos, comités, participantes con iconos, moderación, importación CSV) sin ejecutar; ver la sección de verificación diferida de la Tarea 13.
+- Verificar el PR #7 en CI: GitHub lo marcó `UNSTABLE` al fusionarlo y no se revisó qué check lo causó.
+- Alias en chat (T3-R0-1): requiere `mapDmParticipant` y el select de `dm.service.ts`.
