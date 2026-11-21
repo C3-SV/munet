@@ -69,6 +69,11 @@ export const PRACTICE_DM_REPLIES: Record<string, string[]> = {
         "Mañana lo comentamos en el pasillo.",
         "Estoy revisando el borrador. Te respondo en cuanto termine.",
     ],
+    "practice-person-staff": [
+        "Gracias por escribir a la Secretaría General. Hemos recibido tu mensaje.",
+        "Revisaremos tu consulta y te responderemos por los avisos oficiales del evento.",
+        "Recuerda consultar el muro de avisos para conocer el programa y los horarios.",
+    ],
     "practice-person-8": [
         "Sí, cuenta conmigo para co-patrocinar.",
         "Todavía no decido. Te escribo cuando revise el texto completo.",

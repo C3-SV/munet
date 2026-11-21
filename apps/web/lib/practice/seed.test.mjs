@@ -59,8 +59,8 @@ test("las personas de ejemplo son participantes; el personal es el único ADMIN_
     assert.ok(roster.some((person) => person.membershipId === "practice-person-staff"));
 });
 
-test("cada persona de ejemplo tiene tres respuestas cortas no vacías", () => {
-    for (const person of PRACTICE_PEOPLE_BASE) {
+test("cada persona de ejemplo y la Secretaría tienen tres respuestas cortas no vacías", () => {
+    for (const person of [...PRACTICE_PEOPLE_BASE, { membershipId: "practice-person-staff" }]) {
         const replies = PRACTICE_DM_REPLIES[person.membershipId];
         assert.ok(Array.isArray(replies), person.membershipId);
         assert.equal(replies.length, 3, person.membershipId);

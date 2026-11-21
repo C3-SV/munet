@@ -345,7 +345,7 @@ const ChatRoomPage = () => {
                 }
                 practiceRefreshTimerRef.current = setTimeout(() => {
                     practiceRefreshTimerRef.current = null;
-                    void refreshMessages(true);
+                    void refreshMessages(true).catch(() => undefined);
                 }, PRACTICE_REPLY_REFRESH_MS);
             }
         } catch (sendError) {

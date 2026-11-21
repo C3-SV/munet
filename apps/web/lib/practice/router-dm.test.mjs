@@ -71,7 +71,7 @@ const textsFrom = (conversationId, senderId) =>
         .filter((message) => message.senderId === senderId)
         .map((message) => message.text);
 
-test("datos de partida: la persona de prueba no tiene conversación y el personal no es destinataria", () => {
+test("datos de partida: la persona de prueba no tiene conversación", () => {
     assert.ok(BASE.people.some((person) => person.membershipId === OTHER && person.role === "PARTICIPANT"));
     assert.equal(BASE.conversations.some((conversation) => conversation.otherId === OTHER), false);
     assert.ok(seededOtherMessage);
@@ -130,22 +130,26 @@ test("crear una conversación consigo misma da 400, también con espacios alrede
     unchangedAfter(() => call("POST", "/dm/conversations", { targetMembershipId: PRACTICE_MEMBERSHIP_ID }));
 });
 
-test("destinatario desconocido o personal da 404 sin escribir", () => {
+test("destinatario desconocido da 404 sin escribir", () => {
     assertFails(
         () => call("POST", "/dm/conversations", { targetMembershipId: "practice-person-999" }),
         404,
         PARTICIPANT_MISSING,
     );
-    assertFails(
-        () => call("POST", "/dm/conversations", { targetMembershipId: STAFF_ID }),
-        404,
-        PARTICIPANT_MISSING,
-    );
-    unchangedAfter(() => call("POST", "/dm/conversations", { targetMembershipId: STAFF_ID }));
+    unchangedAfter(() => call("POST", "/dm/conversations", { targetMembershipId: "practice-person-999" }));
+});
+
+test("la Secretaría General puede recibir mensajes y responde con su lista simulada", () => {
+    const created = outcome("POST", "/dm/conversations", { targetMembershipId: STAFF_ID });
+    assert.equal(created.status, 201);
+    const conversation = created.result.conversation;
+    sendMessage(conversation.id, "Consulta para la Secretaría");
+    assert.deepEqual(textsFrom(conversation.id, STAFF_ID), [PRACTICE_DM_REPLIES[STAFF_ID][0]]);
+    assert.equal(outcome("POST", "/dm/conversations", { targetMembershipId: STAFF_ID }).status, 200);
 });
 
 test("cada participante de la cohorte puede recibir mensajes: 201 si es nueva, 200 si ya existe", () => {
-    for (const person of BASE.people.filter((item) => item.role === "PARTICIPANT")) {
+    for (const person of BASE.people) {
         const result = outcome("POST", "/dm/conversations", { targetMembershipId: person.membershipId });
         const seeded = BASE.conversations.some((conversation) => conversation.otherId === person.membershipId);
         assert.equal(result.status, seeded ? 200 : 201, person.membershipId);
@@ -211,6 +215,23 @@ test("las respuestas salen en orden de la lista de la persona, sin repetirse, y 
     assert.equal(listMessages(conversation.id).at(-1).id, extra.id);
     assert.deepEqual(textsFrom(conversation.id, OTHER), replies.slice(0, limit));
     assert.equal(state.replyCounts[conversation.id], limit);
+});
+
+test("el tope se cuenta con >=: en maxDmReplies no hay respuesta y en maxDmReplies - 1 hay exactamente una", () => {
+    const limit = PRACTICE_LIMITS.maxDmReplies;
+    const full = createConversation(OTHER);
+    state.replyCounts[full.id] = limit;
+    sendMessage(full.id, "Sin turnos");
+    assert.deepEqual(textsFrom(full.id, OTHER), []);
+    assert.equal(state.replyCounts[full.id], limit);
+
+    const last = createConversation("practice-person-4");
+    state.replyCounts[last.id] = limit - 1;
+    sendMessage(last.id, "Último turno");
+    assert.equal(textsFrom(last.id, "practice-person-4").length, 1);
+    assert.equal(state.replyCounts[last.id], limit);
+    sendMessage(last.id, "Ya no");
+    assert.equal(textsFrom(last.id, "practice-person-4").length, 1);
 });
 
 test("cada conversación lleva su propio contador de respuestas", () => {

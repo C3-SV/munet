@@ -172,9 +172,6 @@ const parseIntegerParam = (raw: string | null, fallback: number, max: number, me
 
 const handleDirectory = ({ query, state }: PracticeRouteContext): ParticipantDirectoryResponse => {
     const committeeId = query.get("committee_id");
-    if (committeeId !== null && !PRACTICE_COMMITTEES.some((committee) => committee.id === committeeId)) {
-        throw new PracticeRequestError(400, "committee_id no pertenece a este evento");
-    }
     const page = parseIntegerParam(
         query.get("page"),
         1,
@@ -187,6 +184,10 @@ const handleDirectory = ({ query, state }: PracticeRouteContext): ParticipantDir
         DIRECTORY_MAX_LIMIT,
         `limit debe ser un entero entre 1 y ${DIRECTORY_MAX_LIMIT}`,
     );
+    // Como en la API, la pertenencia del comité se valida después de page y limit.
+    if (committeeId !== null && !PRACTICE_COMMITTEES.some((committee) => committee.id === committeeId)) {
+        throw new PracticeRequestError(400, "committee_id no pertenece a este evento");
+    }
     const term = normalizeSearch(query.get("q") ?? "").trim().replace(/^#/, "").trim();
 
     const matches = directoryPeople(state)

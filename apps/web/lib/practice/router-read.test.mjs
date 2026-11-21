@@ -278,6 +278,9 @@ test("directorio: validaciones de page, limit y committee_id", () => {
     assert.throws(() => directory("?limit=0"), limitError);
     assert.throws(() => directory("?committee_id=otro"), committeeError);
     assert.throws(() => directory("?committee_id=practice-committee-zz"), committeeError);
+    // Como en la API, page y limit se validan antes que la pertenencia del comité.
+    assert.throws(() => directory("?committee_id=otro&page=0"), pageError);
+    assert.throws(() => directory("?committee_id=otro&limit=101"), limitError);
 });
 
 test("perfil público: forma sin datos privados de la persona", () => {

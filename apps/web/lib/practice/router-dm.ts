@@ -37,15 +37,9 @@ const conversationOrThrow = (state: PracticeState, conversationId: string): Prac
     return conversation;
 };
 
-// Destinatarias válidas: participantes de la cohorte con respuestas simuladas. El personal no recibe mensajes.
-const isDmRecipient = (state: PracticeState, membershipId: string): boolean => {
-    const person = state.people.find((item) => item.membershipId === membershipId);
-    return (
-        person !== undefined &&
-        person.role === "PARTICIPANT" &&
-        PRACTICE_DM_REPLIES[membershipId] !== undefined
-    );
-};
+// Destinatarias válidas: cualquier persona de la cohorte, incluida la Secretaría General (el propio usuario se rechaza antes).
+const isDmRecipient = (state: PracticeState, membershipId: string): boolean =>
+    state.people.some((item) => item.membershipId === membershipId);
 
 // La conversación que devuelven creación y reutilización no lleva último mensaje, como en la API.
 const withoutLastMessage = (summary: ConversationSummary): ConversationSummary => ({
