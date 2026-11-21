@@ -19,6 +19,8 @@ type PostCommentsProps = {
     disabled?: boolean;
     showAuthorCommittee?: boolean;
     defaultOpen?: boolean;
+    // Total inicial que entrega la API; el panel abierto lo mantiene al día.
+    initialCount?: number;
 };
 
 // En pantallas táctiles Enter inserta salto de línea; el envío es el botón.
@@ -34,29 +36,12 @@ export const PostComments = ({
     disabled = false,
     showAuthorCommittee = true,
     defaultOpen = false,
+    initialCount,
 }: PostCommentsProps) => {
     const [open, setOpen] = useState(defaultOpen);
-    const [count, setCount] = useState<number | null>(null);
+    const [count, setCount] = useState<number | null>(initialCount ?? null);
     const panelId = useId();
 
-    useEffect(() => {
-        // Contador del disparador: una carga ligera al montar; el panel abierto lo mantiene al día.
-        let cancelled = false;
-
-        getPostComments(postId, { token, eventId })
-            .then((data) => {
-                if (!cancelled) {
-                    setCount(data.filter((comment) => !comment.isDeleted).length);
-                }
-            })
-            .catch(() => {
-                // Sin contador no se bloquea nada: el botón sigue abriendo el panel.
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [eventId, postId, token]);
 
     return (
         <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--border-color)" }}>
@@ -99,7 +84,7 @@ export const PostComments = ({
     );
 };
 
-type CommentsPanelProps = Omit<PostCommentsProps, "defaultOpen"> & {
+type CommentsPanelProps = Omit<PostCommentsProps, "defaultOpen" | "initialCount"> & {
     id: string;
     onCountChange: (count: number) => void;
 };

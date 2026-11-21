@@ -23,6 +23,8 @@ export interface Post {
     poll?: PollData | null;
     // Cero o un adjunto por publicación. La API todavía no lo devuelve.
     attachment?: PostAttachment | null;
+    // Total de comentarios visibles; lo calcula la API.
+    commentCount?: number;
     timestamp: number;
 }
 
