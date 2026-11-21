@@ -398,14 +398,17 @@ export const Sidebar = () => {
                             Práctica
                         </span>
                     ) : (
-                        <button
-                            type="button"
-                            onClick={handleEnterPractice}
-                            className="mt-1 inline-flex min-h-11 w-fit items-center text-sm font-semibold font-heading hover:underline"
-                            style={{ color: "var(--text-accent)" }}
-                        >
-                            Modo práctica
-                        </button>
+                        // Solo con una membresía real activa: una cuenta pendiente o suspendida no practica.
+                        activeMembership?.accountStatus === "ACTIVE" && (
+                            <button
+                                type="button"
+                                onClick={handleEnterPractice}
+                                className="mt-1 inline-flex min-h-11 w-fit items-center text-sm font-semibold font-heading hover:underline"
+                                style={{ color: "var(--text-accent)" }}
+                            >
+                                Modo práctica
+                            </button>
+                        )
                     )}
                     {canOpenAdminPanel && (
                         <div className="mt-1 flex flex-col">

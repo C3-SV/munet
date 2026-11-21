@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
 import { formatRoleLabel } from "../../lib/role-label";
-import { isPracticeMembership } from "../../lib/practice/membership";
+import { withoutPracticeMembership } from "../../lib/practice/membership";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -18,6 +18,9 @@ const SelectEventPage = () => {
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const memberships = useAuthStore((state) => state.memberships);
     const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
+    const enterPractice = useAuthStore((state) => state.enterPractice);
+    // La práctica tiene su propia tarjeta: no se lista también como un evento más.
+    const realMemberships = withoutPracticeMembership(memberships);
 
     useEffect(() => {
         // Hidrata sesion guardada antes de aplicar reglas de redireccion.
@@ -68,6 +71,12 @@ const SelectEventPage = () => {
         );
     };
 
+    const handleEnterPractice = () => {
+        // La práctica vive solo en memoria; el layout (main) ya está hidratado y no la descarta.
+        enterPractice();
+        router.push("/feed");
+    };
+
     return (
         <div
             className="min-h-screen flex flex-col px-4 sm:px-6 py-10"
@@ -84,7 +93,7 @@ const SelectEventPage = () => {
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {memberships.map((membership) => (
+                    {realMemberships.map((membership) => (
                         <button
                             key={membership.id}
                             type="button"
@@ -101,25 +110,44 @@ const SelectEventPage = () => {
                             >
                                 {membership.eventName}
                             </h2>
-                            {isPracticeMembership(membership) && (
-                                <span
-                                    className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
-                                    style={{
-                                        backgroundColor: "var(--sidebar-active-bg)",
-                                        color: "var(--sidebar-active-text)",
-                                    }}
-                                >
-                                    Práctica
-                                </span>
-                            )}
                             <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
                                 {formatRoleLabel(membership.role)}
                             </p>
                         </button>
                     ))}
+                    {token && (
+                        <button
+                            type="button"
+                            onClick={handleEnterPractice}
+                            className="text-left p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
+                            style={{
+                                backgroundColor: "var(--bg-surface)",
+                                borderRadius: "var(--radius-lg)",
+                            }}
+                        >
+                            <h2
+                                className="text-xl font-bold font-heading"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                Modo práctica
+                            </h2>
+                            <span
+                                className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                                style={{
+                                    backgroundColor: "var(--sidebar-active-bg)",
+                                    color: "var(--sidebar-active-text)",
+                                }}
+                            >
+                                Práctica
+                            </span>
+                            <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                                Prueba la plataforma sin publicar nada de verdad: todo se guarda solo en tu navegador.
+                            </p>
+                        </button>
+                    )}
                 </div>
 
-                {memberships.length === 0 && (
+                {realMemberships.length === 0 && (
                     <div
                         className="rounded-2xl p-6 mt-4"
                         style={{
