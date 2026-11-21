@@ -33,7 +33,10 @@ export type AuditActionType =
   | 'UNPIN_POST'
   | 'MODERATE_DELETE_POST'
   | 'MODERATE_DELETE_COMMENT'
-  | 'IMPORT_PARTICIPANTS';
+  | 'IMPORT_PARTICIPANTS'
+  | 'UPLOAD_ATTACHMENT'
+  | 'DELETE_ATTACHMENT'
+  | 'MODERATE_DELETE_ATTACHMENT';
 
 export type AuditEntityType =
   | 'POST'
@@ -47,7 +50,8 @@ export type AuditEntityType =
   | 'EVENT'
   | 'COMMITTEE'
   | 'MEMBERSHIP'
-  | 'ACCOUNT';
+  | 'ACCOUNT'
+  | 'ATTACHMENT';
 
 export type AuditOutcome = 'SUCCESS' | 'FAILURE' | 'DENIED';
 

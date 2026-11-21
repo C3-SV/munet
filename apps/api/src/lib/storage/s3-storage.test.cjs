@@ -158,6 +158,20 @@ test('delete es idempotente y propaga fallos reales', async () => {
   await assert.rejects(createS3Storage(config, { client: broken.client }).delete(KEY), (error) => error.code === 'UNAVAILABLE');
 });
 
+test('list devuelve claves, fechas y el token de la siguiente página', async () => {
+  const date = new Date('2026-11-01T00:00:00Z');
+  const fake = fakeClient(() => ({ Contents: [{ Key: 'pending/e/u1', LastModified: date }, {}], IsTruncated: true, NextContinuationToken: 'tok' }));
+  const page = await createS3Storage(config, { client: fake.client }).list({ prefix: 'pending/', maxKeys: 10 });
+
+  assert.deepEqual(page.objects.map((o) => o.key), ['pending/e/u1']);
+  assert.equal(page.objects[0].lastModified, date);
+  assert.equal(page.nextToken, 'tok');
+  assert.deepEqual(fake.calls[0], { name: 'ListObjectsV2Command', input: { Bucket: 'munet-attachments', Prefix: 'pending/', ContinuationToken: undefined, MaxKeys: 10 } });
+
+  const last = fakeClient(() => ({ IsTruncated: false }));
+  assert.equal((await createS3Storage(config, { client: last.client }).list({ prefix: 'x/' })).nextToken, null);
+});
+
 test('un fallo al firmar se reporta como StorageError', async () => {
   const storage = createS3Storage(config, {
     client: fakeClient(() => ({})).client,

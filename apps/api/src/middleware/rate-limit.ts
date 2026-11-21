@@ -27,5 +27,6 @@ export const authParticipantLimiter = limiter(10, (req) => {
 const userKey = (req: Request) => req.auth!.userId;
 export const createPostLimiter = limiter(10, userKey);
 export const createCommentLimiter = limiter(20, userKey);
+export const attachmentInitLimiter = limiter(10, userKey);
 export const sendDmLimiter = limiter(30, userKey);
 export const moderationWriteLimiter = limiter(60, userKey);

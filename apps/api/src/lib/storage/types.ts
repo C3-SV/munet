@@ -44,7 +44,15 @@ export interface FileStorage {
 
   // Idempotente: borrar un objeto inexistente no es un error.
   delete(key: string): Promise<void>;
+
+  // Lista objetos bajo un prefijo, por páginas. Solo para mantenimiento (conciliación).
+  list(params: { prefix: string; continuationToken?: string; maxKeys?: number }): Promise<StorageListPage>;
 }
+
+export type StorageListPage = {
+  objects: { key: string; lastModified: Date | null }[];
+  nextToken: string | null;
+};
 
 export type StorageErrorCode = 'NOT_CONFIGURED' | 'NOT_FOUND' | 'UNAVAILABLE';
 

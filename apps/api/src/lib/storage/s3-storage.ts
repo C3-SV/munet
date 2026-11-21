@@ -3,6 +3,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -135,6 +136,28 @@ export const createS3Storage = (config: StorageConfig, deps: S3StorageDeps = {})
         if (isNotFound(error)) {
           throw new StorageError('NOT_FOUND', 'El archivo de origen no existe', { cause: error });
         }
+        throw unavailable(error);
+      }
+    },
+
+    async list({ prefix, continuationToken, maxKeys }) {
+      try {
+        const result = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+            MaxKeys: maxKeys ?? 500,
+          }),
+        );
+
+        return {
+          objects: (result.Contents ?? []).flatMap((item) =>
+            item.Key ? [{ key: item.Key, lastModified: item.LastModified ?? null }] : [],
+          ),
+          nextToken: result.IsTruncated ? (result.NextContinuationToken ?? null) : null,
+        };
+      } catch (error) {
         throw unavailable(error);
       }
     },

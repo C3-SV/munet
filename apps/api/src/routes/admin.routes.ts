@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { moderationWriteLimiter } from '../middleware/rate-limit';
+import { deleteModerationAttachment } from '../controllers/attachments.controller';
 import {
   listModerationWalls, listModerationPosts, listModerationComments,
   deleteModerationPost, deleteModerationComment, pinModerationPost, unpinModerationPost,
@@ -113,6 +114,7 @@ router.get('/moderation/walls', requireAuth, requireEventModerator(eventIdFromQu
 router.get('/moderation/posts', requireAuth, requireWallModerator, listModerationPosts);
 router.get('/moderation/posts/:postId/comments', requireAuth, requirePostModerator, listModerationComments);
 router.post('/moderation/posts/:postId/delete', requireAuth, requirePostModerator, moderationWriteLimiter, deleteModerationPost);
+router.post('/moderation/posts/:postId/attachment/delete', requireAuth, requirePostModerator, moderationWriteLimiter, deleteModerationAttachment);
 router.post('/moderation/comments/:commentId/delete', requireAuth, requireCommentModerator, moderationWriteLimiter, deleteModerationComment);
 router.post('/moderation/posts/:postId/pin', requireAuth, requirePostModerator, moderationWriteLimiter, pinModerationPost);
 router.post('/moderation/posts/:postId/unpin', requireAuth, requirePostModerator, moderationWriteLimiter, unpinModerationPost);
