@@ -8,6 +8,7 @@ import {
 } from "../../lib/api/feed";
 import { formatFileSize, isImageAttachment } from "../../lib/attachments";
 import { formatDateTime } from "../../lib/format-datetime";
+import { AttachmentImagePreview } from "./AttachmentImagePreview";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
 import { Button } from "../ui/Button";
@@ -296,7 +297,18 @@ export const PostCard = ({
             )}
 
             {post.attachment && !post.isDeleted && (
-                <div className="mt-4 flex items-stretch gap-2">
+                <div className="mt-4 space-y-2">
+                    {isImageAttachment(post.attachment.mimeType) && (
+                        <AttachmentImagePreview
+                            postId={post.id}
+                            token={token}
+                            eventId={eventId}
+                            name={post.attachment.name}
+                            onOpen={() => void handleOpenAttachment()}
+                            disabled={isOpeningAttachment}
+                        />
+                    )}
+                    <div className="flex items-stretch gap-2">
                     <button
                         type="button"
                         onClick={() => void handleOpenAttachment()}
@@ -334,6 +346,7 @@ export const PostCard = ({
                             Quitar
                         </Button>
                     )}
+                    </div>
                 </div>
             )}
 
