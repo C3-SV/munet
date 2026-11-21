@@ -13,7 +13,7 @@ import {
 import { bodyOf } from "./router-shared.ts";
 import type { PracticeState } from "./state.ts";
 import { createMemoryStorage, loadOrInitState, type PracticeStorage } from "./storage.ts";
-import { clearPracticeFiles, peekPracticeFile, stashPracticeFile, takePracticeFile } from "./uploads.ts";
+import { peekPracticeFile, stashPracticeFile, takePracticeFile } from "./uploads.ts";
 
 // Pasarela del modo práctica: por usuario guarda un almacén, el estado cargado y las URL temporales de
 // descarga, y resuelve las peticiones con el enrutador local. Cada escritura se guarda antes de responder;
@@ -131,10 +131,15 @@ const revokeAttachmentUrls = (session: PracticeSession, attachmentId: string): v
     session.objectUrls.delete(attachmentId);
 };
 
-const revokeAllObjectUrls = (session: PracticeSession): void => {
+const revokeSessionUrls = (session: PracticeSession): void => {
     for (const attachmentId of [...session.objectUrls.keys()]) {
         revokeAttachmentUrls(session, attachmentId);
     }
+};
+
+// Revoca las URL de descarga del usuario sin tocar el estado ni los binarios (el reinicio ya lo hace).
+export const revokeAllObjectUrls = async (userId: string): Promise<void> => {
+    revokeSessionUrls(await sessionFor(userId));
 };
 
 // Borra un binario que el estado ya no referencia. Si falla queda huérfano (el reinicio lo borra) y no
@@ -298,14 +303,22 @@ export const runPracticeRequest = async (input: PracticeInput): Promise<unknown>
     return runExclusive(session, () => executeRequest(session, input));
 };
 
-// Borra el almacén del usuario, sus binarios de descarga y los archivos pendientes, y olvida el estado memorizado.
-// Si el borrado falla, la sesión pasa a memoria vacía para no reutilizar datos anteriores; nunca rechaza.
+// Borra el almacén del usuario, sus binarios de descarga y sus archivos pendientes, y olvida el estado memorizado.
+// Solo se descartan los archivos de los tickets de esta cuenta: el stash es compartido, así que nunca se vacía
+// entero. Si el borrado falla, la sesión pasa a memoria vacía para no reutilizar datos anteriores; nunca rechaza.
 export const resetPractice = async (userId: string): Promise<void> => {
     const session = await sessionFor(userId);
     await runExclusive(session, async () => {
+        try {
+            const state = await stateFor(session, userId);
+            for (const upload of state.uploads) {
+                takePracticeFile(upload.id);
+            }
+        } catch {
+            // Sin estado legible no se conocen los tickets de la cuenta: el reinicio sigue y vacía el almacén.
+        }
         session.state = null;
-        revokeAllObjectUrls(session);
-        clearPracticeFiles();
+        revokeSessionUrls(session);
         try {
             await session.storage.clear();
         } catch {

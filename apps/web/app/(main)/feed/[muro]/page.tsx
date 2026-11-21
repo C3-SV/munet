@@ -28,8 +28,8 @@ const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
         return error.message;
     }
 
-    // El modo práctica responde 501 con un texto claro; la API real nunca devuelve 501.
-    if (error instanceof ApiError && error.status === 501) {
+    // El modo práctica responde 501 o 507 con un texto claro; la API real nunca devuelve ninguno de los dos.
+    if (error instanceof ApiError && (error.status === 501 || error.status === 507)) {
         return error.message;
     }
 

@@ -4,6 +4,7 @@ import { buildPracticeWalls } from "./catalog.ts";
 import {
     getPracticeStatus,
     resetPractice,
+    revokeAllObjectUrls,
     runPracticeRequest,
     setPracticeStorageFactory,
 } from "./gateway.ts";
@@ -542,4 +543,81 @@ test("estado cargado con una foto data URI permitida se conserva", async () => {
 
     await run("u1", "GET", "/profiles/me");
     assert.equal((await storage.load()).profile.avatar, avatar);
+});
+
+test("reiniciar borra el archivo pendiente de la propia cuenta", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const pending = await initUpload("u1");
+    stashPracticeFile(pending.id, pngFile());
+
+    await resetPractice("u1");
+    assert.equal(peekPracticeFile(pending.id), null);
+});
+
+test("reiniciar A no borra el archivo pendiente de B", async () => {
+    const { factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    const pendingB = await initUpload("u2");
+    const fileB = pngFile("de-b.png");
+    stashPracticeFile(pendingB.id, fileB);
+
+    await resetPractice("u1");
+    assert.equal(peekPracticeFile(pendingB.id), fileB);
+});
+
+test("reinicio con una escritura en vuelo: la escritura termina antes y el estado final queda sembrado sin binarios", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    const storage = storages.get("u1");
+
+    // La escritura se queda parada dentro de save hasta que la prueba la suelta.
+    const originalSave = storage.save;
+    let enterSave;
+    const saveEntered = new Promise((resolve) => {
+        enterSave = resolve;
+    });
+    let release;
+    const gate = new Promise((resolve) => {
+        release = resolve;
+    });
+    storage.save = async (state) => {
+        enterSave();
+        await gate;
+        return originalSave(state);
+    };
+
+    const write = call("u1", "POST", "/posts", { muro: "general", content: "En vuelo" });
+    await Promise.race([saveEntered, write]);
+    const reset = resetPractice("u1");
+    release();
+    const [writeResult, resetResult] = await Promise.allSettled([write, reset]);
+    assert.equal(writeResult.status, "fulfilled", "la escritura en vuelo termina con éxito");
+    assert.equal(resetResult.status, "fulfilled");
+
+    // La siguiente lectura siembra de nuevo el estado: sin la publicación en vuelo y sin binarios.
+    await run("u1", "GET", "/profiles/me");
+    const saved = await storage.load();
+    assert.equal(saved.userId, "u1");
+    assert.equal(saved.posts.some((item) => item.content === "En vuelo"), false);
+    assert.deepEqual(saved.uploads, []);
+    assert.equal(await storage.getBlob(post.attachment.id), null);
+});
+
+test("revokeAllObjectUrls revoca las URL de descarga sin tocar el estado ni los binarios", async () => {
+    const { storages, factory } = spyPerUser();
+    setPracticeStorageFactory(factory);
+    const { post } = await publishWithAttachment("u1");
+    const download = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+
+    await revokeAllObjectUrls("u1");
+    assert.deepEqual(revokedUrls, [download.url]);
+    assert.notEqual(await storages.get("u1").getBlob(post.attachment.id), null);
+    const { posts } = await call("u1", "GET", "/posts?muro=general");
+    assert.notEqual(posts.find((item) => item.id === post.id).attachment, null);
+
+    // Una segunda llamada no vuelve a revocar la misma URL.
+    await revokeAllObjectUrls("u1");
+    assert.deepEqual(revokedUrls, [download.url]);
 });
