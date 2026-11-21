@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
@@ -14,6 +14,8 @@ export default function MainLayout({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    // Cambia al reiniciar la práctica para remontar el contenido de las páginas (ver el return).
+    const [practiceEpoch, setPracticeEpoch] = useState(0);
 
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
     const hydrated = useAuthStore((state) => state.hydrated);
@@ -86,8 +88,9 @@ export default function MainLayout({
             >
                 {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
                 <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>
-                    <PracticeBanner />
-                    {children}
+                    <PracticeBanner onReset={() => setPracticeEpoch((n) => n + 1)} />
+                    {/* Al reiniciar la práctica solo se remonta el contenido: el banner y la Sidebar no cambian. */}
+                    <React.Fragment key={practiceEpoch}>{children}</React.Fragment>
                 </div>
 
                 {!isChatRoom && <Footer />}

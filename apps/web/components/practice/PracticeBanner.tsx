@@ -17,8 +17,13 @@ const readPersistence = async (userId: string): Promise<boolean> => {
     }
 };
 
+type PracticeBannerProps = {
+    // Se llama tras reiniciar: el contenedor usa esta señal para remontar la pantalla.
+    onReset?: () => void;
+};
+
 // Aviso del modo práctica: indica dónde se guarda y permite reiniciarla o salir.
-export const PracticeBanner = () => {
+export const PracticeBanner = ({ onReset }: PracticeBannerProps = {}) => {
     const router = useRouter();
     const practice = useAuthStore((state) => state.practice);
     const user = useAuthStore((state) => state.user);
@@ -54,7 +59,13 @@ export const PracticeBanner = () => {
 
     // Borra lo hecho en la práctica, vuelve a leer si el navegador la persiste y recarga la ruta.
     const handleReset = async () => {
+        // Guarda de reentrada: un segundo clic mientras se reinicia no vuelve a borrar.
+        if (resetting) {
+            return;
+        }
+
         if (!user) {
+            setConfirmOpen(false);
             return;
         }
 
@@ -64,6 +75,7 @@ export const PracticeBanner = () => {
         setResetting(false);
         setConfirmOpen(false);
         router.refresh();
+        onReset?.();
     };
 
     // Sale de la práctica y vuelve al feed con el contexto real.
