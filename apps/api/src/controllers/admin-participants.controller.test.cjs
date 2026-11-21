@@ -348,7 +348,7 @@ test('changeParticipantRole impide tocar administradores y maneja ausencias y er
   for (const [results, status] of [
     [[{ data: null }], 404],
     [[{ error: { message: 'lookup' } }], 500],
-    ...['ADMIN_TECH', 'ADMIN_MUN', 'ADMIN', 'COORDINADOR'].map(role => [[{ data: { id: 'm1', role } }], 403]),
+    ...['ADMIN_TECH', 'ADMIN_MUN'].map(role => [[{ data: { id: 'm1', role } }], 403]),
     [[{ data: { id: 'm1', role: 'MODERATOR' } }], 400],
     [[{ data: { id: 'm1', role: 'PARTICIPANT' } }, { error: { message: 'update' } }], 400],
   ]) {

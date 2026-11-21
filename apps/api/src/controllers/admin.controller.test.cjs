@@ -410,7 +410,7 @@ test('updateParticipant valida el enum y prohibe asignar roles admin antes de es
 });
 
 test('updateParticipant no cambia el rol de un administrador por la ruta general', async () => {
-  for (const role of ['ADMIN_TECH', 'ADMIN_MUN', 'ADMIN']) {
+  for (const role of ['ADMIN_TECH', 'ADMIN_MUN']) {
     const h = harness([{ data: { id: 'm1', event_id: 'event', role } }]);
     await h.controller.updateParticipant({ params: { membershipId: 'm1' }, body: { role: 'PARTICIPANT', first_name: 'Ana' } }, h.res);
     assert.equal(h.res.statusCode, 403);

@@ -5,11 +5,6 @@ const ROLE_LABELS: Record<string, string> = {
     MODERATOR: "Moderador",
     ADMIN_MUN: "Administrador MUN",
     ADMIN_TECH: "Administrador técnico",
-    // Textos antiguos que aún pueden aparecer en datos previos.
-    ADMIN: "Administrador",
-    COORDINADOR: "Coordinador",
-    ORGANIZADOR: "Organizador",
-    DELEGADO: "Delegado",
 };
 
 // Traduce el rol de una membresía a texto visible. Un rol desconocido se muestra

@@ -26,15 +26,11 @@ const ACTIVE_MEMBERSHIP_KEY = "munet_active_membership";
 const normalizeRole = (role: string | null | undefined) =>
   (role ?? "").trim().toUpperCase();
 
-// Identifica membresias administrativas que requieren selector de evento.
+// Identifica membresias administrativas (los dos administradores del enum de la base).
 export const isAdminRole = (role: string | null | undefined) => {
   const normalized = normalizeRole(role);
 
-  return (
-    normalized.includes("ADMIN") ||
-    normalized.includes("COORDINADOR") ||
-    normalized.includes("ORGANIZADOR")
-  );
+  return normalized === "ADMIN_MUN" || normalized === "ADMIN_TECH";
 };
 
 // El rol de moderador se compara por valor exacto para no ampliar privilegios.
