@@ -56,7 +56,7 @@ Todas las rutas son relativas a `apps/web/`.
 
 ---
 
-### Tarea 1: Constantes y detección de práctica
+### Task 1: Constantes y detección de práctica
 
 **Archivos:**
 - Crear: `lib/practice/constants.ts`
@@ -73,7 +73,7 @@ Todas las rutas son relativas a `apps/web/`.
 
 ---
 
-### Tarea 2: Catálogo de muros, estado y persona de práctica
+### Task 2: Catálogo de muros, estado y persona de práctica
 
 **Archivos:**
 - Crear: `lib/practice/catalog.ts`, `lib/practice/state.ts`
@@ -104,7 +104,7 @@ Reglas que fijan los valores (del diseño):
 
 ---
 
-### Tarea 3: Almacén en memoria y arranque con versión
+### Task 3: Almacén en memoria y arranque con versión
 
 **Archivos:**
 - Crear: `lib/practice/storage.ts`
@@ -126,7 +126,7 @@ Reglas que fijan los valores (del diseño):
 
 ---
 
-### Tarea 4: Almacén IndexedDB con respaldo en memoria
+### Task 4: Almacén IndexedDB con respaldo en memoria
 
 **Archivos:**
 - Crear: `lib/practice/indexeddb-storage.ts`
@@ -147,7 +147,7 @@ Reglas que fijan los valores (del diseño):
 
 ---
 
-### Tarea 5: Enrutador local con falla cerrada
+### Task 5: Enrutador local con falla cerrada
 
 **Archivos:**
 - Crear: `lib/practice/router.ts`
@@ -183,7 +183,7 @@ Caminos atendidos (todos los demás lanzan `PracticeRequestError` con estado `50
 
 ---
 
-### Tarea 6: Pasarela, desvío en `requestApi` y fugas de R2 y tiempo real
+### Task 6: Pasarela, desvío en `requestApi` y fugas de R2 y tiempo real
 
 **Archivos:**
 - Crear: `lib/practice/gateway.ts`
@@ -209,7 +209,7 @@ Caminos atendidos (todos los demás lanzan `PracticeRequestError` con estado `50
 
 ---
 
-### Tarea 7: Membresía de práctica y store de autenticación
+### Task 7: Membresía de práctica y store de autenticación
 
 **Archivos:**
 - Crear: `lib/practice/membership.ts`
@@ -241,7 +241,7 @@ Caminos atendidos (todos los demás lanzan `PracticeRequestError` con estado `50
 
 ---
 
-### Tarea 8: Interfaz del modo práctica
+### Task 8: Interfaz del modo práctica
 
 **Archivos:**
 - Crear: `components/practice/PracticeBanner.tsx`
@@ -263,7 +263,7 @@ Comportamiento:
 
 ---
 
-### Tarea 9: Verificación de punta a punta, documentación y cierre
+### Task 9: Verificación de punta a punta, documentación y cierre
 
 **Archivos:**
 - Modificar: `docs/04-desarrollo/diseno-sandbox-conoce-munet.md` (estado de la entrega 1), `docs/PENDIENTES.md` (una línea)
