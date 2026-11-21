@@ -3,7 +3,7 @@
 - **Estado:** aceptada; implementada
 - **Fecha de la decisión:** 2026-10-29
 - **Reemplaza a:** [ADR-004](ADR-004-autorizacion-administrativa-global.md), que queda superada
-- **Resuelve:** [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa)
+- **Resuelve:** [P-01](../PENDIENTES.md#p-01-modelo-de-autorización-administrativa)
 
 ## Contexto
 

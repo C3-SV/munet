@@ -113,4 +113,4 @@ Desde un muro del evento, un administrador puede usar el control de eliminación
 | Moderación | Completar la pantalla y acordar permisos y acciones de mesa y administración. |
 | Comunicación y seguimiento | Definir alcance de adjuntos, fijado, reportes, notificaciones y consulta de auditoría. Validar primero muros y chat en un evento de ensayo. |
 
-[Orden propuesto de implementación y criterios](../07-auditoria/pendientes.md)
+[Orden propuesto de implementación y criterios](../PENDIENTES.md)

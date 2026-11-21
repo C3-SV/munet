@@ -58,4 +58,4 @@ Las pruebas deben declarar dataset, concurrencia, red, punto de medición y peri
 
 ## Decisiones que impiden cerrar aceptación
 
-Formato y desambiguación de código, prueba de identidad, roles finales, protocolo/retención de DM, límites de contenido, consentimiento —especialmente si hay menores—, recuperación, RTO/RPO y estados de evento requieren aprobación. Véase [pendientes](../07-auditoria/pendientes.md).
+Formato y desambiguación de código, prueba de identidad, roles finales, protocolo/retención de DM, límites de contenido, consentimiento —especialmente si hay menores—, recuperación, RTO/RPO y estados de evento requieren aprobación. Véase [pendientes](../PENDIENTES.md).

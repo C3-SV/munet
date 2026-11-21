@@ -31,7 +31,7 @@ Las reglas y planes históricos se conservan como contexto de producto.
 | Desarrollo | [configuración](04-desarrollo/configuracion-local.md), [guía](04-desarrollo/guia-para-desarrolladores.md), [agentes](04-desarrollo/guia-para-agentes.md), [pruebas](04-desarrollo/pruebas-y-validacion.md), [plan web](04-desarrollo/plan-web/README.md) |
 | Operaciones | [despliegue y configuración](05-operaciones/despliegue-y-configuracion.md) |
 | Decisiones | [índice de ADR](06-decisiones/README.md) |
-| Auditoría | [estado](07-auditoria/estado-actual.md), [trazabilidad](07-auditoria/matriz-de-trazabilidad.md), [discrepancias](07-auditoria/discrepancias.md), [pendientes](07-auditoria/pendientes.md), [migración](07-auditoria/migracion-historica.md) |
+| Auditoría | [estado](07-auditoria/estado-actual.md), [trazabilidad](07-auditoria/matriz-de-trazabilidad.md), [discrepancias](07-auditoria/discrepancias.md), [pendientes](PENDIENTES.md), [migración](07-auditoria/migracion-historica.md) |
 
 ## Criterio editorial
 

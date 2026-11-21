@@ -21,7 +21,7 @@ Los loggers intentan registrar las acciones e intentos. Un error de auditoría p
 ## D-05 — Compatibilidad entre API y esquema
 
 - El alta de evento intenta insertar `role: 'ADMIN'`. El [snapshot](../../supabase/schema.sql) enumera `ADMIN_MUN` y `ADMIN_TECH` como valores administrativos. Si el enum efectivo coincide, falla la membresía y el controlador intenta revertir el evento.
-- El alta individual y la edición usan un campo de rol libre en web, con ejemplos como `DELEGADO`, ajeno al enum de referencia. El CSV sí normaliza a `PARTICIPANT` o `MODERATOR`.
+- Resuelta el 20 de noviembre de 2026: el alta y la edición usan un select con los cuatro roles del enum y la API valida el valor. El CSV normaliza a `PARTICIPANT` o `MODERATOR`.
 - Participantes, perfiles y borrado de contenido dependen de columnas de la 001. La API invoca una función de la 002 al dar de alta y conserva la cuenta con un aviso si la RPC devuelve error. Estado de aplicación y permisos efectivos pendientes de verificar.
 - El snapshot y las dos migraciones no describen todas las políticas, triggers, publicación Realtime ni buckets. Véase [base de datos](../02-arquitectura/base-de-datos.md).
 

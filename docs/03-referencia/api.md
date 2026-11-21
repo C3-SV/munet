@@ -18,7 +18,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 
 | Método y ruta | Entrada | Regla principal |
 |---|---|---|
-| `GET /posts?muro=<slug>` | Query `muro` | Feed de muro autorizado. |
+| `GET /posts?muro=<slug>` | Query `muro` | Feed de muro autorizado. Cada post incluye `commentCount` (comentarios visibles). |
 | `POST /posts` | `muro`, `content`, `post_type`, `poll_options?` | Texto o encuesta de 2 a 10 opciones. |
 | `DELETE /posts/:postId` | — | Autor o administración. Borrado lógico. |
 | `POST /posts/:postId/poll/vote` | `option_id` | Reemplaza voto vigente. |
@@ -43,7 +43,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | Método y ruta | Entrada | Regla principal |
 |---|---|---|
 | `GET /dm/conversations` | — | Conversaciones de la membresía activa. |
-| `GET /dm/participants?search=` | Búsqueda | Participantes activos del mismo evento. |
+| `GET /dm/participants?search=` | Búsqueda | Participantes activos del mismo evento. Cada participante, y `otherParticipant` en las conversaciones, incluye `alias` (o `null`). |
 | `POST /dm/conversations` | `targetMembershipId` | Crea o reutiliza conversación 1:1. |
 | `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. |
 | `POST /dm/conversations/:conversationId/messages` | `content` | Solo integrante activo. |

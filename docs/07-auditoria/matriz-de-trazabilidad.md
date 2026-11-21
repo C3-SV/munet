@@ -49,4 +49,4 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 
 ## Funcionalidades propuestas o postergadas
 
-El alta individual, el cambio de comité, la API de CSV y la pantalla de moderación del Sprint 3 tienen evidencia en código y en pruebas contra la API local. La interfaz CSV, el panel general de asignaciones, los adjuntos y la marca «Fijado» en el feed siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](pendientes.md).
+El alta individual, el cambio de comité, la API de CSV y la pantalla de moderación del Sprint 3 tienen evidencia en código y en pruebas contra la API local. La interfaz CSV, el panel general de asignaciones, los adjuntos y la marca «Fijado» en el feed siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](../PENDIENTES.md).
