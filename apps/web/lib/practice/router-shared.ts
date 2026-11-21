@@ -28,6 +28,8 @@ export type PracticeRouteContext = {
     released: string[];
     // Verdadero cuando la escritura cambió el estado; las lecturas lo dejan en falso.
     wrote: boolean;
+    // Estado HTTP cuando el manejador lo decide (201 o 200 al crear o reutilizar una conversación).
+    status?: number;
 };
 
 export const requireParam = (params: Readonly<Record<string, string>>, name: string): string => {

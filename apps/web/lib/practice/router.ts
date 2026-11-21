@@ -36,6 +36,7 @@ import {
     handlePostDelete,
 } from "./router-posts.ts";
 import { handleCommentCreate, handleCommentDelete } from "./router-comments.ts";
+import { handleConversationCreate, handleMessageCreate, handleMessageDelete } from "./router-dm.ts";
 import { handleAvatarUpload, handleProfileUpdate } from "./router-profile.ts";
 
 // Los errores y el contexto de los manejadores viven en router-shared.ts; se reexportan desde aquí.
@@ -260,6 +261,13 @@ const ROUTES: readonly Route[] = [
     { method: "GET", pattern: ["dm", "conversations"], handle: handleConversations },
     { method: "GET", pattern: ["dm", "conversations", ":conversationId", "messages"], handle: handleMessages },
     { method: "GET", pattern: ["dm", "participants"], handle: handleDmParticipants },
+    { method: "POST", pattern: ["dm", "conversations"], handle: handleConversationCreate },
+    { method: "POST", pattern: ["dm", "conversations", ":conversationId", "messages"], handle: handleMessageCreate },
+    {
+        method: "DELETE",
+        pattern: ["dm", "conversations", ":conversationId", "messages", ":messageId"],
+        handle: handleMessageDelete,
+    },
     { method: "POST", pattern: ["posts"], handle: handlePostCreate },
     { method: "POST", pattern: ["posts", "attachments", "init"], handle: handleAttachmentInit },
     { method: "DELETE", pattern: ["posts", ":postId"], handle: handlePostDelete },
@@ -323,6 +331,8 @@ export type PracticeOutcome = {
     result: unknown;
     released: string[];
     wrote: boolean;
+    // Solo lo fijan algunos manejadores (creación de conversaciones y mensajes); el resto queda sin valor.
+    status?: number;
 };
 
 // Enrutador síncrono y sin red: atiende solo los caminos de la tabla y falla cerrado con 501 en el resto.
@@ -353,7 +363,7 @@ export const routePracticeRequestDetailed = (
                 wrote: false,
             };
             const result = route.handle(context);
-            return { result, released: context.released, wrote: context.wrote };
+            return { result, released: context.released, wrote: context.wrote, status: context.status };
         }
     }
     throw unavailable();
