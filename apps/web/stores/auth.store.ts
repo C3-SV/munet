@@ -9,7 +9,6 @@ import {
   type ActivationEvent,
 } from "../lib/api/auth";
 import { PRACTICE_EVENT_ID, PRACTICE_MEMBERSHIP_ID } from "../lib/practice/constants";
-import { deletePracticeData } from "../lib/practice/gateway";
 import {
   isPracticeMembership,
   withoutPracticeMembership,
@@ -207,7 +206,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Borra en este navegador la práctica del usuario que sale. No se espera: el cierre de sesión no depende de ello.
     const userId = get().user?.id;
     if (userId) {
-      void deletePracticeData(userId);
+      // Import dinámico: el simulador solo se descarga si hay una práctica que borrar. Un fallo se ignora.
+      void import("../lib/practice/gateway")
+        .then((module) => module.deletePracticeData(userId))
+        .catch(() => undefined);
     }
 
     localStorage.removeItem(SESSION_KEY);
