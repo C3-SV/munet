@@ -7,7 +7,8 @@ import { getEventsByParticipantCode } from '../controllers/admin.controller';
 const router = Router();
 
 // Endpoints públicos de pre-activación y autenticación.
-router.get('/events-by-code/:participant_code', getEventsByParticipantCode);
+// Público por diseño (se usa antes de tener sesión), con límite por IP para frenar la enumeración de códigos.
+router.get('/events-by-code/:participant_code', authIpLimiter, getEventsByParticipantCode);
 router.post('/activate', authIpLimiter, authParticipantLimiter, activateAccount);
 router.post('/login', authIpLimiter, authParticipantLimiter, login);
 // Endpoint protegido para refrescar contexto del usuario autenticado.
