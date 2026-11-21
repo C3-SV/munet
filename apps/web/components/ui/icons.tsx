@@ -310,3 +310,29 @@ export const IconFile = (props: IconProps) => (
         <path d="M14 3v5h5" />
     </IconBase>
 );
+
+// Acciones del panel admin.
+export const IconUpload = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M12 16V4" />
+        <path d="M7 9l5-5 5 5" />
+        <path d="M5 20h14" />
+    </IconBase>
+);
+
+export const IconDownload = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M12 4v12" />
+        <path d="M7 11l5 5 5-5" />
+        <path d="M5 20h14" />
+    </IconBase>
+);
+
+export const IconBuilding = (props: IconProps) => (
+    <IconBase {...props}>
+        <path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16" />
+        <path d="M15 10h4a1 1 0 0 1 1 1v10" />
+        <path d="M3 21h18" />
+        <path d="M8 8h3M8 12h3M8 16h3" />
+    </IconBase>
+);

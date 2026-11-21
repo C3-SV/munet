@@ -8,7 +8,7 @@ import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
 import { buildWallNav } from "../../lib/wall-nav";
 import { useTheme } from "../../lib/theme-context";
-import { isAdminRole, useAuthStore } from "../../stores/auth.store";
+import { canAccessAdminPanel, isAdminRole, isModeratorRole, useAuthStore } from "../../stores/auth.store";
 import type { EventWall } from "../../types/common";
 import LogoutButton from "../auth/LogOutButton";
 import {
@@ -234,6 +234,8 @@ export const Sidebar = () => {
     const committeesOpen = committeesManualOpen ?? hasActiveCommittee;
 
     const canSwitchEventFromSidebar = activeMembership ? isAdminRole(activeMembership.role) : false;
+    const canOpenAdminPanel = activeMembership ? canAccessAdminPanel(activeMembership.role) : false;
+    const isModerator = activeMembership ? isModeratorRole(activeMembership.role) : false;
     const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
     const profileName = profile?.name || "Participante";
 
@@ -375,21 +377,27 @@ export const Sidebar = () => {
                     >
                         {activeEventName}
                     </p>
-                    {canSwitchEventFromSidebar && (
+                    {canOpenAdminPanel && (
                         <div className="mt-1 flex flex-col">
+                            {canSwitchEventFromSidebar && (
+                                <Link
+                                    href="/select-event"
+                                    className="inline-flex min-h-11 items-center text-sm font-semibold font-heading hover:underline"
+                                    style={{ color: "var(--text-accent)" }}
+                                >
+                                    Cambiar evento
+                                </Link>
+                            )}
                             <Link
-                                href="/select-event"
-                                className="inline-flex min-h-11 items-center text-sm font-semibold font-heading hover:underline"
-                                style={{ color: "var(--text-accent)" }}
-                            >
-                                Cambiar evento
-                            </Link>
-                            <Link
-                                href="/admin"
+                                href={
+                                    isModerator && activeMembership
+                                        ? `/admin/events/${activeMembership.eventId}/moderation`
+                                        : "/admin"
+                                }
                                 className="inline-flex min-h-11 items-center text-sm font-semibold font-heading hover:underline"
                                 style={{ color: "var(--text-primary)" }}
                             >
-                                Panel de administración
+                                {isModerator ? "Moderación" : "Panel de administración"}
                             </Link>
                         </div>
                     )}

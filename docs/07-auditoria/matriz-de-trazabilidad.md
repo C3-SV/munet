@@ -24,7 +24,7 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 | REQ-18 | RF-18–20; mensaje y borrado | Controlador y servicios DM | Texto y borrado del autor con estado `DELETED`. | Parcial | Verificar persistencia, entrega y auditoría. |
 | REQ-19 | RF-22/RN-35–37; supervisión fail-closed | Sin ruta/UI | No existe | Documentado, no implementado | Roles, privacidad y retención abiertos |
 | REQ-20 | RF-28; reportes/estados/deduplicación | Sin ruta/UI/tablas usadas | No existe; plan nuevo lo posterga | Documentado, no implementado | ¿Requisito vigente y fecha? |
-| REQ-21 | RF-28–30; moderación/sanción | Borrado de posts/comentarios; ficha y controlador admin | Retiro de contenido y suspensión/reactivación. Sin gestión de reportes, incidentes o expulsión. | Parcial | Completar moderación operativa y trazabilidad. |
+| REQ-21 | RF-28–30; moderación/sanción | Pantalla `/admin/events/:id/moderation` (muros, pestañas, fijar/desfijar, eliminar con motivo); ficha y listado de participantes (`PATCH …/role`) | Moderación operativa para admin y `MODERATOR`, con motivo, auditoría y rate limit. Sin reportes, incidentes o expulsión. | Parcial | Marca «Fijado» en feed (Fiore), prueba `rbac` por alinear (Christian), borrado desde el feed del moderador. |
 | REQ-22 | RF-36/37; avisos internos persistentes | Realtime cliente | Realtime refresca; no existe entidad/historial/contador | Documentado, no implementado | Plan nuevo lo posterga |
 | REQ-23 | RF-38; CSV validado/confirmado | `admin-participants.controller.ts`; utilidades CSV | API de preview y confirmación por lote, credenciales y fallos por fila. Auditoría best-effort. | Parcial | Conectar UI y verificar persistencia y resultados parciales. |
 | REQ-24 | RF-34/RN-52–53; auditoría y consulta | audit/auth loggers | Escritura best-effort; sin consulta | Parcial / divergente | No garantiza evidencia ni denegaciones |
@@ -49,4 +49,4 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 
 ## Funcionalidades propuestas o postergadas
 
-El alta individual, el cambio de comité y la API de CSV tienen evidencia en código. La interfaz CSV, el panel general de asignaciones, los adjuntos, el fijado y la moderación integral siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](pendientes.md).
+El alta individual, el cambio de comité, la API de CSV y la pantalla de moderación del Sprint 3 tienen evidencia en código y en pruebas contra la API local. La interfaz CSV, el panel general de asignaciones, los adjuntos y la marca «Fijado» en el feed siguen pendientes. Reportes y notificaciones permanecen postergados en los planes. Consulta [pendientes](pendientes.md).

@@ -4,7 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
-import { AdminCredentialBanner } from "../../../../../../../components/admin/AdminCredentialBanner";
+import {
+    AdminCredentialsDialog,
+    type AdminCredentialField,
+} from "../../../../../../../components/admin/AdminCredentialsDialog";
 import { AdminFormInput } from "../../../../../../../components/admin/AdminFormInput";
 import { AdminFormSelect } from "../../../../../../../components/admin/AdminFormSelect";
 import { AdminFormTextarea } from "../../../../../../../components/admin/AdminFormTextarea";
@@ -23,14 +26,6 @@ import { useAuthStore } from "../../../../../../../stores/auth.store";
 import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
 import { IconCheck, IconPlus } from "../../../../../../../components/ui/icons";
 
-const ROLE_SUGGESTIONS = [
-    "DELEGADO",
-    "MODERADOR",
-    "ORGANIZADOR",
-    "COORDINADOR",
-    "ADMIN",
-];
-
 type FormState = {
     participant_code: string;
     role: string;
@@ -40,6 +35,7 @@ type FormState = {
     first_name: string;
     last_name: string;
     display_name: string;
+    alias: string;
     bio: string;
 };
 
@@ -54,13 +50,38 @@ const INITIAL_FORM: FormState = {
     first_name: "",
     last_name: "",
     display_name: "",
+    alias: "",
     bio: "",
 };
 
 type CreatedParticipant = {
     participantCode: string;
+    delegationCode: string | null;
     membershipId: string;
-    password: string;
+    fullName: string;
+};
+
+type CredentialsState = {
+    title: string;
+    description?: string;
+    fields: AdminCredentialField[];
+    warnings?: string[];
+};
+
+const resolveCreateError = (failure: unknown) => {
+    if (failure instanceof ApiError) {
+        if (failure.status === 403) {
+            return "No tienes permisos para administrar este evento.";
+        }
+
+        if (failure.status === 409) {
+            return "El código de participante ya existe en este evento.";
+        }
+
+        return failure.message;
+    }
+
+    return "No se pudo crear el participante. Intenta de nuevo.";
 };
 
 export default function NewParticipantPage() {
@@ -83,6 +104,9 @@ export default function NewParticipantPage() {
     const [loading, setLoading] = useState(false);
     const [apiError, setApiError] = useState<string | null>(null);
     const [created, setCreated] = useState<CreatedParticipant | null>(null);
+    const [credentials, setCredentials] = useState<CredentialsState | null>(
+        null,
+    );
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -218,22 +242,47 @@ export default function NewParticipantPage() {
                 ...(form.display_name.trim() && {
                     display_name: form.display_name.trim(),
                 }),
+                ...(form.alias.trim() && { alias: form.alias.trim() }),
                 ...(form.bio.trim() && { bio: form.bio.trim() }),
             };
 
             const response = await createAccount(token, body);
+            const delegationCode =
+                response.delegation_code ??
+                response.membership.delegation_code ??
+                null;
+            const fullName = `${body.first_name} ${body.last_name}`.trim();
 
             setCreated({
                 participantCode: response.membership.participant_code,
+                delegationCode,
                 membershipId: response.membership.id,
-                password: response.initial_password,
+                fullName,
+            });
+            setCredentials({
+                title: "Cuenta creada correctamente",
+                description: `Guarda las credenciales de ${fullName}.`,
+                fields: [
+                    {
+                        key: "login",
+                        label: "Código de login",
+                        value: response.membership.participant_code,
+                    },
+                    {
+                        key: "delegation",
+                        label: "Código #",
+                        value: delegationCode ?? "Sin código",
+                    },
+                    {
+                        key: "password",
+                        label: "Contraseña inicial",
+                        value: response.initial_password,
+                    },
+                ],
+                warnings: response.warnings,
             });
         } catch (createError) {
-            setApiError(
-                createError instanceof ApiError
-                    ? createError.message
-                    : "No se pudo crear el participante. Intenta de nuevo.",
-            );
+            setApiError(resolveCreateError(createError));
         } finally {
             setLoading(false);
         }
@@ -241,6 +290,7 @@ export default function NewParticipantPage() {
 
     const handleCreateAnother = () => {
         setCreated(null);
+        setCredentials(null);
         setForm(INITIAL_FORM);
         setErrors({});
         setApiError(null);
@@ -273,14 +323,60 @@ export default function NewParticipantPage() {
 
             {created ? (
                 <div className="space-y-4">
-                    <AdminCredentialBanner
-                        title="Cuenta creada correctamente"
-                        participantCode={created.participantCode}
-                        password={created.password}
-                        note="Entrega esta contraseña al participante. No se volverá a mostrar."
+                    <AdminAlertBanner
+                        type="success"
+                        message={`Cuenta creada: ${created.fullName} (${created.participantCode}).`}
                     />
 
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div
+                        className="rounded-2xl p-6 space-y-4"
+                        style={{
+                            backgroundColor: "var(--bg-surface)",
+                            border: "1px solid var(--border-color)",
+                            boxShadow: "var(--shadow-sm)",
+                        }}
+                    >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <p
+                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Código de login
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {created.participantCode}
+                                </p>
+                            </div>
+                            <div>
+                                <p
+                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Código #
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {created.delegationCode ?? "Sin código"}
+                                </p>
+                            </div>
+                        </div>
+                        <p
+                            className="text-xs leading-relaxed"
+                            style={{ color: "var(--text-muted)" }}
+                        >
+                            La contraseña inicial se mostró una sola vez. Si se
+                            perdió, restablécala desde el detalle del
+                            participante.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
                         <AdminButton
                             href={`/admin/events/${eventId}/participants/${created.membershipId}`}
                         >
@@ -293,6 +389,12 @@ export default function NewParticipantPage() {
                             icon={<IconPlus size={16} />}
                         >
                             Registrar otro
+                        </AdminButton>
+                        <AdminButton
+                            href={`/admin/events/${eventId}/participants`}
+                            variant="secondary"
+                        >
+                            Volver a participantes
                         </AdminButton>
                     </div>
                 </div>
@@ -319,8 +421,9 @@ export default function NewParticipantPage() {
                         <AdminFormInput
                             id="participant-code"
                             label="Código de participante"
-                            placeholder="Ej: DEL-001"
+                            placeholder="Ej: ana.perez"
                             required
+                            maxLength={50}
                             value={form.participant_code}
                             onChange={(event) =>
                                 handleChange(
@@ -329,7 +432,7 @@ export default function NewParticipantPage() {
                                 )
                             }
                             error={errors.participant_code}
-                            hint="El código no se puede modificar después de crear la cuenta."
+                            hint="Se usa para iniciar sesión y no se puede modificar después."
                             disabled={loading}
                         />
 
@@ -348,12 +451,6 @@ export default function NewParticipantPage() {
                         />
                     </div>
 
-                    <datalist id="participant-role-options">
-                        {ROLE_SUGGESTIONS.map((role) => (
-                            <option key={role} value={role} />
-                        ))}
-                    </datalist>
-
                     <AdminFormSelect
                         id="participant-committee"
                         label="Comité"
@@ -371,6 +468,7 @@ export default function NewParticipantPage() {
                             id="participant-delegation"
                             label="Delegación"
                             placeholder="Ej: Francia"
+                            maxLength={120}
                             value={form.delegation_name}
                             onChange={(event) =>
                                 handleChange(
@@ -384,6 +482,7 @@ export default function NewParticipantPage() {
                             id="participant-institution"
                             label="Institución"
                             placeholder="Ej: Universidad ESEN"
+                            maxLength={120}
                             value={form.institution_name}
                             onChange={(event) =>
                                 handleChange(
@@ -401,6 +500,7 @@ export default function NewParticipantPage() {
                             label="Nombre"
                             placeholder="Ej: María"
                             required
+                            maxLength={100}
                             value={form.first_name}
                             onChange={(event) =>
                                 handleChange("first_name", event.target.value)
@@ -413,6 +513,7 @@ export default function NewParticipantPage() {
                             label="Apellido"
                             placeholder="Ej: López"
                             required
+                            maxLength={100}
                             value={form.last_name}
                             onChange={(event) =>
                                 handleChange("last_name", event.target.value)
@@ -422,17 +523,34 @@ export default function NewParticipantPage() {
                         />
                     </div>
 
-                    <AdminFormInput
-                        id="participant-display-name"
-                        label="Nombre para mostrar"
-                        placeholder="Ej: María López (opcional)"
-                        value={form.display_name}
-                        onChange={(event) =>
-                            handleChange("display_name", event.target.value)
-                        }
-                        hint="Si lo dejas vacío, se mostrará el nombre y apellido."
-                        disabled={loading}
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <AdminFormInput
+                            id="participant-display-name"
+                            label="Nombre para mostrar"
+                            placeholder="Ej: María López (opcional)"
+                            value={form.display_name}
+                            onChange={(event) =>
+                                handleChange(
+                                    "display_name",
+                                    event.target.value,
+                                )
+                            }
+                            hint="Si lo dejas vacío, se mostrará el nombre y apellido."
+                            disabled={loading}
+                        />
+                        <AdminFormInput
+                            id="participant-alias"
+                            label="Alias"
+                            placeholder="Ej: Anita (opcional)"
+                            maxLength={60}
+                            value={form.alias}
+                            onChange={(event) =>
+                                handleChange("alias", event.target.value)
+                            }
+                            hint="Máximo 60 caracteres."
+                            disabled={loading}
+                        />
+                    </div>
 
                     <AdminFormTextarea
                         id="participant-bio"
@@ -474,6 +592,17 @@ export default function NewParticipantPage() {
                         </AdminButton>
                     </div>
                 </form>
+            )}
+
+            {credentials && (
+                <AdminCredentialsDialog
+                    title={credentials.title}
+                    description={credentials.description}
+                    fields={credentials.fields}
+                    warnings={credentials.warnings}
+                    note="Guarda estas credenciales ahora. La contraseña inicial no se volverá a mostrar."
+                    onClose={() => setCredentials(null)}
+                />
             )}
         </div>
     );

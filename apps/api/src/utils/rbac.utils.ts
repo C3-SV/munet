@@ -19,11 +19,15 @@ export const isAdminRole = (role: string | null | undefined) => {
   );
 };
 
-// Detector auxiliar de roles moderadores para posibles reglas futuras.
-export const isModeratorRole = (role: string | null | undefined) => {
-  const normalizedRole = normalizeRole(role);
-  return normalizedRole.includes('MODERADOR') || normalizedRole.includes('MODERATOR');
-};
+// Los roles nuevos se comparan por valor exacto para no ampliar privilegios.
+export const isModeratorRole = (role: string | null | undefined) =>
+  normalizeRole(role) === 'MODERATOR';
+
+export const isSuperAdminRole = (role: string | null | undefined) =>
+  normalizeRole(role) === 'ADMIN_TECH';
+
+export const canModerateRole = (role: string | null | undefined) =>
+  isAdminRole(role) || isModeratorRole(role);
 
 // Evalua acceso a muros de comite segun rol y comite asignado.
 export const canAccessCommitteeWall = (params: {
@@ -35,7 +39,7 @@ export const canAccessCommitteeWall = (params: {
     return true;
   }
 
-  if (isAdminRole(params.role)) {
+  if (canModerateRole(params.role)) {
     return true;
   }
 

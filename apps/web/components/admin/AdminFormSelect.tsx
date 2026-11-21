@@ -7,6 +7,7 @@ import { type SelectHTMLAttributes, forwardRef } from "react";
 type AdminFormSelectOption = {
     value: string;
     label: string;
+    disabled?: boolean;
 };
 
 type AdminFormSelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
@@ -78,7 +79,11 @@ export const AdminFormSelect = forwardRef<
                 }}
             >
                 {options.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.disabled}
+                    >
                         {option.label}
                     </option>
                 ))}

@@ -36,6 +36,20 @@ Usar datos ficticios, dos eventos, dos comités y perfiles administrativos y de 
 5. Cambiar de comité desde la ficha y volver a cargar la sesión del delegado. Confirmar pérdida de acceso al muro anterior y acceso al nuevo. Probar además un comité archivado y un comité de otro evento.
 6. Probar alias/avatar, anuncios, publicaciones, comentarios, voto y cierre, chat 1:1 y borrado lógico. Observar actualización entre dos sesiones y el efecto de suspender una membresía con sesión abierta.
 
+## Pruebas del Sprint 3 (frontend admin) — 21 de noviembre de 2026
+
+Contra la API local (`apps/api`, puerto 3002) con la cuenta de prueba administradora del evento «DEMO - MUN ESEN 2026». La base es la compartida del proyecto Supabase, así que las escrituras quedaron en datos reales y se revirtieron en lo posible.
+
+- Lectura: `GET /admin/moderation/walls`, `posts` (VISIBLE, DELETED, ALL, paginado) y `comments` responden 200 con la forma del contrato; sin token o con token inválido responden 401.
+- Escritura: fijar 3 posts y el cuarto devuelve 409 «El muro ya tiene 3 posts fijados…»; desfijar y fijar de nuevo responden 200; fijar un post borrado devuelve 409.
+- Eliminación: posts y comentarios con motivo (3–500) devuelven el estado; repetir da 409; borrar un post fijado lo desfija; el detalle de la lista muestra autor, `deleted_by_name` y `deletion_reason`.
+- Rol: `PATCH /admin/participants/:id/role` cambia PARTICIPANT↔MODERATOR (200), repetir da 400, sobre una cuenta administrativa da 403; el PATCH general con `role` sobre un admin también da 403.
+- Rate limit: las escrituras de moderación comparten 60/min por usuario; al superarlo responden 429 con `{ "error": "Demasiados intentos…" }`.
+- `npm test -w api`: 169 de 170 pruebas correctas. La que falla, `rbac.utils.test.mjs` («un moderador no accede a comités ajenos solo por su rol»), es un conflicto entre la regla nueva (`canAccessCommitteeWall` admite MODERATOR) y la prueba heredada; queda para Christian.
+- `npm run check-types -w web` y `-w api`, y `eslint` sobre los archivos tocados: sin errores.
+- Recorrido manual en navegador por Alex: la pantalla de moderación, el menú de fila, la ficha del participante, la ocultación de «Nuevo evento» para `ADMIN_MUN` y el modo responsive se verificaron sin incidencias.
+- Sin probar: alta de evento real con `ADMIN_TECH` (crearía un evento en la base compartida), cuenta moderadora de punta a punta en el panel y los casos de la lista «Cómo probar» del contrato que requieren una segunda cuenta.
+
 ## Evidencia de la mejora de UX pública del 20 de noviembre de 2026
 
 Sobre la base `cab6daa` de la rama `rework-visual`, sin migraciones, sin cambios en `apps/api` y sin dependencias nuevas:

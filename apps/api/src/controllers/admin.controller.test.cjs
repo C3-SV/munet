@@ -51,11 +51,71 @@ function harness(results, service = {}) {
   return { controller: module.exports, calls, audits, serviceCalls, searchCalls, res };
 }
 
+test('createEvent crea membership ADMIN_TECH y ambos muros antes de auditar', async () => {
+  const h = harness([{ data: null }, { data: { id: 'event' } }, {}, {}]);
+  const actor = { id: 'superadmin', userId: 'u1', role: 'ADMIN_TECH' };
+  await h.controller.createEvent({ body: { name: 'Modelo', slug: 'modelo' }, auth: { userId: 'u1', currentMembership: actor } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.calls[2].steps[0][1].role, 'ADMIN_TECH');
+  assert.equal(h.calls[3].table, 'walls');
+  const walls = JSON.parse(JSON.stringify(h.calls[3].steps[0][1]));
+  assert.deepEqual(walls.map(w => [w.event_id, w.name, w.wall_type, w.committee_id, w.status]), [
+    ['event', 'General', 'GENERAL', null, 'ACTIVE'],
+    ['event', 'Avisos', 'ANNOUNCEMENTS', null, 'ACTIVE'],
+  ]);
+  assert.equal(h.audits.length, 1);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].actionType, 'CREATE_EVENT');
+});
+
+test('createEvent revierte fisicamente hijos y evento ante errores o excepciones, sin auditar', async () => {
+  for (const step of ['membership', 'walls']) {
+    for (const throws of [false, true]) {
+      const failure = throws ? () => { throw new Error('fallo simulado'); } : { error: { message: 'fallo simulado' } };
+      const h = harness([{ data: null }, { data: { id: 'event' } }, ...(step === 'walls' ? [{}] : []), failure, {}, {}, {}]);
+      await h.controller.createEvent({ body: { name: 'Modelo', slug: 'modelo' }, auth: { userId: 'u1' } }, h.res);
+      assert.equal(h.res.statusCode, throws ? 500 : 400);
+      const deletes = h.calls.filter(c => c.steps.some(s => s[0] === 'delete'));
+      assert.deepEqual(deletes.map(c => c.table), ['walls', 'event_memberships', 'events']);
+      assert.deepEqual(deletes.map(c => c.steps.find(s => s[0] === 'eq')), [
+        ['eq', 'event_id', 'event'], ['eq', 'event_id', 'event'], ['eq', 'id', 'event'],
+      ]);
+      assert.equal(h.calls.some(c => c.steps.some(s => s[0] === 'update')), false);
+      assert.equal(h.audits.length, 0);
+    }
+  }
+});
+
+test('createEvent intenta todos los borrados y avisa si el rollback falla', async () => {
+  for (const failure of [{ error: { message: 'borrado fallido' } }, () => { throw new Error('borrado fallido'); }]) {
+    const h = harness([{ data: null }, { data: { id: 'event' } }, {}, { error: { message: 'muros' } }, failure, {}, {}]);
+    await h.controller.createEvent({ body: { name: 'Modelo', slug: 'modelo' } }, h.res);
+    assert.equal(h.res.statusCode, 500);
+    assert.match(h.res.body.error, /revision del administrador/);
+    assert.deepEqual(h.calls.slice(-3).map(c => c.table), ['walls', 'event_memberships', 'events']);
+    assert.equal(h.audits.length, 0);
+  }
+});
+
+test('createEvent no crea hijos ni audita ante slug ocupado o error al crear evento', async () => {
+  for (const results of [
+    [{ data: { id: 'existing' } }],
+    [{ error: { message: 'lookup' } }],
+    [{ data: null }, { error: { message: 'insert' } }],
+  ]) {
+    const h = harness(results);
+    await h.controller.createEvent({ body: { name: 'Modelo', slug: 'modelo' } }, h.res);
+    assert.ok([400, 500].includes(h.res.statusCode));
+    assert.ok(h.calls.every(c => c.table === 'events'));
+    assert.equal(h.audits.length, 0);
+  }
+});
+
 test('lista eventos con paginación estable y conteo', async () => {
   const h = harness([{ data: [{ id: 'event' }], count: 45 }]);
   const req = {
     query: { page: '2', limit: '20' },
-    auth: { memberships: [{ eventId: 'event', role: 'ADMIN', accountStatus: 'ACTIVE' }] },
+    auth: { memberships: [{ eventId: 'event', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] },
   };
   await h.controller.listEvents(req, h.res);
   assert.equal(h.res.body.pagination.total_pages, 3);
@@ -223,7 +283,7 @@ test('createAccount devuelve credenciales, codigo y warnings sin cache y audita 
     initialPassword: 'Temporal-123', delegationCode: '#001', warnings: ['Aviso del servicio'],
   };
   const h = harness([], { createParticipantAccount: async () => result });
-  const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN' };
+  const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN_MUN' };
   await h.controller.createAccount({ body: { ...accountBody(), alias: '  Ana  ' }, auth: { userId: 'admin-user', currentMembership: actor } }, h.res);
   assert.equal(h.res.statusCode, 200);
   assert.equal(h.res.headers['cache-control'], 'no-store');
@@ -240,6 +300,8 @@ test('createAccount devuelve credenciales, codigo y warnings sin cache y audita 
   const audit = h.audits[0];
   assert.equal(audit.actionType, 'CREATE_ACCOUNT');
   assert.equal(audit.entityId, 'm1');
+  assert.equal(audit.targetMembershipId, 'm1');
+  assert.equal(audit.targetUserId, 'u1');
   assert.equal(audit.eventId, 'event');
   assert.equal(audit.outcome, 'SUCCESS');
   assert.equal(audit.membership, actor);
@@ -334,4 +396,74 @@ test('updateParticipant rechaza un comite archivado igual que la ruta dedicada',
   assert.equal(h.calls.length, 2);
   assert.equal(h.audits.length, 0);
   assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'update')), false);
+});
+
+
+test('updateParticipant valida el enum y prohibe asignar roles admin antes de escribir', async () => {
+  for (const role of [null, 2, {}, '', 'ADMIN', 'moderator', 'MODERADOR', 'ADMIN_TECH', 'ADMIN_MUN']) {
+    const h = harness([]);
+    await h.controller.updateParticipant({ params: { membershipId: 'm1' }, body: { role } }, h.res);
+    assert.equal(h.res.statusCode, ['ADMIN_TECH', 'ADMIN_MUN'].includes(role) ? 403 : 400);
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.audits.length, 0);
+  }
+});
+
+test('updateParticipant no cambia el rol de un administrador por la ruta general', async () => {
+  for (const role of ['ADMIN_TECH', 'ADMIN_MUN', 'ADMIN']) {
+    const h = harness([{ data: { id: 'm1', event_id: 'event', role } }]);
+    await h.controller.updateParticipant({ params: { membershipId: 'm1' }, body: { role: 'PARTICIPANT', first_name: 'Ana' } }, h.res);
+    assert.equal(h.res.statusCode, 403);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.audits.length, 0);
+  }
+});
+
+test('updateParticipant permite los dos roles operativos sin modificar perfiles', async () => {
+  for (const role of ['PARTICIPANT', 'MODERATOR']) {
+    const h = harness([{ data: { id: 'm1', event_id: 'event', user_id: 'u1', role: 'PARTICIPANT' } }, { data: { id: 'm1' } }]);
+    await h.controller.updateParticipant({ params: { membershipId: 'm1' }, body: { role } }, h.res);
+    assert.equal(h.res.statusCode, 200);
+    assert.equal(h.calls[1].steps.find(s => s[0] === 'update')[1].role, role);
+    assert.equal(h.calls.length, 2);
+    assert.equal(h.audits[0].targetMembershipId, 'm1');
+    assert.equal(h.audits[0].targetUserId, 'u1');
+  }
+});
+
+
+test('acciones sobre participantes auditan actor y ambos identificadores del afectado', async () => {
+  const actor = { id: 'admin', userId: 'admin-user', role: 'ADMIN_MUN' };
+  for (const [method, body, account_status, extra] of [
+    ['updateParticipant', { first_name: 'Ana' }, 'ACTIVE', [{}]],
+    ['suspendParticipant', { reason: 'Motivo' }, 'ACTIVE', [{ data: { id: 'm1' } }]],
+    ['reactivateParticipant', { reason: 'Motivo' }, 'SUSPENDED', [{ data: { id: 'm1' } }]],
+    ['resetParticipantPassword', {}, 'PENDING_ACTIVATION', [{}]],
+  ]) {
+    const h = harness([{ data: { id: 'm1', user_id: 'u1', event_id: 'event', account_status } }, ...extra]);
+    await h.controller[method]({ params: { membershipId: 'm1' }, body, auth: { userId: actor.userId, currentMembership: actor } }, h.res);
+    assert.equal(h.res.statusCode, 200, method);
+    assert.equal(h.audits.length, 1);
+    assert.equal(h.audits[0].membership, actor, method);
+    assert.equal(h.audits[0].targetMembershipId, 'm1', method);
+    assert.equal(h.audits[0].targetUserId, 'u1', method);
+    assert.match(h.calls[0].steps.find(s => s[0] === 'select')[1], /user_id/);
+  }
+});
+
+test('createMembership audita actor y usuario de la membership creada', async () => {
+  const h = harness([{ data: { id: 'event' } }, { data: { id: 'u1' } }, { data: null }, { data: { id: 'm1' } }], { assignDelegationCode: async () => ({ code: '#001' }) });
+  const actor = { id: 'admin', role: 'ADMIN_MUN' };
+  await h.controller.createMembership({ body: { ...accountBody(), user_id: 'u1' }, auth: { currentMembership: actor } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].targetMembershipId, 'm1');
+  assert.equal(h.audits[0].targetUserId, 'u1');
+});
+
+test('todas las auditorias administrativas conservan la membership del actor', () => {
+  const source = fs.readFileSync(__dirname + '/admin.controller.ts', 'utf8');
+  const audits = [...source.matchAll(/await logAudit\(\{([\s\S]*?)\n    \}\);/g)];
+  assert.ok(audits.length >= 11);
+  for (const [, body] of audits) assert.match(body, /membership: req\.auth\?\.currentMembership/);
 });

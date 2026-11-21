@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
+require('ts-node').register({ project: 'apps/api/tsconfig.json' });
 
 function compile(file) {
   return ts.transpileModule(fs.readFileSync(file, 'utf8'), {
@@ -51,6 +52,7 @@ function harness(results = [], overrides = {}) {
     console: { error: (...args) => logs.push(args) }, require(name) {
       if (name === '../lib/supabase') return { supabaseAdmin: client };
       if (name === '../utils/audit.logger') return { logAudit: async value => audits.push(value) };
+      if (name === '../utils/rbac.utils') return require('../utils/rbac.utils.ts');
       if (name === '../utils/participant-import.utils') return utilsStub;
       if (name === '../services/participant-account.service') return { async createParticipantAccount(...args) {
         serviceCalls.push(args);
@@ -71,7 +73,7 @@ function harness(results = [], overrides = {}) {
   };
 }
 
-const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN' };
+const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN_MUN' };
 const request = body => ({ body: { event_id: 'event', ...body }, auth: { userId: 'admin-user', currentMembership: actor } });
 const contextResults = () => [{ data: { id: 'event', status: 'ACTIVE' } }, { data: [] }, { data: [] }];
 const importRow = row => ({
@@ -309,3 +311,76 @@ for (const committeeId of [null, 'new']) {
     h.done();
   });
 }
+
+
+test('changeParticipantRole cambia solo PARTICIPANT y MODERATOR con actor y afectado', async () => {
+  for (const [before, role] of [['PARTICIPANT', 'MODERATOR'], ['MODERATOR', 'PARTICIPANT']]) {
+    const h = harness([{ data: { id: 'm1', user_id: 'u1', event_id: 'event', role: before } }, { data: { id: 'm1', role } }]);
+    const req = { ...request({ role, reason: '  Reasignacion  ' }), params: { membershipId: 'm1' } };
+    await h.controller.changeParticipantRole(req, h.res);
+    assert.equal(h.res.statusCode, 200);
+    assert.equal(h.res.body.membership.role, role);
+    const update = h.calls[1].steps.find(s => s[0] === 'update')[1];
+    assert.equal(update.role, role);
+    assert.equal(update.updated_by_user_id, 'admin-user');
+    assert.equal(h.audits.length, 1);
+    assert.equal(h.audits[0].actionType, 'CHANGE_ROLE');
+    assert.equal(h.audits[0].membership, actor);
+    assert.equal(h.audits[0].targetMembershipId, 'm1');
+    assert.equal(h.audits[0].targetUserId, 'u1');
+    assert.ok(h.audits[0].reason.includes(`${before} -> ${role}`));
+    assert.match(h.audits[0].reason, /Motivo: Reasignacion$/);
+    h.done();
+  }
+});
+
+test('changeParticipantRole rechaza roles fuera de contrato y motivos invalidos sin consultas', async () => {
+  for (const body of [{}, { role: null }, { role: 1 }, { role: 'moderator' }, { role: 'ADMIN_MUN' }, { role: 'ADMIN_TECH' }, { role: 'MODERATOR', reason: {} }]) {
+    const h = harness();
+    await h.controller.changeParticipantRole({ ...request(body), params: { membershipId: 'm1' } }, h.res);
+    assert.ok([400, 403].includes(h.res.statusCode));
+    assert.equal(h.audits.length, 0);
+    h.done();
+  }
+});
+
+test('changeParticipantRole impide tocar administradores y maneja ausencias y errores sin auditoria', async () => {
+  for (const [results, status] of [
+    [[{ data: null }], 404],
+    [[{ error: { message: 'lookup' } }], 500],
+    ...['ADMIN_TECH', 'ADMIN_MUN', 'ADMIN', 'COORDINADOR'].map(role => [[{ data: { id: 'm1', role } }], 403]),
+    [[{ data: { id: 'm1', role: 'MODERATOR' } }], 400],
+    [[{ data: { id: 'm1', role: 'PARTICIPANT' } }, { error: { message: 'update' } }], 400],
+  ]) {
+    const h = harness(results);
+    await h.controller.changeParticipantRole({ ...request({ role: 'MODERATOR' }), params: { membershipId: 'm1' } }, h.res);
+    assert.equal(h.res.statusCode, status);
+    assert.equal(h.audits.length, 0);
+    h.done();
+  }
+});
+
+
+test('importacion audita cada afectado y el resumen conserva solo actor y evento', async () => {
+  const h = harness(contextResults(), { createParticipantAccount: async input => success(input) });
+  await h.controller.confirmParticipantImport(request({ rows: [importRow(2)] }), h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].targetMembershipId, 'm-COD2');
+  assert.equal(h.audits[0].targetUserId, 'u-COD2');
+  assert.equal(h.audits[1].actionType, 'IMPORT_PARTICIPANTS');
+  assert.equal(h.audits[1].membership, actor);
+  assert.equal(h.audits[1].targetMembershipId, undefined);
+  h.done();
+});
+
+test('cambio de comite audita el usuario y membership afectados', async () => {
+  const h = harness([{ data: { id: 'm1', event_id: 'event', user_id: 'u1', committee_id: 'old' } }, { data: { id: 'm1', committee_id: null } }]);
+  await h.controller.changeParticipantCommittee({ ...request({ committee_id: null }), params: { membershipId: 'm1' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].targetMembershipId, 'm1');
+  assert.equal(h.audits[0].targetUserId, 'u1');
+  assert.match(h.calls[0].steps.find(s => s[0] === 'select')[1], /user_id/);
+  h.done();
+});

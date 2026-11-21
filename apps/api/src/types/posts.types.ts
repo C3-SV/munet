@@ -26,6 +26,8 @@ export type PostRow = {
   content: string;
   title: string | null;
   status: string;
+  is_pinned: boolean;
+  pinned_at: string | null;
   deleted_by_membership_id: 'AUTHOR' | 'ADMIN' | null;
   created_at: string;
   updated_at: string;
@@ -107,6 +109,8 @@ export const POST_SELECT = `
   content,
   title,
   status,
+  is_pinned,
+  pinned_at,
   deleted_by_membership_id,
   created_at,
   updated_at,

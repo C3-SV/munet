@@ -13,8 +13,8 @@ La [lista de funcionalidades](../01-producto/funcionalidades.md) recoge el estad
 
 ## Brechas que afectan la operación
 
-1. El alta de evento usa `ADMIN`, ausente del enum del snapshot, y el controlador no crea muros general o de anuncios. Debe verificarse que un evento recién creado sea utilizable.
-2. CSV tiene previsualización y confirmación en API, pendientes de conectar a la web. El cambio individual de comité ya está en la ficha. Asignaciones generales y moderación siguen como marcadores.
+1. El alta de evento usa `ADMIN_TECH` (Sprint 3) y crea los muros general y de anuncios; la creación queda reservada al equipo técnico. Pendiente probar el alta real con una cuenta `ADMIN_TECH`.
+2. CSV tiene previsualización y confirmación en API, pendientes de conectar a la web. El cambio individual de comité ya está en la ficha. Asignaciones generales sigue como marcador; la moderación del Sprint 3 está implementada en el panel (ver [pruebas y validación](../04-desarrollo/pruebas-y-validacion.md#pruebas-del-sprint-3-frontend-admin-21-de-noviembre-de-2026)).
 3. La generación de `#` depende de la migración 002. El código de login admite colisión entre eventos al dar de alta, pero el login rechaza códigos activos asociados a usuarios distintos.
 4. `CLOSED` se puede guardar. El alta de comité lo respeta, pero no existe una guarda general que impida escribir en el evento cerrado.
 

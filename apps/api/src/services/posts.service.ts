@@ -395,6 +395,9 @@ export const getPostsByWall = async (params: {
     .eq('event_id', params.eventId)
     .eq('wall_id', matchedWall.id)
     .is('deleted_at', null)
+    // Los fijados conservan prioridad aunque existan publicaciones mas recientes.
+    .order('is_pinned', { ascending: false })
+    .order('pinned_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
 
   if (postsError) {

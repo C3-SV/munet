@@ -1,34 +1,21 @@
-import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
-import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
-import { IconShield } from "../../../../components/ui/icons";
+"use client";
 
-// Seccion futura del panel: supervision de muros y contenido.
-export default function AdminModerationPage() {
-    return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            <AdminPageHeader
-                title="Moderación"
-                description="Supervisa los muros y el contenido publicado en el evento."
-                breadcrumb={[
-                    { label: "Panel", href: "/admin" },
-                    { label: "Moderación" },
-                ]}
-            />
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAuthStore } from "../../../../stores/auth.store";
 
-            <div
-                className="rounded-2xl overflow-hidden"
-                style={{
-                    backgroundColor: "var(--bg-surface)",
-                    border: "1px solid var(--border-color)",
-                    boxShadow: "var(--shadow-sm)",
-                }}
-            >
-                <AdminEmptyState
-                    icon={<IconShield size={32} />}
-                    title="Sección en construcción"
-                    description="La supervisión de muros y la eliminación de contenido estarán disponibles en una próxima entrega."
-                />
-            </div>
-        </div>
-    );
+// Ruta anterior del marcador: la moderación vive ahora bajo el evento activo.
+export default function AdminModerationRedirectPage() {
+    const router = useRouter();
+    const activeEventId = useAuthStore((state) => state.activeEventId);
+
+    useEffect(() => {
+        router.replace(
+            activeEventId
+                ? `/admin/events/${activeEventId}/moderation`
+                : "/admin/events",
+        );
+    }, [activeEventId, router]);
+
+    return null;
 }
