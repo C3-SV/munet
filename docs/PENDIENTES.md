@@ -44,7 +44,7 @@ Estado verificado el 20 de noviembre de 2026 con consultas de solo lectura:
 - El único bucket es `profile-images` (público, avatares). No existe un bucket privado para adjuntos.
 - La API no tiene endpoints de adjuntos.
 - Al 20 de noviembre de 2026 la API (endpoints, orden de operaciones y compensaciones) y la web (envío en pasos, descarga a demanda y retiro por el autor) están implementadas en la rama, con pruebas de unidad. La migración 003 está aplicada y el recorrido real en el evento demo (subida desde el navegador, descarga, retiro por el autor y por moderación, rechazos y auditoría) pasó el 20 de noviembre de 2026; el detalle está en el [plan](04-desarrollo/plan-adjuntos-r2.md). Falta probar el origen de producción contra el CORS del bucket y archivos grandes desde el navegador. La bandera `ATTACHMENTS_BACKEND_READY` se eliminó: la web envía el archivo siempre. Sin la 003 y las variables `STORAGE_*` en el servidor, publicar con adjunto falla y el texto se conserva en el editor.
-- El retiro por moderación existe en la API (`POST /admin/moderation/posts/:postId/attachment/delete`) pero el panel de moderación aún no lo ofrece.
+- El panel de moderación muestra el adjunto de cada post y ofrece «Retirar adjunto» con motivo (verificado el 20 de noviembre de 2026 en el evento demo).
 
 Reglas vigentes ([RN-11](01-producto/reglas-de-negocio.md), REQ-16): cero o un adjunto por post, JPG/PNG ≤ 5 MB o PDF ≤ 20 MB, permisos heredados del post y retiro auditable.
 
@@ -56,7 +56,7 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 1. Documentación y migración `003_adjuntos_un_por_post.sql`: hechas. La 003 se aplicó el 20 de noviembre de 2026 y quedó verificada.
 2. Módulo de almacenamiento (`lib/storage`) y pruebas.
 3. API: inicio de subida, creación de post con adjunto, descarga, retiro, moderación, auditoría y script de conciliación y purga.
-4. Web: envío en pasos, descarga a demanda y retiro por el autor (hecho, sin verificar con sesión). Falta el botón de retiro por moderación en el panel.
+4. Web: envío en pasos, descarga a demanda y retiro por el autor (hecho, sin verificar con sesión). El botón de retiro por moderación en el panel también está hecho.
 5. Aplicar la 003 y verificar en el evento demo con dos cuentas. Pruebas de aislamiento entre eventos. Depende de Q03.
 - Pendiente de confirmar: umbrales de límites por membresía (3 intentos sin consumir, 20 por hora).
 

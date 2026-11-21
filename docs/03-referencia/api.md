@@ -98,7 +98,8 @@ Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como 
 | Método y ruta | Entrada principal | Uso en web |
 |---|---|---|
 | `GET /admin/moderation/walls` | `event_id` | Selector de muro con `visible_posts` y `pinned_posts`. |
-| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original y datos de borrado. |
+| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original, datos de borrado y `attachment` (`id`, `name`, `mimeType`, `size`, o `null`), también en posts eliminados hasta la purga. |
+| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Botón «Retirar adjunto» de la tarjeta. Retira el adjunto sin borrar el post. 404 si ya no hay adjunto. Audita `MODERATE_DELETE_ATTACHMENT`. |
 | `GET /admin/moderation/posts/:postId/comments` | `status?` | Comentarios al expandir un post. La web pide `ALL`. |
 | `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |
 | `POST /admin/moderation/comments/:commentId/delete` | `reason` (3–500) | Igual que el anterior. |

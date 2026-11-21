@@ -68,6 +68,20 @@ const withHistory = async (row: ModerationRow, eventId: string, isPost: boolean)
   };
 };
 
+// Metadatos del adjunto por post (sin URL), acotados al evento. Sin posts no consulta.
+const loadAttachments = async (postIds: string[], eventId: string) => {
+  const byPost = new Map<string, { id: string; name: string; mimeType: string; size: number }>();
+  if (postIds.length === 0) return byPost;
+  const { data, error } = await supabaseAdmin.from('attachments')
+    .select('id, post_id, file_name, mime_type, size_bytes')
+    .eq('event_id', eventId).in('post_id', postIds);
+  if (error) throw error;
+  for (const row of (data ?? []) as { id: string; post_id: string; file_name: string; mime_type: string; size_bytes: number }[]) {
+    byPost.set(row.post_id, { id: row.id, name: row.file_name, mimeType: row.mime_type, size: Number(row.size_bytes) });
+  }
+  return byPost;
+};
+
 export const listModerationWalls = async (req: Request, res: Response) => {
   const eventId = req.auth!.currentMembership!.eventId;
   try {
@@ -115,9 +129,15 @@ export const listModerationPosts = async (req: Request, res: Response) => {
       .order('created_at', { ascending: false }).order('id', { ascending: false })
       .range((page - 1) * limit, page * limit - 1);
     if (error) throw error;
+    const rows = (data ?? []) as unknown as ModerationRow[];
     const posts = [];
-    for (const row of (data ?? []) as unknown as ModerationRow[]) posts.push(await withHistory(row, eventId, true));
-    return res.json({ posts, pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) } });
+    for (const row of rows) posts.push(await withHistory(row, eventId, true));
+    // Una consulta por página: moderación ve el adjunto aunque el post esté eliminado, hasta la purga.
+    const attachments = await loadAttachments(rows.map(row => row.id), eventId);
+    return res.json({
+      posts: posts.map(post => ({ ...post, attachment: attachments.get(post.id) ?? null })),
+      pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'No se pudieron listar los posts' });

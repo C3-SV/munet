@@ -58,10 +58,19 @@ export type ModerationDetail = {
     deletion_reason: string | null;
 };
 
+// Adjunto del post, sin URL. Moderación lo ve aunque el post esté eliminado, hasta la purga.
+export type ModerationAttachment = {
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number;
+};
+
 export type ModerationPost = ModerationPostState &
     ModerationDetail & {
         post_type: "TEXT" | "LINK" | "POLL";
         title: string | null;
+        attachment: ModerationAttachment | null;
     };
 
 export type ModerationComment = ModerationCommentState &
@@ -156,6 +165,18 @@ export const deleteModerationComment = async (
     );
 
     return payload.comment;
+};
+
+// Retira el adjunto sin borrar el post. Exige motivo (3 a 500 caracteres) y queda auditado.
+export const removeModerationAttachment = async (
+    token: string,
+    postId: string,
+    reason: string,
+): Promise<void> => {
+    await requestApi<{ removed: boolean }>(
+        `/admin/moderation/posts/${postId}/attachment/delete`,
+        { method: "POST", token, body: { reason } },
+    );
 };
 
 export const pinPost = async (
