@@ -1,7 +1,9 @@
 -- 003 · Adjuntos de publicaciones: un adjunto por post, intentos de subida y retención.
 --
--- NO APLICADA. Requiere la 001 (tabla attachments). No depende de la 002.
--- Antes de ejecutarla:
+-- APLICADA en Supabase el 2026-11-20 (ejecutada desde el SQL Editor con autorización expresa;
+-- verificada: tabla, restricciones y RLS). Se conserva como registro; es segura de repetir.
+-- Requiere la 001 (tabla attachments). No depende de la 002.
+-- Antes de ejecutarla (ya hecho):
 --   1. Revisión en Pull Request y aviso a Rober (la base es compartida y de produccion).
 --   2. Autorización expresa de quien administra la base.
 --   3. Ejecutar el archivo completo en el SQL Editor de Supabase.

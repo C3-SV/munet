@@ -109,8 +109,8 @@ Referencias verificadas: URLs firmadas (GET, HEAD, PUT, DELETE; hasta 7 días; s
 
 ## 4. Riesgos a comprobar al implementar
 
-- **Tamaño en el `PUT`:** la documentación no aclara si `Content-Length` se puede firmar. Se prueba contra R2 real. Mientras tanto, el `HEAD` del paso 2 descarta lo que exceda.
-- **Checksums del SDK:** las versiones recientes de `@aws-sdk/client-s3` calculan sumas de verificación por defecto y pueden romper las firmas con R2. Se fija `requestChecksumCalculation: "WHEN_REQUIRED"` y se prueba.
+- **Tamaño en el `PUT` (comprobado el 20 de noviembre de 2026 contra el bucket real):** R2 acepta `content-length` y `content-type` firmados. Un `PUT` con otro `Content-Type` o con más bytes que lo firmado responde 403. El `HEAD` del paso 2 se mantiene como segunda barrera.
+- **Checksums del SDK (comprobado el mismo día):** con `requestChecksumCalculation: "WHEN_REQUIRED"` las URL firmadas de subida y descarga funcionan con R2 (`PUT`, `HEAD`, lectura por rango, copia, `GET` firmado, listado y borrado).
 - **Facturación:** si el pago falla, los buckets quedan inaccesibles. Vigilar el método de pago.
 - **Copia dentro del bucket:** cuenta como operación de clase A; con el volumen esperado cabe de sobra en el nivel gratis.
 
@@ -138,6 +138,27 @@ Pruebas de controlador de la fase 3:
 - Archivo con tipo declarado que no coincide con su firma: rechazado.
 
 Las fases 2 a 4 se pueden hacer en una rama sin tocar producción. Nada de producción cambia en la fase 0 ni en la 5 sin autorización expresa.
+
+## 5.1 Verificación realizada (20 de noviembre de 2026)
+
+Contra el bucket real, con objetos de prueba que se borraron al terminar:
+
+- R2: `PUT` firmado, 403 con otro `Content-Type` o más bytes de los firmados, `HEAD`, lectura de rango, copia, `GET` firmado con nombre de archivo, listado y borrado.
+- CORS: la solicitud previa (`OPTIONS`) desde `http://localhost:3000` responde 204 con `PUT`, `GET` y `HEAD` y la cabecera `content-type`. Un origen no listado recibe 403. No se probó el origen de producción, porque `WEB_APP_URL` local apunta a localhost. `ExposeHeaders` no se usa.
+- Flujo del servicio de adjuntos con R2 real y una base en memoria: subida, reclamo, copia, fila, descarga, reintento con el mismo `upload_id` (devuelve el mismo post), retiro; contenido HTML declarado como PDF rechazado y descartado; reclamo sin subir libera el intento; compensación borra el objeto final y conserva el temporal.
+- La regla de ciclo de vida de `pending/` y la configuración de CORS no se pueden leer con el token del servidor (`AccessDenied`, por su alcance de objetos); se confirman en el panel de Cloudflare.
+
+Recorrido real en el evento `DEMO - MUN ESEN 2026` (20 de noviembre de 2026), con la API y la web en local (web en `localhost:3000`, API en `localhost:3002`), la migración 003 aplicada y R2 real, con las cuentas demo de un participante y de un administrador:
+
+- El participante publica un PDF: `POST /posts/attachments/init` 201, subida directa a R2 desde el navegador (CORS correcto), `POST /posts` 201 y la tarjeta muestra el adjunto con "Quitar".
+- Abrir el adjunto: `GET /posts/:id/attachment/download` 200; la URL dura 60 segundos y devuelve el PDF con `content-type: application/pdf`.
+- El administrador (no autor) ve y abre el adjunto, no ve "Quitar" (`canRemove` falso) y `DELETE /posts/:id/attachment` responde 403.
+- Retiro por moderación con motivo: 200; el adjunto desaparece del feed, la descarga da 404, repetirlo da 404, y la auditoría registra `MODERATE_DELETE_ATTACHMENT` con el motivo.
+- Retiro por el autor desde la interfaz, con confirmación: la fila y el objeto de R2 desaparecen y la auditoría registra `DELETE_ATTACHMENT`.
+- Rechazos comprobados: WebP y archivo de 6 MB como PNG (400), muro inexistente (404), otro evento (403), `upload_id` ajeno (404) o con formato inválido (400), descarga de un post inexistente (404), moderación con motivo corto (400).
+- Al terminar: 0 filas en `attachments` y 0 objetos en `events/` y `pending/` del evento demo. Los dos posts de prueba se eliminaron (borrado lógico); quedan como "eliminada" en el muro.
+
+Pendiente: probar el origen de producción (`https://munet.c3.com.sv`) contra el CORS del bucket, el panel de moderación con botón de retiro, y una imagen de más de 1 MB y un PDF cercano a 20 MB desde el navegador.
 
 ## 6. Decisiones tomadas el 20 de noviembre de 2026
 

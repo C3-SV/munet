@@ -43,7 +43,7 @@ Estado verificado el 20 de noviembre de 2026 con consultas de solo lectura:
 - La tabla `attachments` existe con 0 filas. Difiere del snapshot en `CHECK size_bytes >= 0` (migración 001).
 - El único bucket es `profile-images` (público, avatares). No existe un bucket privado para adjuntos.
 - La API no tiene endpoints de adjuntos.
-- Al 20 de noviembre de 2026 la API (endpoints, orden de operaciones y compensaciones) y la web (envío en pasos, descarga a demanda y retiro por el autor) están implementadas en la rama, con pruebas de unidad. Falta aplicar la migración 003, probar contra R2 real y verificar con sesión. La bandera `ATTACHMENTS_BACKEND_READY` se eliminó: la web envía el archivo siempre. Sin la 003 y las variables `STORAGE_*` en el servidor, publicar con adjunto falla y el texto se conserva en el editor.
+- Al 20 de noviembre de 2026 la API (endpoints, orden de operaciones y compensaciones) y la web (envío en pasos, descarga a demanda y retiro por el autor) están implementadas en la rama, con pruebas de unidad. La migración 003 está aplicada y el recorrido real en el evento demo (subida desde el navegador, descarga, retiro por el autor y por moderación, rechazos y auditoría) pasó el 20 de noviembre de 2026; el detalle está en el [plan](04-desarrollo/plan-adjuntos-r2.md). Falta probar el origen de producción contra el CORS del bucket y archivos grandes desde el navegador. La bandera `ATTACHMENTS_BACKEND_READY` se eliminó: la web envía el archivo siempre. Sin la 003 y las variables `STORAGE_*` en el servidor, publicar con adjunto falla y el texto se conserva en el editor.
 - El retiro por moderación existe en la API (`POST /admin/moderation/posts/:postId/attachment/delete`) pero el panel de moderación aún no lo ofrece.
 
 Reglas vigentes ([RN-11](01-producto/reglas-de-negocio.md), REQ-16): cero o un adjunto por post, JPG/PNG ≤ 5 MB o PDF ≤ 20 MB, permisos heredados del post y retiro auditable.
@@ -53,7 +53,7 @@ Decisiones del 20 de noviembre de 2026 ([ADR-006](06-decisiones/ADR-006-adjuntos
 Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 
 0. Cuenta, bucket privado, token, CORS y ciclo de vida de R2, a cargo del dueño de la cuenta. Variables `STORAGE_*` en `apps/api/.env` y en Vercel.
-1. Documentación y migración `003_adjuntos_un_por_post.sql` redactadas (esta revisión). La 003 no está aplicada: requiere revisión y autorización expresa.
+1. Documentación y migración `003_adjuntos_un_por_post.sql`: hechas. La 003 se aplicó el 20 de noviembre de 2026 y quedó verificada.
 2. Módulo de almacenamiento (`lib/storage`) y pruebas.
 3. API: inicio de subida, creación de post con adjunto, descarga, retiro, moderación, auditoría y script de conciliación y purga.
 4. Web: envío en pasos, descarga a demanda y retiro por el autor (hecho, sin verificar con sesión). Falta el botón de retiro por moderación en el panel.
