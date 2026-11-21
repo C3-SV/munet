@@ -445,7 +445,7 @@ test("rutas con parámetros: segmento vacío, %2F y ruta sin escritura dan 501",
         isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
     );
     assert.throws(
-        () => routePracticeRequest({ method: "POST", path: "/posts/practice-post-1/comments", body: { content: "hola" } }, STATE),
+        () => routePracticeRequest({ method: "POST", path: "/posts/practice-post-1/comments/extra", body: { content: "hola" } }, STATE),
         isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
     );
 });

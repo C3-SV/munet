@@ -57,7 +57,7 @@ test("walls: devuelve los tres muros accesibles de la persona del usuario", asyn
 test("camino no simulado: rechaza con PracticeRequestError 501", async () => {
     setPracticeStorageFactory(async () => createMemoryStorage());
     await assert.rejects(
-        () => run("u1", "PATCH", "/profiles/me"),
+        () => run("u1", "PATCH", "/profiles/practice-membership"),
         isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
     );
 });
@@ -97,7 +97,7 @@ test("ninguna petición de práctica llama a fetch", async () => {
     await run("u1", "GET", "/profiles/me");
     await run("u1", "GET", "/dm/conversations");
     await assert.rejects(
-        () => run("u1", "PATCH", "/profiles/me"),
+        () => run("u1", "PATCH", "/profiles/practice-membership"),
         isRequestError(501, PRACTICE_UNAVAILABLE_MESSAGE),
     );
     await resetPractice("u1");

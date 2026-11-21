@@ -4,9 +4,11 @@ import { PRACTICE_LIMIT_MESSAGES, PRACTICE_LIMITS } from "./limits.ts";
 import type { PracticePoll, PracticePost, PracticeUpload } from "./model.ts";
 import {
     bodyOf,
+    nextId,
     PracticeRequestError,
     readableWallOrThrow,
     requireParam,
+    textOf,
     visiblePostOrThrow,
     type PracticeRouteContext,
 } from "./router-shared.ts";
@@ -38,8 +40,6 @@ type UploadTicket = {
     headers: Record<string, string>;
     expiresAt: string;
 };
-
-const textOf = (value: unknown): string => (typeof value === "string" ? value : "");
 
 const isPositiveInteger = (value: unknown): value is number =>
     typeof value === "number" && Number.isSafeInteger(value) && value > 0;
@@ -88,12 +88,6 @@ const uploadIdOf = (value: unknown): string | null => {
         throw new PracticeRequestError(400, "upload_id no es válido");
     }
     return value;
-};
-
-const nextId = (state: PracticeState, kind: string): string => {
-    const id = `practice-${kind}-${state.seq}`;
-    state.seq += 1;
-    return id;
 };
 
 // Publicaciones creadas por la persona, también las borradas: el límite cuenta lo creado.

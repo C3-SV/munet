@@ -35,6 +35,8 @@ import {
     handlePostCreate,
     handlePostDelete,
 } from "./router-posts.ts";
+import { handleCommentCreate, handleCommentDelete } from "./router-comments.ts";
+import { handleAvatarUpload, handleProfileUpdate } from "./router-profile.ts";
 
 // Los errores y el contexto de los manejadores viven en router-shared.ts; se reexportan desde aquí.
 export { PracticeRequestError };
@@ -264,6 +266,10 @@ const ROUTES: readonly Route[] = [
     { method: "DELETE", pattern: ["posts", ":postId", "attachment"], handle: handleAttachmentRemove },
     { method: "POST", pattern: ["posts", ":postId", "poll", "vote"], handle: handlePollVote },
     { method: "POST", pattern: ["posts", ":postId", "poll", "close"], handle: handlePollClose },
+    { method: "POST", pattern: ["posts", ":postId", "comments"], handle: handleCommentCreate },
+    { method: "DELETE", pattern: ["posts", ":postId", "comments", ":commentId"], handle: handleCommentDelete },
+    { method: "PATCH", pattern: ["profiles", "me"], handle: handleProfileUpdate },
+    { method: "POST", pattern: ["profiles", "me", "avatar"], handle: handleAvatarUpload },
 ];
 
 // Separa la ruta en segmentos decodificados y su consulta. Devuelve null si la ruta

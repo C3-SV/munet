@@ -126,7 +126,7 @@ test("falla cerrada: caminos no simulados lanzan 501", () => {
         ["DELETE", "/profiles/me"],
         ["GET", "/admin/participants"],
         ["POST", "/auth/login"],
-        ["PATCH", "/profiles/me"],
+        ["PATCH", "/profiles/practice-membership"],
         ["GET", "/posts/abc/attachment/download"],
         ["GET", ""],
     ];

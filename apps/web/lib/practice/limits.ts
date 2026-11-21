@@ -5,6 +5,8 @@ export const PRACTICE_LIMITS = {
     maxAttachments: 2,
     maxImageBytes: 2 * MEGABYTE,
     maxPdfBytes: 5 * MEGABYTE,
+    // Foto de perfil en bytes decodificados: la API real admite 5 MB, aquí se limita para no inflar el estado.
+    maxAvatarBytes: 256 * 1024,
     maxTotalBytes: 25 * MEGABYTE,
     maxOwnPosts: 30,
     maxOwnComments: 100,
@@ -18,6 +20,7 @@ export const PRACTICE_LIMIT_MESSAGES = {
     attachments: `En la práctica solo puedes guardar ${PRACTICE_LIMITS.maxAttachments} adjuntos. Reinicia la práctica para empezar de cero.`,
     imageSize: `Las imágenes de la práctica pueden pesar hasta ${PRACTICE_LIMITS.maxImageBytes / MEGABYTE} MB.`,
     pdfSize: `Los PDF de la práctica pueden pesar hasta ${PRACTICE_LIMITS.maxPdfBytes / MEGABYTE} MB.`,
+    avatarSize: `La imagen debe tener un tamano maximo de ${PRACTICE_LIMITS.maxAvatarBytes / 1024}KB en la practica`,
     totalBytes: `La práctica alcanzó su límite de ${PRACTICE_LIMITS.maxTotalBytes / MEGABYTE} MB de datos. Reinicia la práctica para liberar espacio.`,
     ownPosts: `En la práctica puedes crear hasta ${PRACTICE_LIMITS.maxOwnPosts} publicaciones. Reinicia la práctica para empezar de cero.`,
     ownComments: `En la práctica puedes crear hasta ${PRACTICE_LIMITS.maxOwnComments} comentarios. Reinicia la práctica para empezar de cero.`,
