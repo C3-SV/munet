@@ -4,16 +4,23 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { getPracticeStatus, resetPractice } from "../../lib/practice/gateway";
+import {
+    acknowledgePracticeReset,
+    getPracticeStatus,
+    resetPractice,
+} from "../../lib/practice/gateway";
 import { useAuthStore } from "../../stores/auth.store";
 
-// Lee si el navegador conserva la práctica. Si la lectura falla, no se muestra el aviso.
-const readPersistence = async (userId: string): Promise<boolean> => {
+type PracticeStatusView = { persistent: boolean; wasReset: boolean };
+
+// Lee si el navegador conserva la práctica y si se reinició por una actualización. Si la lectura falla,
+// no se muestra ningún aviso.
+const readStatus = async (userId: string): Promise<PracticeStatusView> => {
     try {
         const status = await getPracticeStatus(userId);
-        return status.persistent;
+        return { persistent: status.persistent, wasReset: status.wasReset };
     } catch {
-        return true;
+        return { persistent: true, wasReset: false };
     }
 };
 
@@ -31,10 +38,12 @@ export const PracticeBanner = ({ onReset }: PracticeBannerProps = {}) => {
     const userId = user?.id ?? null;
 
     const [persistent, setPersistent] = useState(true);
+    const [resetNotice, setResetNotice] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [resetting, setResetting] = useState(false);
 
-    // Con la práctica activa se consulta si el almacén persiste. Si el aviso se desmonta antes, la lectura se descarta.
+    // Con la práctica activa se consulta si el almacén persiste y si hubo un reinicio por actualización.
+    // Si el aviso se desmonta antes, la lectura se descarta.
     useEffect(() => {
         if (!practice || !userId) {
             return;
@@ -42,9 +51,10 @@ export const PracticeBanner = ({ onReset }: PracticeBannerProps = {}) => {
 
         let cancelled = false;
 
-        void readPersistence(userId).then((value) => {
+        void readStatus(userId).then((status) => {
             if (!cancelled) {
-                setPersistent(value);
+                setPersistent(status.persistent);
+                setResetNotice(status.wasReset);
             }
         });
 
@@ -71,11 +81,25 @@ export const PracticeBanner = ({ onReset }: PracticeBannerProps = {}) => {
 
         setResetting(true);
         await resetPractice(user.id);
-        setPersistent(await readPersistence(user.id));
+        const status = await readStatus(user.id);
+        setPersistent(status.persistent);
+        setResetNotice(status.wasReset);
         setResetting(false);
         setConfirmOpen(false);
         router.refresh();
         onReset?.();
+    };
+
+    // Cierra el aviso de reinicio y vuelve a leer el estado para refrescar la vista.
+    const handleAcknowledgeReset = async () => {
+        if (!user) {
+            return;
+        }
+
+        acknowledgePracticeReset(user.id);
+        const status = await readStatus(user.id);
+        setPersistent(status.persistent);
+        setResetNotice(status.wasReset);
     };
 
     // Sale de la práctica y vuelve al feed con el contexto real.
@@ -105,6 +129,14 @@ export const PracticeBanner = ({ onReset }: PracticeBannerProps = {}) => {
                         <p className="mt-1 font-medium" style={{ color: "var(--warning)" }}>
                             Tu navegador no permite guardar la práctica: se borrará al cerrar la pestaña.
                         </p>
+                    )}
+                    {resetNotice && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <p className="font-medium">Actualizamos la práctica y empezó de cero</p>
+                            <Button variant="secondary" size="sm" onClick={handleAcknowledgeReset}>
+                                Entendido
+                            </Button>
+                        </div>
                     )}
                 </div>
 

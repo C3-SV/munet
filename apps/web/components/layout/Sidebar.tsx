@@ -164,6 +164,9 @@ export const Sidebar = () => {
 
     useEffect(() => {
         // Carga muros del evento para construir el menu dinamico (buildWallNav filtra por acceso).
+        // Al cambiar de evento se vacian los muros previos para no mostrar el menu del evento anterior.
+        setWalls([]);
+
         if (!token || !activeEventId) {
             return;
         }
@@ -196,8 +199,10 @@ export const Sidebar = () => {
 
     useEffect(() => {
         // Carga nombre y avatar de perfil para el bloque inferior del sidebar.
+        // Al cambiar de evento se quita el perfil previo: no debe verse nombre ni avatar reales en la práctica.
+        setProfile(null);
+
         if (!token || !activeEventId) {
-            setProfile(null);
             return;
         }
 

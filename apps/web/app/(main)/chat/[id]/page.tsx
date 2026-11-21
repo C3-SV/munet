@@ -23,6 +23,8 @@ import type { Delegate } from "../../../../types/common";
 
 // Distancia en píxeles al final para considerar que el usuario sigue la conversación.
 const NEAR_BOTTOM_PX = 120;
+// En la práctica, la respuesta simulada aparece en el estado al enviar; se vuelve a leer tras este retraso.
+const PRACTICE_REPLY_REFRESH_MS = 1200;
 
 const preferredScrollBehavior = (): ScrollBehavior => {
     try {
@@ -45,6 +47,7 @@ const ChatRoomPage = () => {
     const nearBottomRef = useRef(true);
     const initialScrollDoneRef = useRef(false);
     const knownMessageIdsRef = useRef<Set<string>>(new Set());
+    const practiceRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [showNewMessagesChip, setShowNewMessagesChip] = useState(false);
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
@@ -206,6 +209,16 @@ const ChatRoomPage = () => {
     }, [conversationId, eventId, router, token]);
 
     useEffect(() => {
+        // Al cambiar de conversacion o salir de la pantalla se cancela la relectura pendiente de la practica.
+        return () => {
+            if (practiceRefreshTimerRef.current !== null) {
+                clearTimeout(practiceRefreshTimerRef.current);
+                practiceRefreshTimerRef.current = null;
+            }
+        };
+    }, [conversationId]);
+
+    useEffect(() => {
         // Realtime de la conversacion: mensajes y cambios de cabecera.
         if (!conversationId || !supabaseBrowser || !token || !eventId || isPracticeEvent(eventId)) {
             return;
@@ -324,6 +337,17 @@ const ChatRoomPage = () => {
                     : [...current, sent],
             );
             setNewMessageIds((current) => new Set([...current, sent.id]));
+
+            // En la practica la respuesta simulada ya esta guardada: se relee tras un retraso para mostrarla.
+            if (isPracticeEvent(eventId)) {
+                if (practiceRefreshTimerRef.current !== null) {
+                    clearTimeout(practiceRefreshTimerRef.current);
+                }
+                practiceRefreshTimerRef.current = setTimeout(() => {
+                    practiceRefreshTimerRef.current = null;
+                    void refreshMessages(true);
+                }, PRACTICE_REPLY_REFRESH_MS);
+            }
         } catch (sendError) {
             setError(
                 sendError instanceof Error

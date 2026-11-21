@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test, { afterEach, beforeEach } from "node:test";
 import { buildPracticeWalls } from "./catalog.ts";
 import {
+    acknowledgePracticeReset,
+    deletePracticeData,
     getPracticeStatus,
     resetPractice,
     revokeAllObjectUrls,
@@ -214,11 +216,12 @@ test("si save rechaza, la práctica sigue en memoria y el estado lo refleja", as
         },
     };
     setPracticeStorageFactory(async () => failing);
-    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true });
+    // La siembra del estado ya intenta guardar: al fallar, la práctica pasa a memoria antes de la primera petición.
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: false, wasReset: false });
 
     const { profile } = await run("u1", "GET", "/profiles/me");
     assert.equal(profile.participantCode, "PRACTICA");
-    assert.deepEqual(await getPracticeStatus("u1"), { persistent: false });
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: false, wasReset: false });
 });
 
 test("si clear rechaza, resetPractice resuelve y la práctica sigue en un estado limpio", async () => {
@@ -232,7 +235,7 @@ test("si clear rechaza, resetPractice resuelve y la práctica sigue en un estado
     await run("u1", "GET", "/profiles/me");
 
     await assert.doesNotReject(() => resetPractice("u1"));
-    assert.deepEqual(await getPracticeStatus("u1"), { persistent: false });
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: false, wasReset: false });
 
     const { profile } = await run("u1", "GET", "/profiles/me");
     assert.equal(profile.participantCode, "PRACTICA");
@@ -620,4 +623,136 @@ test("revokeAllObjectUrls revoca las URL de descarga sin tocar el estado ni los 
     // Una segunda llamada no vuelve a revocar la misma URL.
     await revokeAllObjectUrls("u1");
     assert.deepEqual(revokedUrls, [download.url]);
+});
+
+// Estado guardado con la versión 1: la carga lo descarta y debe marcar el reinicio.
+const storedVersionOne = async () => {
+    const storage = createMemoryStorage();
+    await storage.save({ ...createInitialState("u1", new Date()), version: 1 });
+    return storage;
+};
+
+test("getPracticeStatus: un estado de otra versión se reinicia, marca wasReset y el reconocimiento lo apaga", async () => {
+    const storage = await storedVersionOne();
+    setPracticeStorageFactory(async () => storage);
+
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true, wasReset: true });
+    assert.equal((await storage.load()).version, 2);
+
+    acknowledgePracticeReset("u1");
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true, wasReset: false });
+});
+
+test("getPracticeStatus: sin estado previo ni reinicio manual, wasReset es falso", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true, wasReset: false });
+});
+
+test("resetPractice manual no marca wasReset y apaga uno pendiente", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    await run("u1", "GET", "/profiles/me");
+    await resetPractice("u1");
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true, wasReset: false });
+
+    const storage = await storedVersionOne();
+    setPracticeStorageFactory(async () => storage);
+    await resetPractice("u1");
+    assert.deepEqual(await getPracticeStatus("u1"), { persistent: true, wasReset: false });
+});
+
+// IndexedDB simulada: el borrado responde de forma asíncrona, como el navegador, y anota el nombre pedido.
+const fakeIndexedDb = (outcome = "success") => {
+    const names = [];
+    return {
+        names,
+        deleteDatabase(name) {
+            names.push(name);
+            const request = {};
+            queueMicrotask(() => {
+                if (outcome === "success") {
+                    request.onsuccess?.({ target: request });
+                } else if (outcome === "blocked") {
+                    request.onblocked?.({ target: request });
+                } else {
+                    request.onerror?.({ target: request });
+                }
+            });
+            return request;
+        },
+    };
+};
+
+// Ejecuta la tarea con indexedDB global sustituido y restaura el original después.
+const withIndexedDb = async (indexedDB, task) => {
+    const original = globalThis.indexedDB;
+    globalThis.indexedDB = indexedDB;
+    try {
+        await task();
+    } finally {
+        globalThis.indexedDB = original;
+    }
+};
+
+test("deletePracticeData borra la base del usuario, olvida su sesión y no toca la de otro", async () => {
+    const { stores, factory } = perUserStores();
+    setPracticeStorageFactory(factory);
+    await run("u1", "GET", "/profiles/me");
+    await run("u2", "GET", "/profiles/me");
+    const firstStorage = stores.get("u1");
+    const secondStorage = stores.get("u2");
+    const indexedDB = fakeIndexedDb();
+
+    await withIndexedDb(indexedDB, () => deletePracticeData("u1"));
+
+    assert.deepEqual(indexedDB.names, ["munet-practice-u1"]);
+    // La siguiente petición de u1 abre una sesión nueva con su propio almacén; la de u2 sigue igual.
+    await run("u1", "GET", "/profiles/me");
+    assert.notEqual(stores.get("u1"), firstStorage);
+    assert.equal(stores.get("u2"), secondStorage);
+    assert.notEqual(await secondStorage.load(), null);
+});
+
+test("deletePracticeData sin sesión abierta pide igualmente borrar la base", async () => {
+    const indexedDB = fakeIndexedDb();
+    await withIndexedDb(indexedDB, () => deletePracticeData("u9"));
+    assert.deepEqual(indexedDB.names, ["munet-practice-u9"]);
+});
+
+test("deletePracticeData revoca las URL de descarga del usuario", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const { post } = await publishWithAttachment("u1");
+    const download = await call("u1", "GET", `/posts/${post.id}/attachment/download`);
+
+    await withIndexedDb(fakeIndexedDb(), () => deletePracticeData("u1"));
+    assert.ok(revokedUrls.includes(download.url));
+});
+
+test("deletePracticeData toma los archivos pendientes de la propia cuenta y no los de otra", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const pendingA = await initUpload("u1");
+    stashPracticeFile(pendingA.id, pngFile("de-a.png"));
+    // Los ids salen del contador de cada estado: u2 publica antes para que su ticket no coincida con el de u1.
+    await call("u2", "POST", "/posts", { muro: "general", content: "Antes del ticket" });
+    const pendingB = await initUpload("u2");
+    assert.notEqual(pendingA.id, pendingB.id);
+    const fileB = pngFile("de-b.png");
+    stashPracticeFile(pendingB.id, fileB);
+
+    await withIndexedDb(fakeIndexedDb(), () => deletePracticeData("u1"));
+    assert.equal(peekPracticeFile(pendingA.id), null);
+    assert.equal(peekPracticeFile(pendingB.id), fileB);
+});
+
+test("deletePracticeData nunca rechaza: un borrado que lanza, falla o queda bloqueado no impide cerrar sesión", async () => {
+    setPracticeStorageFactory(async () => createMemoryStorage());
+    const throwing = {
+        deleteDatabase() {
+            throw new Error("SecurityError");
+        },
+    };
+    for (const indexedDB of [throwing, fakeIndexedDb("error"), fakeIndexedDb("blocked")]) {
+        await run("u1", "GET", "/profiles/me");
+        await withIndexedDb(indexedDB, () => assert.doesNotReject(() => deletePracticeData("u1")));
+    }
+    await withIndexedDb(undefined, () => assert.doesNotReject(() => deletePracticeData("u1")));
 });

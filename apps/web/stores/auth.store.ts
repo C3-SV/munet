@@ -9,6 +9,7 @@ import {
   type ActivationEvent,
 } from "../lib/api/auth";
 import { PRACTICE_EVENT_ID, PRACTICE_MEMBERSHIP_ID } from "../lib/practice/constants";
+import { deletePracticeData } from "../lib/practice/gateway";
 import {
   isPracticeMembership,
   withoutPracticeMembership,
@@ -203,6 +204,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Limpia sesion local completa y reinicia estado en memoria.
   logout: () => {
+    // Borra en este navegador la práctica del usuario que sale. No se espera: el cierre de sesión no depende de ello.
+    const userId = get().user?.id;
+    if (userId) {
+      void deletePracticeData(userId);
+    }
+
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

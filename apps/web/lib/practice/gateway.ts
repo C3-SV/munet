@@ -1,5 +1,5 @@
 import { openPracticeStorage } from "./indexeddb-storage.ts";
-import { PRACTICE_MEMBERSHIP_ID } from "./constants.ts";
+import { PRACTICE_MEMBERSHIP_ID, practiceDbName } from "./constants.ts";
 import { PRACTICE_LIMIT_MESSAGES, PRACTICE_LIMITS } from "./limits.ts";
 import { seedBlobFor } from "./seed-files.ts";
 import {
@@ -12,7 +12,7 @@ import {
 } from "./router.ts";
 import { bodyOf } from "./router-shared.ts";
 import type { PracticeState } from "./state.ts";
-import { createMemoryStorage, loadOrInitState, type PracticeStorage } from "./storage.ts";
+import { createMemoryStorage, loadOrInitState, type LoadResult, type PracticeStorage } from "./storage.ts";
 import { peekPracticeFile, stashPracticeFile, takePracticeFile } from "./uploads.ts";
 
 // Pasarela del modo práctica: por usuario guarda un almacén, el estado cargado y las URL temporales de
@@ -31,6 +31,8 @@ type PracticeInput = {
 type PracticeSession = {
     storage: PracticeStorage;
     persistent: boolean;
+    // Verdadero si la carga descartó un estado guardado de otra versión o forma (no un reinicio manual).
+    wasReset: boolean;
     // Estado cargado o creado para el usuario; null después de reiniciar la práctica.
     state: Promise<PracticeState> | null;
     // Cola de peticiones del usuario: cada una espera a la anterior, así una reversión nunca pisa otra escritura.
@@ -47,16 +49,21 @@ const DOWNLOAD_TTL_MS = 60 * 1000;
 // Fábrica inyectada solo para pruebas. Con ella el almacén cuenta como persistente hasta que falle.
 let injectedFactory: PracticeStorageFactory | null = null;
 const sessions = new Map<string, Promise<PracticeSession>>();
+// Usuarios que ya cerraron el aviso de reinicio. Vive en memoria y no depende de la sesión: tras recargar,
+// el estado guardado ya es la versión nueva y el aviso no vuelve a aparecer.
+const acknowledgedResets = new Set<string>();
 
-// Sustituye el almacén por una fábrica (pruebas) o lo restaura con null. Descarta las sesiones abiertas.
+// Sustituye el almacén por una fábrica (pruebas) o lo restaura con null. Descarta las sesiones abiertas y los avisos cerrados.
 export const setPracticeStorageFactory = (factory: PracticeStorageFactory | null): void => {
     injectedFactory = factory;
     sessions.clear();
+    acknowledgedResets.clear();
 };
 
 const newSession = (storage: PracticeStorage, persistent: boolean): PracticeSession => ({
     storage,
     persistent,
+    wasReset: false,
     state: null,
     queue: Promise.resolve(),
     objectUrls: new Map(),
@@ -94,12 +101,15 @@ const degradeToMemory = (session: PracticeSession): void => {
 };
 
 const loadState = async (session: PracticeSession, userId: string): Promise<PracticeState> => {
+    let loaded: LoadResult;
     try {
-        return (await loadOrInitState(session.storage, userId, new Date())).state;
+        loaded = await loadOrInitState(session.storage, userId, new Date());
     } catch {
         degradeToMemory(session);
-        return (await loadOrInitState(session.storage, userId, new Date())).state;
+        loaded = await loadOrInitState(session.storage, userId, new Date());
     }
+    session.wasReset = loaded.wasReset;
+    return loaded.state;
 };
 
 const stateFor = (session: PracticeSession, userId: string): Promise<PracticeState> => {
@@ -318,6 +328,8 @@ export const resetPractice = async (userId: string): Promise<void> => {
             // Sin estado legible no se conocen los tickets de la cuenta: el reinicio sigue y vacía el almacén.
         }
         session.state = null;
+        // Un reinicio manual no cuenta como reinicio por versión: el aviso no debe aparecer.
+        session.wasReset = false;
         revokeSessionUrls(session);
         try {
             await session.storage.clear();
@@ -327,7 +339,85 @@ export const resetPractice = async (userId: string): Promise<void> => {
     });
 };
 
-export const getPracticeStatus = async (userId: string): Promise<{ persistent: boolean }> => {
+// Estado de la práctica en este navegador. Carga el estado en la cola para que wasReset refleje el arranque
+// aunque todavía no haya habido peticiones.
+export const getPracticeStatus = async (
+    userId: string,
+): Promise<{ persistent: boolean; wasReset: boolean }> => {
     const session = await sessionFor(userId);
-    return { persistent: session.persistent };
+    await runExclusive(session, () => stateFor(session, userId));
+    return {
+        persistent: session.persistent,
+        wasReset: session.wasReset && !acknowledgedResets.has(userId),
+    };
+};
+
+// Cierra el aviso de reinicio del usuario. Es síncrono y no necesita que la sesión esté abierta.
+export const acknowledgePracticeReset = (userId: string): void => {
+    acknowledgedResets.add(userId);
+};
+
+// Tope de espera al pedir borrar la base: si el navegador no responde, no se bloquea el cierre de sesión.
+const DELETE_DATABASE_TIMEOUT_MS = 2000;
+
+// Pide borrar la base IndexedDB del usuario. Resuelve al terminar, al bloquearse (la base se borra al cerrarse
+// la última conexión) o al pasar el tope. Nunca rechaza.
+const deleteBrowserDatabase = (userId: string): Promise<void> =>
+    new Promise<void>((resolve) => {
+        const factory: IDBFactory | undefined = globalThis.indexedDB;
+        if (!factory) {
+            resolve();
+            return;
+        }
+        const timer = setTimeout(() => resolve(), DELETE_DATABASE_TIMEOUT_MS);
+        const done = (): void => {
+            clearTimeout(timer);
+            resolve();
+        };
+        try {
+            const request = factory.deleteDatabase(practiceDbName(userId));
+            request.onsuccess = done;
+            request.onerror = done;
+            request.onblocked = done;
+        } catch {
+            done();
+        }
+    });
+
+// Borra todo lo que este navegador guarda de la práctica del usuario al cerrar sesión: sus archivos pendientes,
+// las URL de descarga, el estado memorizado y la base IndexedDB. Olvida la sesión para que nada más escriba en la
+// base borrada. Es de mejor esfuerzo y nunca rechaza: un fallo no debe impedir cerrar sesión.
+export const deletePracticeData = async (userId: string): Promise<void> => {
+    try {
+        const existing = sessions.get(userId);
+        if (existing === undefined) {
+            await deleteBrowserDatabase(userId);
+            return;
+        }
+        const session = await existing;
+        await runExclusive(session, async () => {
+            try {
+                const state = await stateFor(session, userId);
+                for (const upload of state.uploads) {
+                    takePracticeFile(upload.id);
+                }
+            } catch {
+                // Sin estado legible no se conocen los tickets: la base se borra igualmente.
+            }
+            revokeSessionUrls(session);
+            try {
+                await session.storage.clear();
+            } catch {
+                // Si la conexión está rota, la petición de borrado de la base la cierra o queda pendiente.
+            }
+            session.state = null;
+            session.wasReset = false;
+            // Una petición que aún tenga esta sesión escribe solo en memoria, nunca en la base que se borra.
+            degradeToMemory(session);
+            sessions.delete(userId);
+            await deleteBrowserDatabase(userId);
+        });
+    } catch {
+        // Mejor esfuerzo: nunca rechaza.
+    }
 };
