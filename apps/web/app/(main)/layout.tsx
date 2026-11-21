@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
+import { PracticeBanner } from "../../components/practice/PracticeBanner";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 
 export default function MainLayout({
@@ -13,6 +14,8 @@ export default function MainLayout({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    // Cambia al reiniciar la práctica para remontar el contenido de las páginas (ver el return).
+    const [practiceEpoch, setPracticeEpoch] = useState(0);
 
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
     const hydrated = useAuthStore((state) => state.hydrated);
@@ -28,9 +31,12 @@ export default function MainLayout({
     );
 
     useEffect(() => {
-        // Recupera auth desde localStorage al montar el layout protegido.
-        hydrateAuth();
-    }, [hydrateAuth]);
+        // Recupera auth desde localStorage solo si aún no está hidratada. Volver a montar el layout
+        // (p. ej. desde /guia) no debe sacar de la práctica, que vive solo en memoria.
+        if (!hydrated) {
+            hydrateAuth();
+        }
+    }, [hydrated, hydrateAuth]);
 
     useEffect(() => {
         if (!hydrated) {
@@ -81,7 +87,11 @@ export default function MainLayout({
                 style={{ backgroundColor: "var(--bg-base)" }}
             >
                 {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
-                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>{children}</div>
+                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>
+                    <PracticeBanner onReset={() => setPracticeEpoch((n) => n + 1)} />
+                    {/* Al reiniciar la práctica solo se remonta el contenido: el banner y la Sidebar no cambian. */}
+                    <React.Fragment key={practiceEpoch}>{children}</React.Fragment>
+                </div>
 
                 {!isChatRoom && <Footer />}
             </main>

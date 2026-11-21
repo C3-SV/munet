@@ -22,6 +22,7 @@ import {
 import { listParticipantDirectory } from "../../../lib/api/directory";
 import { getEventCommittees, type EventCommittee } from "../../../lib/api/events";
 import { formatDayLabel, formatTime } from "../../../lib/format-datetime";
+import { isPracticeEvent } from "../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../lib/supabase";
 import { useAuthStore } from "../../../stores/auth.store";
 import type { ChatParticipant, ConversationSummary } from "../../../types/chat";
@@ -182,7 +183,7 @@ const Chats = () => {
 
     useEffect(() => {
         // Realtime para inbox: cambios en conversaciones o mensajes.
-        if (!eventId || !supabaseBrowser || !token) {
+        if (!eventId || !supabaseBrowser || !token || isPracticeEvent(eventId)) {
             return;
         }
 

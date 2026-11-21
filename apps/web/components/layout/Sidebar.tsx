@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
@@ -109,6 +109,7 @@ const getInitials = (name: string) => {
 
 export const Sidebar = () => {
     const pathname = usePathname();
+    const router = useRouter();
     const { theme, toggleTheme } = useTheme();
     const isDark = theme === "dark";
 
@@ -116,6 +117,8 @@ export const Sidebar = () => {
     const activeEventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const memberships = useAuthStore((state) => state.memberships);
+    const practice = useAuthStore((state) => state.practice);
+    const enterPractice = useAuthStore((state) => state.enterPractice);
 
     const activeMembership = useMemo(
         () => memberships.find((membership) => membership.id === activeMembershipId) ?? null,
@@ -238,6 +241,13 @@ export const Sidebar = () => {
     const isModerator = activeMembership ? isModeratorRole(activeMembership.role) : false;
     const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
     const profileName = profile?.name || "Participante";
+
+    // Entra al modo práctica desde el menú; cierra el drawer móvil aunque la ruta no cambie.
+    const handleEnterPractice = () => {
+        enterPractice();
+        setIsMobileMenuOpen(false);
+        router.push("/feed");
+    };
 
     const wallItems: NavItem[] = [
         ...(announcements
@@ -377,6 +387,29 @@ export const Sidebar = () => {
                     >
                         {activeEventName}
                     </p>
+                    {practice ? (
+                        <span
+                            className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                            style={{
+                                backgroundColor: "var(--sidebar-active-bg)",
+                                color: "var(--sidebar-active-text)",
+                            }}
+                        >
+                            Práctica
+                        </span>
+                    ) : (
+                        // Solo con una membresía real activa: una cuenta pendiente o suspendida no practica.
+                        activeMembership?.accountStatus === "ACTIVE" && (
+                            <button
+                                type="button"
+                                onClick={handleEnterPractice}
+                                className="mt-1 inline-flex min-h-11 w-fit items-center text-sm font-semibold font-heading hover:underline"
+                                style={{ color: "var(--text-accent)" }}
+                            >
+                                Modo práctica
+                            </button>
+                        )
+                    )}
                     {canOpenAdminPanel && (
                         <div className="mt-1 flex flex-col">
                             {canSwitchEventFromSidebar && (

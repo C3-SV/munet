@@ -12,6 +12,7 @@ import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { AttachmentUploadError } from "../../../../lib/attachment-upload";
 import { buildWallNav } from "../../../../lib/wall-nav";
+import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { EventWall, Post } from "../../../../types/common";
@@ -24,6 +25,11 @@ const FEED_PUBLISH_ATTACHMENT_ERROR = "No se pudo publicar con el archivo adjunt
 // Con adjunto, los errores de la API sobre el archivo (tipo, tamaño, límites) se muestran tal cual.
 const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
     if (error instanceof AttachmentUploadError) {
+        return error.message;
+    }
+
+    // El modo práctica responde 501 con un texto claro; la API real nunca devuelve 501.
+    if (error instanceof ApiError && error.status === 501) {
         return error.message;
     }
 
@@ -144,7 +150,7 @@ const Feed = () => {
 
     useEffect(() => {
         // Realtime: sincroniza cambios en posts/polls/votos del muro actual.
-        if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden) {
+        if (!activeWall?.id || !supabaseBrowser || !token || !eventId || isForbidden || isPracticeEvent(eventId)) {
             return;
         }
 
@@ -453,11 +459,12 @@ const Feed = () => {
                     </nav>
                 )}
 
-                {/* El borrador es por evento y muro: los slugs de muro se repiten entre eventos. */}
+                {/* El borrador es por evento y muro: los slugs de muro se repiten entre eventos.
+                    En la práctica no se guarda ninguno: sessionStorage es de la pestaña, no de la cuenta, y el reinicio no lo borraría. */}
                 {!isForbidden && activeWall?.canPublish && (
                     <PostEditor
                         key={`${eventId ?? "sin-evento"}:${muroParam}`}
-                        draftKey={`${eventId ?? "sin-evento"}:${muroParam}`}
+                        draftKey={isPracticeEvent(eventId) ? undefined : `${eventId ?? "sin-evento"}:${muroParam}`}
                         onPublish={handlePublishPost}
                         disabled={isLoading}
                     />

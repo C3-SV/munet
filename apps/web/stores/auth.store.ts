@@ -8,6 +8,12 @@ import {
   type ActivateAccountPayload,
   type ActivationEvent,
 } from "../lib/api/auth";
+import { PRACTICE_EVENT_ID, PRACTICE_MEMBERSHIP_ID } from "../lib/practice/constants";
+import {
+  isPracticeMembership,
+  withoutPracticeMembership,
+  withPracticeMembership,
+} from "../lib/practice/membership";
 import type {
   AuthSession,
   AuthUser,
@@ -89,6 +95,8 @@ type AuthState = {
   hydrated: boolean;
   error: string | null;
   errorStatus: number | null;
+  // Modo práctica: solo en memoria, nunca se persiste.
+  practice: boolean;
 
   login: (payload: LoginPayload) => Promise<void>;
   logout: () => void;
@@ -97,6 +105,8 @@ type AuthState = {
   needsEventSelection: () => boolean;
   setActiveMembership: (membershipId: string) => void;
   refreshContext: () => Promise<void>;
+  enterPractice: () => void;
+  exitPractice: () => void;
   validateActivation: (participantCode: string) => Promise<ActivationEvent[]>;
   activateAccount: (payload: ActivateAccountPayload) => Promise<void>;
 };
@@ -112,6 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hydrated: false,
   error: null,
   errorStatus: null,
+  practice: false,
 
   // Valida si el codigo tiene cuentas pendientes de activacion.
   validateActivation: async (participantCode: string) => {
@@ -146,14 +157,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: true, error: null, errorStatus: null });
 
       const data = await loginRequest(payload);
+      // La membresía de práctica nunca se toma del API ni se persiste.
+      const memberships = withoutPracticeMembership(data.memberships);
 
-      const needsSelection = userNeedsEventSelection(data.memberships);
-      const fallbackMembership = needsSelection ? null : data.memberships[0] ?? null;
+      const needsSelection = userNeedsEventSelection(memberships);
+      const fallbackMembership = needsSelection ? null : memberships[0] ?? null;
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(data.session));
       localStorage.setItem(TOKEN_KEY, data.session.access_token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(data.memberships));
+      localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(memberships));
 
       if (fallbackMembership) {
         localStorage.setItem(ACTIVE_EVENT_KEY, fallbackMembership.eventId);
@@ -167,7 +180,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: data.user,
         session: data.session,
         token: data.session.access_token,
-        memberships: data.memberships,
+        memberships,
+        practice: false,
         activeEventId: fallbackMembership?.eventId ?? null,
         activeMembershipId: fallbackMembership?.id ?? null,
         loading: false,
@@ -201,6 +215,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session: null,
       token: null,
       memberships: [],
+      practice: false,
       activeEventId: null,
       activeMembershipId: null,
       loading: false,
@@ -219,7 +234,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;
     const user = userRaw ? JSON.parse(userRaw) : null;
-    const memberships = membershipsRaw ? (JSON.parse(membershipsRaw) as MembershipSummary[]) : [];
+    // La práctica no se restaura: si localStorage trajera sus ids, se descartan aquí.
+    const memberships = membershipsRaw
+      ? withoutPracticeMembership(JSON.parse(membershipsRaw) as MembershipSummary[])
+      : [];
     const persistedMembership =
       activeMembershipId && memberships.find((membership) => membership.id === activeMembershipId)
         ? memberships.find((membership) => membership.id === activeMembershipId) ?? null
@@ -232,6 +250,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       token,
       user,
       memberships,
+      practice: false,
       activeEventId: effectiveMembership?.eventId ?? null,
       activeMembershipId: effectiveMembership?.id ?? null,
       hydrated: true,
@@ -271,8 +290,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
+    // La práctica tiene un único camino de entrada (mantiene `practice` y el contexto en sincronía).
+    if (isPracticeMembership(membership)) {
+      get().enterPractice();
+      return;
+    }
+
     localStorage.setItem(ACTIVE_EVENT_KEY, membership.eventId);
     localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, membership.id);
+
+    // Elegir un evento real estando en práctica la termina: se quita su membresía en memoria.
+    // Fuera de la práctica `memberships` no se toca para no cambiar referencias en eventos reales.
+    if (get().practice) {
+      set({
+        practice: false,
+        memberships: withoutPracticeMembership(get().memberships),
+        activeEventId: membership.eventId,
+        activeMembershipId: membership.id,
+      });
+      return;
+    }
 
     set({
       activeEventId: membership.eventId,
@@ -284,19 +321,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshContext: async () => {
     const { token } = get();
 
-    if (!token) {
+    // En práctica no hay nada que refrescar y no debe haber red: el contexto es local.
+    if (!token || get().practice) {
       return;
     }
 
     const data = await authContextRequest(token);
+    // Se lee el modo después de la petición: pudo cambiar mientras se esperaba la respuesta.
+    const { practice } = get();
+    // La membresía de práctica nunca se toma del API ni se persiste.
+    const memberships = withoutPracticeMembership(data.memberships);
+
+    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(memberships));
+
+    if (practice) {
+      // En práctica el contexto se conserva solo en memoria. Las claves locales no se tocan:
+      // siguen apuntando a la última membresía real.
+      set({
+        user: data.user,
+        memberships: withPracticeMembership(memberships),
+        activeEventId: PRACTICE_EVENT_ID,
+        activeMembershipId: PRACTICE_MEMBERSHIP_ID,
+      });
+      return;
+    }
 
     const currentMembership = get().activeMembershipId
-      ? data.memberships.find((membership) => membership.id === get().activeMembershipId)
+      ? memberships.find((membership) => membership.id === get().activeMembershipId)
       : null;
-    const autoMembership = resolveAutoMembership(data.memberships);
+    const autoMembership = resolveAutoMembership(memberships);
     const effectiveMembership = currentMembership ?? autoMembership ?? null;
-
-    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(data.memberships));
 
     if (effectiveMembership) {
       localStorage.setItem(ACTIVE_EVENT_KEY, effectiveMembership.eventId);
@@ -308,7 +362,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({
       user: data.user,
-      memberships: data.memberships,
+      memberships,
+      activeEventId: effectiveMembership?.eventId ?? null,
+      activeMembershipId: effectiveMembership?.id ?? null,
+    });
+  },
+
+  // Entra al modo práctica. Solo cambia el estado en memoria: no toca localStorage ni la red.
+  enterPractice: () => {
+    set({
+      practice: true,
+      memberships: withPracticeMembership(get().memberships),
+      activeEventId: PRACTICE_EVENT_ID,
+      activeMembershipId: PRACTICE_MEMBERSHIP_ID,
+    });
+  },
+
+  // Sale de la práctica y restaura el contexto real: la membresía guardada si sigue siendo
+  // válida, o la regla automática. Si no hay ninguna, el contexto activo queda en null.
+  exitPractice: () => {
+    const memberships = withoutPracticeMembership(get().memberships);
+    const storedMembershipId = localStorage.getItem(ACTIVE_MEMBERSHIP_KEY);
+    const storedMembership = storedMembershipId
+      ? memberships.find((membership) => membership.id === storedMembershipId) ?? null
+      : null;
+    const effectiveMembership = storedMembership ?? resolveAutoMembership(memberships);
+
+    if (effectiveMembership) {
+      localStorage.setItem(ACTIVE_EVENT_KEY, effectiveMembership.eventId);
+      localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, effectiveMembership.id);
+    } else {
+      localStorage.removeItem(ACTIVE_EVENT_KEY);
+      localStorage.removeItem(ACTIVE_MEMBERSHIP_KEY);
+    }
+
+    set({
+      practice: false,
+      memberships,
       activeEventId: effectiveMembership?.eventId ?? null,
       activeMembershipId: effectiveMembership?.id ?? null,
     });
