@@ -132,6 +132,32 @@ test("toUser usa el avatar editado de la propia persona si existe", () => {
     assert.equal(toUser(state, PRACTICE_MEMBERSHIP_ID).avatar, avatar);
 });
 
+test("toUser cae a las iniciales si el avatar editado no es una imagen data:image/", () => {
+    const state = baseState();
+    for (const avatar of ["https://ejemplo.invalido/foto.png", "data:text/html,<script>x</script>", ""]) {
+        const edited = { ...state, profile: { displayName: "Ana Delegada", alias: null, bio: "", avatar } };
+        assert.equal(toUser(edited, PRACTICE_MEMBERSHIP_ID).avatar, avatarFor("AD"), avatar);
+    }
+});
+
+test("un displayName con marcado produce un avatar data URI sin <script> crudo", () => {
+    const state = { ...baseState(), profile: { displayName: "<script>alert(1)</script>", alias: null, bio: "", avatar: null } };
+    const avatar = toUser(state, PRACTICE_MEMBERSHIP_ID).avatar;
+    assert.ok(avatar.startsWith("data:image/svg+xml,"));
+    assert.equal(avatar.includes("<"), false);
+    assert.equal(avatar.includes("<script"), false);
+    assert.equal(toPublicProfile(state, PRACTICE_MEMBERSHIP_ID).profile.avatar, avatar);
+});
+
+test("un displayName vacío o de solo espacios cae al nombre de la persona", () => {
+    const state = baseState();
+    for (const displayName of ["", "   "]) {
+        const edited = { ...state, profile: { displayName, alias: null, bio: "", avatar: null } };
+        assert.equal(toUser(edited, PRACTICE_MEMBERSHIP_ID).name, state.persona.displayName, JSON.stringify(displayName));
+        assert.equal(toMyProfile(edited).profile.displayName, state.persona.displayName, JSON.stringify(displayName));
+    }
+});
+
 test("toUser da nombre, comité y rol de la cohorte, y el personal no tiene comité", () => {
     const state = baseState();
     const other = participantOf(state);
@@ -406,10 +432,10 @@ test("toConversationSummary toma el último mensaje visible de su conversación"
     assert.equal(summary.lastMessageAt, at(40));
 });
 
-test("toConversationSummary muestra Sin comité para el personal", () => {
+test("toConversationSummary muestra Sin comite para el personal, igual que la API de DM", () => {
     const state = { ...baseState(), messages: [] };
     const summary = toConversationSummary(state, { id: "practice-conversation-staff", otherId: PRACTICE_STAFF_ID, createdAt: at(5) });
-    assert.equal(summary.otherParticipant.committee, "Sin comité");
+    assert.equal(summary.otherParticipant.committee, "Sin comite");
     assert.equal(summary.otherParticipant.role, "ADMIN_MUN");
 });
 

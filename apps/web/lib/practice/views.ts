@@ -31,7 +31,8 @@ export type PracticePostView = Post & { isPinned: boolean; pinnedAt: string | nu
 
 const DELETED_POST_TEXT = "Esta publicacion fue eliminada por el autor.";
 const DELETED_COMMENT_TEXT = "Este comentario fue eliminado por el autor.";
-const NO_COMMITTEE_TEXT = "Sin comité";
+// Mismo texto que la API de DM (mapDmParticipant), sin acento.
+const NO_COMMITTEE_TEXT = "Sin comite";
 const LAST_ACTIVE_TEXT = "Activo";
 const PARTICIPANT_CODE = "PRACTICA";
 
@@ -101,8 +102,9 @@ const initialsOf = (name: string): string =>
 
 // Foto propia si está editada; si no, avatar generado con las iniciales del nombre mostrado.
 const avatarOf = (state: PracticeState, person: PracticePerson, name: string): string => {
-    if (isOwn(person.membershipId) && state.profile.avatar) {
-        return state.profile.avatar;
+    const edited = state.profile.avatar;
+    if (isOwn(person.membershipId) && edited !== null && edited.startsWith("data:image/")) {
+        return edited;
     }
     return avatarFor(initialsOf(name));
 };
