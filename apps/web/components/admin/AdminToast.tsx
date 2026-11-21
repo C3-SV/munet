@@ -12,14 +12,14 @@ type AdminToastProps = {
 
 const PALETTES = {
     success: {
-        color: "#16a34a",
-        backgroundColor: "color-mix(in srgb, #22c55e 12%, var(--bg-surface))",
-        border: "1px solid color-mix(in srgb, #22c55e 30%, transparent)",
+        color: "var(--success)",
+        backgroundColor: "color-mix(in srgb, var(--success) 12%, var(--bg-surface))",
+        border: "1px solid color-mix(in srgb, var(--success) 30%, transparent)",
     },
     error: {
-        color: "#ef4444",
-        backgroundColor: "color-mix(in srgb, #ef4444 12%, var(--bg-surface))",
-        border: "1px solid color-mix(in srgb, #ef4444 30%, transparent)",
+        color: "var(--danger)",
+        backgroundColor: "color-mix(in srgb, var(--danger) 12%, var(--bg-surface))",
+        border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
     },
 } as const;
 

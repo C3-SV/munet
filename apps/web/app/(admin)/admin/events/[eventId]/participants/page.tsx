@@ -17,7 +17,7 @@ import { AdminFormSelect } from "../../../../../../components/admin/AdminFormSel
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
 import { AdminToast } from "../../../../../../components/admin/AdminToast";
-import { RowActions, type RowActionItem } from "../../../../../../components/admin/RowActions";
+import { IconAction } from "../../../../../../components/admin/IconAction";
 import {
     getEvent,
     listCommittees,
@@ -37,7 +37,20 @@ import {
 } from "../../../../../../lib/api/participants";
 import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../lib/role-label";
 import { isAdminRole, useAuthStore } from "../../../../../../stores/auth.store";
-import { IconAlertTriangle, IconDirectory, IconPlus, IconRefresh, IconSearch, IconUpload } from "../../../../../../components/ui/icons";
+import {
+    IconAlertTriangle,
+    IconCommittees,
+    IconDirectory,
+    IconKey,
+    IconPlus,
+    IconRefresh,
+    IconSearch,
+    IconSettings,
+    IconShield,
+    IconUpload,
+    IconUserCheck,
+    IconUserOff,
+} from "../../../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -117,47 +130,7 @@ const ParticipantRow = ({
     const displayName = participant.profile?.display_name?.trim();
     const isSuspended = participant.account_status === "SUSPENDED";
 
-    const items: RowActionItem[] = [
-        ...(committeesLoading
-            ? []
-            : [
-                  {
-                      label: "Cambiar comité",
-                      onSelect: () => onAction(participant, "committee"),
-                  },
-              ]),
-        ...(isSuspended
-            ? []
-            : [
-                  {
-                      label: "Reiniciar contraseña",
-                      onSelect: () => onAction(participant, "reset-password"),
-                  },
-              ]),
-        ...(isAdminRole(participant.role)
-            ? []
-            : [
-                  participant.role.trim().toUpperCase() === "MODERATOR"
-                      ? {
-                            label: "Quitar moderador",
-                            onSelect: () => onAction(participant, "remove-moderator"),
-                        }
-                      : {
-                            label: "Hacer moderador",
-                            onSelect: () => onAction(participant, "make-moderator"),
-                        },
-              ]),
-        isSuspended
-            ? {
-                  label: "Reactivar cuenta",
-                  onSelect: () => onAction(participant, "reactivate"),
-              }
-            : {
-                  label: "Suspender cuenta",
-                  onSelect: () => onAction(participant, "suspend"),
-                  tone: "danger" as const,
-              },
-    ];
+    const isModerator = participant.role.trim().toUpperCase() === "MODERATOR";
 
     return (
         <tr
@@ -196,8 +169,8 @@ const ParticipantRow = ({
                         className="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-bold font-heading"
                         style={{
                             backgroundColor:
-                                "color-mix(in srgb, #f59e0b 12%, transparent)",
-                            color: "#b45309",
+                                "color-mix(in srgb, var(--warning) 12%, transparent)",
+                            color: "var(--warning)",
                         }}
                     >
                         {participant.delegation_code}
@@ -266,14 +239,54 @@ const ParticipantRow = ({
             </td>
 
             <td className="px-6 py-4">
-                <RowActions
-                    primary={{
-                        label: "Gestionar",
-                        href: `/admin/events/${eventId}/participants/${participant.id}`,
-                    }}
-                    items={items}
-                    menuLabel={`Más acciones para ${fullName}`}
-                />
+                <div className="flex items-center justify-end gap-2">
+                    <IconAction
+                        href={`/admin/events/${eventId}/participants/${participant.id}`}
+                        label={`Gestionar a ${fullName}`}
+                        icon={<IconSettings size={18} />}
+                    />
+                    {!committeesLoading && (
+                        <IconAction
+                            label={`Cambiar comité de ${fullName}`}
+                            icon={<IconCommittees size={18} />}
+                            onClick={() => onAction(participant, "committee")}
+                        />
+                    )}
+                    {!isSuspended && (
+                        <IconAction
+                            label={`Reiniciar contraseña de ${fullName}`}
+                            icon={<IconKey size={18} />}
+                            onClick={() => onAction(participant, "reset-password")}
+                        />
+                    )}
+                    {!isAdminRole(participant.role) && (
+                        <IconAction
+                            label={
+                                isModerator
+                                    ? `Quitar moderador a ${fullName}`
+                                    : `Hacer moderador a ${fullName}`
+                            }
+                            icon={<IconShield size={18} />}
+                            onClick={() =>
+                                onAction(participant, isModerator ? "remove-moderator" : "make-moderator")
+                            }
+                        />
+                    )}
+                    {isSuspended ? (
+                        <IconAction
+                            label={`Reactivar cuenta de ${fullName}`}
+                            icon={<IconUserCheck size={18} />}
+                            onClick={() => onAction(participant, "reactivate")}
+                        />
+                    ) : (
+                        <IconAction
+                            label={`Suspender cuenta de ${fullName}`}
+                            icon={<IconUserOff size={18} />}
+                            tone="danger"
+                            onClick={() => onAction(participant, "suspend")}
+                        />
+                    )}
+                </div>
             </td>
         </tr>
     );

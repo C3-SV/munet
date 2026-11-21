@@ -873,7 +873,7 @@ export default function ImportParticipantsPage() {
                                         </p>
                                         <ul
                                             className="mt-1 list-disc pl-4 text-xs"
-                                            style={{ color: "#ef4444" }}
+                                            style={{ color: "var(--danger)" }}
                                         >
                                             {row.errors.map((error) => (
                                                 <li key={error}>{error}</li>
@@ -916,7 +916,7 @@ export default function ImportParticipantsPage() {
                                         </p>
                                         <p
                                             className="mt-1 text-xs"
-                                            style={{ color: "#b45309" }}
+                                            style={{ color: "var(--warning)" }}
                                         >
                                             {formatDuplicateReason(row.reason)}
                                         </p>
@@ -930,8 +930,8 @@ export default function ImportParticipantsPage() {
                         className="rounded-xl p-3 text-xs"
                         style={{
                             backgroundColor:
-                                "color-mix(in srgb, #f59e0b 8%, transparent)",
-                            border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                                "color-mix(in srgb, var(--warning) 8%, transparent)",
+                            border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
                             color: "var(--text-secondary)",
                         }}
                     >
@@ -1003,19 +1003,19 @@ export default function ImportParticipantsPage() {
                             className="rounded-xl p-4"
                             style={{
                                 backgroundColor:
-                                    "color-mix(in srgb, #22c55e 8%, var(--bg-surface))",
-                                border: "1px solid color-mix(in srgb, #22c55e 25%, transparent)",
+                                    "color-mix(in srgb, var(--success) 8%, var(--bg-surface))",
+                                border: "1px solid color-mix(in srgb, var(--success) 25%, transparent)",
                             }}
                         >
                             <p
                                 className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
-                                style={{ color: "#16a34a" }}
+                                style={{ color: "var(--success)" }}
                             >
                                 Creadas
                             </p>
                             <p
                                 className="mt-1 text-2xl font-extrabold font-heading"
-                                style={{ color: "#16a34a" }}
+                                style={{ color: "var(--success)" }}
                             >
                                 {createdRows.length}
                             </p>
@@ -1024,19 +1024,19 @@ export default function ImportParticipantsPage() {
                             className="rounded-xl p-4"
                             style={{
                                 backgroundColor:
-                                    "color-mix(in srgb, #ef4444 8%, var(--bg-surface))",
-                                border: "1px solid color-mix(in srgb, #ef4444 25%, transparent)",
+                                    "color-mix(in srgb, var(--danger) 8%, var(--bg-surface))",
+                                border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
                             }}
                         >
                             <p
                                 className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
-                                style={{ color: "#ef4444" }}
+                                style={{ color: "var(--danger)" }}
                             >
                                 Fallidas
                             </p>
                             <p
                                 className="mt-1 text-2xl font-extrabold font-heading"
-                                style={{ color: "#ef4444" }}
+                                style={{ color: "var(--danger)" }}
                             >
                                 {failedRows.length}
                             </p>
@@ -1155,7 +1155,7 @@ export default function ImportParticipantsPage() {
                                                 </td>
                                                 <td
                                                     className="px-3 py-2 text-xs"
-                                                    style={{ color: "#ef4444" }}
+                                                    style={{ color: "var(--danger)" }}
                                                 >
                                                     {row.errors.join("; ")}
                                                 </td>
@@ -1189,7 +1189,7 @@ export default function ImportParticipantsPage() {
                             {credentialsDownloaded && (
                                 <p
                                     className="text-xs font-semibold"
-                                    style={{ color: "#16a34a" }}
+                                    style={{ color: "var(--success)" }}
                                 >
                                     Credenciales descargadas. Ya puedes salir o
                                     descargarlas de nuevo.

@@ -18,7 +18,7 @@ type AdminAlertBannerProps = {
 const TONES = {
     success: "var(--success)",
     error: "var(--danger)",
-    warning: "#b45309",
+    warning: "var(--warning)",
 } as const;
 
 export const AdminAlertBanner = ({

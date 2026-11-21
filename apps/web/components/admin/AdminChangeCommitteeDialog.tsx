@@ -116,7 +116,7 @@ export const AdminChangeCommitteeDialog = ({
                 {error && (
                     <p
                         className="text-sm font-medium"
-                        style={{ color: "#ef4444" }}
+                        style={{ color: "var(--danger)" }}
                         role="alert"
                     >
                         {error}

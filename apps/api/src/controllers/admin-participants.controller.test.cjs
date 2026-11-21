@@ -73,7 +73,7 @@ function harness(results = [], overrides = {}) {
   };
 }
 
-const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN' };
+const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN_MUN' };
 const request = body => ({ body: { event_id: 'event', ...body }, auth: { userId: 'admin-user', currentMembership: actor } });
 const contextResults = () => [{ data: { id: 'event', status: 'ACTIVE' } }, { data: [] }, { data: [] }];
 const importRow = row => ({

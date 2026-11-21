@@ -115,7 +115,7 @@ test('lista eventos con paginación estable y conteo', async () => {
   const h = harness([{ data: [{ id: 'event' }], count: 45 }]);
   const req = {
     query: { page: '2', limit: '20' },
-    auth: { memberships: [{ eventId: 'event', role: 'ADMIN', accountStatus: 'ACTIVE' }] },
+    auth: { memberships: [{ eventId: 'event', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] },
   };
   await h.controller.listEvents(req, h.res);
   assert.equal(h.res.body.pagination.total_pages, 3);
@@ -283,7 +283,7 @@ test('createAccount devuelve credenciales, codigo y warnings sin cache y audita 
     initialPassword: 'Temporal-123', delegationCode: '#001', warnings: ['Aviso del servicio'],
   };
   const h = harness([], { createParticipantAccount: async () => result });
-  const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN' };
+  const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN_MUN' };
   await h.controller.createAccount({ body: { ...accountBody(), alias: '  Ana  ' }, auth: { userId: 'admin-user', currentMembership: actor } }, h.res);
   assert.equal(h.res.statusCode, 200);
   assert.equal(h.res.headers['cache-control'], 'no-store');

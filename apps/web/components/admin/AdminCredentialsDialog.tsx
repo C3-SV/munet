@@ -122,7 +122,7 @@ export const AdminCredentialsDialog = ({
             </div>
 
             {copyError && (
-                <p className="text-xs font-medium" style={{ color: "#ef4444" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--danger)" }}>
                     No se pudo copiar automáticamente. Selecciona el valor y
                     cópialo manualmente.
                 </p>
@@ -133,13 +133,13 @@ export const AdminCredentialsDialog = ({
                     className="rounded-xl p-3 space-y-1"
                     style={{
                         backgroundColor:
-                            "color-mix(in srgb, #f59e0b 10%, transparent)",
-                        border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+                            "color-mix(in srgb, var(--warning) 10%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
                     }}
                 >
                     <p
                         className="text-xs font-bold font-heading"
-                        style={{ color: "#b45309" }}
+                        style={{ color: "var(--warning)" }}
                     >
                         Advertencias
                     </p>
@@ -157,7 +157,7 @@ export const AdminCredentialsDialog = ({
             {note && (
                 <p
                     className="text-xs leading-relaxed font-medium"
-                    style={{ color: "#b45309" }}
+                    style={{ color: "var(--warning)" }}
                 >
                     {note}
                 </p>
