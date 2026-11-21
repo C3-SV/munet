@@ -16,7 +16,8 @@ export type ConversationSummary = {
     lastMessageAuthorId: string | null;
 };
 
-export type DirectMessage = Message & {
+// El horario se formatea en el navegador a partir de createdAt (ISO).
+export type DirectMessage = Omit<Message, "timestamp"> & {
     conversationId: string;
     createdAt: string;
 };

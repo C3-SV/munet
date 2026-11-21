@@ -1,14 +1,16 @@
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
-import { BrandAttribution } from "../layout/BrandAttribution";
+import { buildPersonLabel } from "../../lib/person-label";
+import { IconChevronLeft } from "../ui/icons";
 
 interface ChatRoomHeaderProps {
     delegate: Delegate;
-    isOnline?: boolean;
 }
 
-export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProps) => {
+export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
+    const label = buildPersonLabel({ name: delegate.name, alias: delegate.alias });
+
     return (
         <div
             className="flex items-center gap-3 px-4 py-3 md:px-6 shrink-0"
@@ -19,7 +21,7 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
         >
             <Link
                 href="/chat"
-                className="p-2 -ml-1 rounded-lg transition-all shrink-0"
+                className="flex items-center justify-center size-11 -ml-2 rounded-lg transition-[opacity,transform,background-color,border-color,color] shrink-0"
                 style={{ color: "var(--text-secondary)" }}
                 onMouseEnter={e => {
                     e.currentTarget.style.backgroundColor = "var(--bg-hover)";
@@ -31,61 +33,50 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
                 }}
                 aria-label="Volver"
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <polyline points="15 18 9 12 15 6" />
-                </svg>
+                <IconChevronLeft size={22} />
             </Link>
 
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="relative shrink-0">
-                    <img
-                        src={delegate.avatar}
-                        alt={delegate.name}
-                        className="size-10 rounded-full object-cover"
-                        style={{ border: "2px solid var(--border-color)" }}
-                    />
-                    {isOnline && (
-                        <span
-                            className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500"
-                            style={{ boxShadow: "0 0 0 2px var(--bg-surface)" }}
-                        ></span>
+                    {delegate.avatar?.trim() ? (
+                        // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
+                        // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
+                        <img
+                            src={delegate.avatar}
+                            alt={delegate.name}
+                            className="size-10 rounded-full object-cover"
+                            style={{ border: "2px solid var(--border-color)" }}
+                        />
+                    ) : (
+                        <div
+                            aria-hidden="true"
+                            className="size-10 rounded-full flex items-center justify-center font-heading font-semibold"
+                            style={{
+                                backgroundColor: "var(--bg-surface-secondary)",
+                                border: "2px solid var(--border-color)",
+                                color: "var(--text-primary)",
+                            }}
+                        >
+                            {label.initials}
+                        </div>
                     )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                     <h2
-                        className="text-sm font-bold font-heading leading-tight truncate"
+                        className="flex items-baseline gap-1.5 min-w-0 text-sm font-bold font-heading leading-tight"
                         style={{ color: "var(--text-primary)" }}
                     >
-                        {delegate.name}
+                        <span className="truncate">{label.primary}</span>
+                        {label.alias && (
+                            <span className="truncate font-normal" style={{ color: "var(--text-secondary)" }}>
+                                {label.alias}
+                            </span>
+                        )}
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        {isOnline && (
-                            <span className="text-[11px] text-green-500 font-medium font-heading">
-                                En línea
-                            </span>
-                        )}
-                        {!isOnline && (
-                            <span
-                                className="text-[11px] font-medium font-heading"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                hace {delegate.lastActive}
-                            </span>
-                        )}
-                        <span style={{ color: "var(--border-color)" }}>·</span>
                         <span
-                            className="text-[10px] font-extrabold uppercase tracking-widest font-heading truncate"
+                            className="text-xs font-semibold font-heading truncate"
                             style={{ color: "var(--text-accent)" }}
                         >
                             {delegate.role} · {delegate.committee}
@@ -93,7 +84,6 @@ export const ChatRoomHeader = ({ delegate, isOnline = true }: ChatRoomHeaderProp
                     </div>
                 </div>
             </div>
-            <BrandAttribution compact className="shrink-0 gap-1.5" />
         </div>
     );
 };

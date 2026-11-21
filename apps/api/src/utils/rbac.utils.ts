@@ -1,3 +1,9 @@
+// Valores de membership_role_enum en la base (supabase/schema.sql).
+export const MEMBERSHIP_ROLES = ['PARTICIPANT', 'MODERATOR', 'ADMIN_MUN', 'ADMIN_TECH'] as const;
+
+export const isMembershipRole = (role: unknown): boolean =>
+  typeof role === 'string' && (MEMBERSHIP_ROLES as readonly string[]).includes(role);
+
 // Normaliza nombres de rol para evaluarlos de forma consistente.
 export const normalizeRole = (role: string | null | undefined) =>
   (role ?? '').trim().toUpperCase();

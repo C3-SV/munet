@@ -6,6 +6,7 @@ import { AdminButton } from "./AdminButton";
 import { AdminFormSelect } from "./AdminFormSelect";
 import { AdminFormTextarea } from "./AdminFormTextarea";
 import { AdminModal } from "./AdminModal";
+import { IconBuilding } from "../ui/icons";
 
 // Diálogo para cambiar el comité de un participante (S2-08).
 
@@ -75,7 +76,7 @@ export const AdminChangeCommitteeDialog = ({
                         loading={loading}
                         onClick={handleConfirm}
                         disabled={unchanged}
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
+                        icon={<IconBuilding size={16} />}
                     >
                         Cambiar comité
                     </AdminButton>

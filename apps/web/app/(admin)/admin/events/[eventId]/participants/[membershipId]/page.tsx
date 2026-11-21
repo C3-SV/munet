@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
 import { AdminChangeCommitteeDialog } from "../../../../../../../components/admin/AdminChangeCommitteeDialog";
-import { AdminConfirmDialog } from "../../../../../../../components/admin/AdminConfirmDialog";
 import { AdminCredentialsDialog } from "../../../../../../../components/admin/AdminCredentialsDialog";
 import { AdminEmptyState } from "../../../../../../../components/admin/AdminEmptyState";
 import { AdminFormInput } from "../../../../../../../components/admin/AdminFormInput";
+import { AdminFormSelect } from "../../../../../../../components/admin/AdminFormSelect";
 import { AdminFormTextarea } from "../../../../../../../components/admin/AdminFormTextarea";
 import { AdminPageHeader } from "../../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../../components/admin/AdminStatusBadge";
@@ -29,14 +28,10 @@ import {
     type AdminParticipant,
     type UpdateParticipantBody,
 } from "../../../../../../../lib/api/participants";
+import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
-
-const ROLE_SUGGESTIONS = [
-    "PARTICIPANT",
-    "MODERATOR",
-    "ADMIN_MUN",
-    "ADMIN_TECH",
-];
+import { ConfirmDialog } from "../../../../../../../components/ui/ConfirmDialog";
+import { IconAlertTriangle, IconBuilding, IconCheck, IconKey, IconRefresh, IconUserCheck, IconUserOff } from "../../../../../../../components/ui/icons";
 
 type FormState = {
     role: string;
@@ -116,7 +111,7 @@ const formatDate = (value?: string | null) => {
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -263,6 +258,16 @@ export default function ParticipantDetailPage() {
         };
     }, [eventId, membershipId, reloadKey, token]);
 
+    // El rol actual se conserva en la lista aunque no sea uno de los sugeridos.
+    const currentRole = form.role.trim().toUpperCase();
+    const roleOptions = [
+        { value: "", label: "Selecciona un rol" },
+        ...(currentRole && !PARTICIPANT_ROLES.includes(currentRole)
+            ? [{ value: currentRole, label: formatRoleLabel(currentRole) }]
+            : []),
+        ...PARTICIPANT_ROLES.map((role) => ({ value: role, label: formatRoleLabel(role) })),
+    ];
+
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((previous) => ({ ...previous, [field]: value }));
 
@@ -297,18 +302,7 @@ export default function ParticipantDetailPage() {
         return validationErrors;
     };
 
-    const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setApiError(null);
-        setSuccess(null);
-
-        const validationErrors = validate();
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
+    const saveParticipant = async () => {
         if (!token || !participant) {
             setApiError("Sesión o participante no válido. Recarga la página.");
             return;
@@ -358,6 +352,21 @@ export default function ParticipantDetailPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setApiError(null);
+        setSuccess(null);
+
+        const validationErrors = validate();
+
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        void saveParticipant();
     };
 
     const openLifecycleAction = (action: LifecycleAction) => {
@@ -503,14 +512,15 @@ export default function ParticipantDetailPage() {
         : undefined;
 
     const lifecycleDialog = lifecycleAction ? (
-        <AdminConfirmDialog
+        <ConfirmDialog
+            open
             key={lifecycleAction}
             title={
                 lifecycleAction === "suspend"
-                    ? "Suspender cuenta"
+                    ? "¿Suspender esta cuenta?"
                     : lifecycleAction === "reactivate"
-                      ? "Reactivar cuenta"
-                      : "Restablecer contraseña"
+                      ? "¿Reactivar esta cuenta?"
+                      : "¿Restablecer la contraseña?"
             }
             description={
                 lifecycleAction === "suspend"
@@ -526,7 +536,7 @@ export default function ParticipantDetailPage() {
                       ? "Reactivar cuenta"
                       : "Restablecer contraseña"
             }
-            variant={lifecycleAction === "suspend" ? "danger" : "primary"}
+            tone={lifecycleAction === "reactivate" ? "default" : "danger"}
             requireReason={lifecycleAction !== "reset-password"}
             reasonLabel={
                 lifecycleAction === "suspend"
@@ -536,7 +546,7 @@ export default function ParticipantDetailPage() {
             loading={actionLoading}
             error={actionError}
             onCancel={closeLifecycleAction}
-            onConfirm={handleConfirmLifecycleAction}
+            onConfirm={(reason) => handleConfirmLifecycleAction(reason ?? "")}
         />
     ) : null;
 
@@ -544,11 +554,6 @@ export default function ParticipantDetailPage() {
         <div className="max-w-2xl mx-auto space-y-6">
             <AdminPageHeader
                 title={participant ? participantName : "Participante"}
-                description={
-                    participant
-                        ? `Código ${participant.participant_code} en ${eventName}.`
-                        : "Detalle del participante."
-                }
                 breadcrumb={[
                     { label: "Panel", href: "/admin" },
                     { label: "Eventos", href: "/admin/events" },
@@ -560,11 +565,12 @@ export default function ParticipantDetailPage() {
                     { label: participant ? participantName : "Participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -623,7 +629,7 @@ export default function ParticipantDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el participante"
                         description={loadError}
                         action={
@@ -632,7 +638,7 @@ export default function ParticipantDetailPage() {
                                 onClick={() =>
                                     setReloadKey((value) => value + 1)
                                 }
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -654,7 +660,7 @@ export default function ParticipantDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Código de login
@@ -668,7 +674,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Código #
@@ -695,7 +701,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Creado
@@ -736,7 +742,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="button"
                                 variant="secondary"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
+                                icon={<IconBuilding size={16} />}
                                 onClick={openCommitteeDialog}
                                 disabled={committeesLoading || committeeLoading}
                             >
@@ -771,29 +777,18 @@ export default function ParticipantDetailPage() {
                             />
                         )}
 
-                        <AdminFormInput
+                        <AdminFormSelect
                             id="participant-role"
                             label="Rol"
-                            placeholder="Ej: PARTICIPANT"
                             required
-                            list="participant-role-options"
                             value={form.role}
                             onChange={(event) =>
-                                handleChange(
-                                    "role",
-                                    event.target.value.toUpperCase(),
-                                )
+                                handleChange("role", event.target.value)
                             }
+                            options={roleOptions}
                             error={errors.role}
-                            hint="Roles habituales: PARTICIPANT, MODERATOR, ADMIN_MUN."
                             disabled={saving}
                         />
-
-                        <datalist id="participant-role-options">
-                            {ROLE_SUGGESTIONS.map((role) => (
-                                <option key={role} value={role} />
-                            ))}
-                        </datalist>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <AdminFormInput
@@ -924,7 +919,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="submit"
                                 loading={saving}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                                icon={<IconCheck size={16} />}
                             >
                                 {saving
                                     ? "Guardando..."
@@ -961,7 +956,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="button"
                                 variant="secondary"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/key.svg"
+                                icon={<IconKey size={16} />}
                                 onClick={() =>
                                     openLifecycleAction("reset-password")
                                 }
@@ -973,7 +968,7 @@ export default function ParticipantDetailPage() {
                             {isSuspended ? (
                                 <AdminButton
                                     type="button"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg"
+                                    icon={<IconUserCheck size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("reactivate")
                                     }
@@ -985,7 +980,7 @@ export default function ParticipantDetailPage() {
                                 <AdminButton
                                     type="button"
                                     variant="danger"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-off.svg"
+                                    icon={<IconUserOff size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("suspend")
                                     }

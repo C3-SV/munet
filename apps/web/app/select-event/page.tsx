@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { formatRoleLabel } from "../../lib/role-label";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -74,14 +75,11 @@ const SelectEventPage = () => {
             <div className="max-w-4xl mx-auto w-full flex-1">
                 <header className="mb-8">
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight"
+                        className="text-3xl sm:text-4xl font-bold font-heading tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Selecciona tu evento
                     </h1>
-                    <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                        Elige el evento con el que quieres trabajar en esta sesion.
-                    </p>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -90,35 +88,20 @@ const SelectEventPage = () => {
                             key={membership.id}
                             type="button"
                             onClick={() => handleChooseEvent(membership.id)}
-                            className="text-left rounded-2xl p-5 transition-all hover:scale-[1.01] active:scale-95"
+                            className="text-left p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
-                                border: "1px solid var(--border-color)",
-                                boxShadow: "var(--shadow-sm)",
+                                borderRadius: "var(--radius-lg)",
                             }}
                         >
-                            <p
-                                className="text-[11px] font-extrabold uppercase tracking-widest font-heading"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                {membership.eventStatus}
-                            </p>
                             <h2
-                                className="mt-1 text-xl font-bold font-heading"
+                                className="text-xl font-bold font-heading"
                                 style={{ color: "var(--text-primary)" }}
                             >
                                 {membership.eventName}
                             </h2>
-                            <p className="mt-3 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                Rol: {membership.role}
-                            </p>
-                            <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                {membership.committeeName
-                                    ? `Comité: ${membership.committeeName}`
-                                    : "Comité: No asignado"}
-                            </p>
-                            <p className="mt-4 text-xs font-semibold font-heading uppercase tracking-wider" style={{ color: "var(--text-accent)" }}>
-                                Entrar al evento
+                            <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                                {formatRoleLabel(membership.role)}
                             </p>
                         </button>
                     ))}
@@ -133,7 +116,7 @@ const SelectEventPage = () => {
                         }}
                     >
                         <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                            No hay membresias activas para este usuario.
+                            No hay membresías activas para este usuario.
                         </p>
                     </div>
                 )}
@@ -145,18 +128,12 @@ const SelectEventPage = () => {
                             logout();
                             router.replace("/login");
                         }}
-                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-all"
-                        style={{ color: "#ef4444" }}
+                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-[opacity,transform,background-color,border-color,color]"
+                        style={{ color: "var(--danger)" }}
                     >
-                        Cerrar sesion
+                        Cerrar sesión
                     </button>
                 </div>
-
-                {memberships.some((membership) => isAdminRole(membership.role)) && (
-                    <p className="mt-3 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                        Como administrador debes seleccionar explicitamente el evento al iniciar sesion.
-                    </p>
-                )}
             </div>
             <div className="mt-10 flex justify-center">
                 <BrandAttribution />

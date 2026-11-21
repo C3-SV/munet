@@ -146,7 +146,7 @@ const mapComment = (row: CommentRow, membership: AuthMembership) => {
       avatar:
         profile?.profile_image_path ??
         'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
-      role: commentAuthorMembership?.role ?? 'DELEGADO',
+      role: commentAuthorMembership?.role ?? 'PARTICIPANT',
     },
   };
 };

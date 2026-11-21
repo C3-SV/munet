@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { 
   authContextRequest, 
+  AuthRequestError,
   loginRequest,
   validateActivationRequest,
   activateAccountRequest,
@@ -62,6 +63,10 @@ const resolveAutoMembership = (memberships: MembershipSummary[]) => {
   return memberships[0] ?? null;
 };
 
+// Estado HTTP del ultimo error de auth (null si no es un error de API).
+const errorStatusOf = (err: unknown) =>
+  err instanceof AuthRequestError ? err.status : null;
+
 type AuthState = {
   user: AuthUser | null;
   session: AuthSession | null;
@@ -72,6 +77,7 @@ type AuthState = {
   loading: boolean;
   hydrated: boolean;
   error: string | null;
+  errorStatus: number | null;
 
   login: (payload: LoginPayload) => Promise<void>;
   logout: () => void;
@@ -94,17 +100,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   hydrated: false,
   error: null,
+  errorStatus: null,
 
   // Valida si el codigo tiene cuentas pendientes de activacion.
   validateActivation: async (participantCode: string) => {
     try {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, errorStatus: null });
       const data = await validateActivationRequest(participantCode);
       set({ loading: false });
       return data.events || [];
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error al validar la cuenta";
-      set({ loading: false, error: message });
+      set({ loading: false, error: message, errorStatus: errorStatusOf(err) });
       throw err;
     }
   },
@@ -112,12 +119,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Completa activacion inicial con password temporal + password nueva.
   activateAccount: async (payload: ActivateAccountPayload) => {
     try {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, errorStatus: null });
       await activateAccountRequest(payload);
       set({ loading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error al activar la cuenta";
-      set({ loading: false, error: message });
+      set({ loading: false, error: message, errorStatus: errorStatusOf(err) });
       throw err;
     }
   },
@@ -125,7 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Login principal: persiste sesion y decide si requiere selector de evento.
   login: async (payload) => {
     try {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, errorStatus: null });
 
       const data = await loginRequest(payload);
 
@@ -157,11 +164,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Error al iniciar sesion";
+      const message = err instanceof Error ? err.message : "Error al iniciar sesión";
 
       set({
         loading: false,
         error: message,
+        errorStatus: errorStatusOf(err),
       });
 
       throw err;
@@ -227,7 +235,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  clearError: () => set({ error: null }),
+  clearError: () => set({ error: null, errorStatus: null }),
 
   // Expone regla reutilizable para guards de rutas.
   needsEventSelection: () => {

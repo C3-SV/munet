@@ -6,6 +6,8 @@ La búsqueda pública devuelve cuentas pendientes por código. La activación va
 
 El cliente conserva el token y la selección en `localStorage`. Cerrar sesión limpia el estado local. No se observó revocación remota en ese recorrido. El cliente común de solicitudes autenticadas también limpia la sesión y redirige a login ante un 401.
 
+En login, el cliente orienta según el estado HTTP de `POST /auth/login`: un 400 con `Membership no encontrado` indica que el código no tiene membresía activa. Ese par también puede aparecer si falla la búsqueda, por lo que la UI ofrece revisar el código o abrir la activación con el código escrito; la consulta de cuentas pendientes solo se hace al pulsar "Continuar". Un 401 muestra credenciales inválidas. Otros 400, el 409 y los fallos de red conservan su mensaje.
+
 ## Contexto de servidor
 
 `requireAuth` valida el bearer token en Supabase Auth, resuelve el usuario interno, carga las membresías activas y adjunta el contexto a `req.auth`. Eventos usa su parámetro de ruta. Posts, comentarios, perfiles y DM usan `x-event-id`. El slug de muro identifica el muro dentro del evento. Los controladores y servicios comprueban permisos adicionales sobre el recurso.

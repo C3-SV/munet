@@ -1,10 +1,14 @@
+import Image from "next/image";
 import Link from "next/link";
+import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { Button } from "../../components/ui/Button";
+import { MunEsenLogo } from "../../components/layout/MunEsenLogo";
 
 const sections = [
-    { id: "primeros-pasos", number: "01", label: "Primeros pasos" },
-    { id: "participantes", number: "02", label: "Para participantes" },
-    { id: "organizadores", number: "03", label: "Para organizadores" },
-    { id: "preguntas", number: "04", label: "Preguntas frecuentes" },
+    { id: "primeros-pasos", label: "Primeros pasos" },
+    { id: "participantes", label: "Para participantes" },
+    { id: "organizadores", label: "Para organizadores" },
+    { id: "preguntas", label: "Preguntas frecuentes" },
 ];
 
 const steps = (items: { title: string; text: string }[]) => (
@@ -23,10 +27,9 @@ const steps = (items: { title: string; text: string }[]) => (
     </ol>
 );
 
-function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+function SectionHeading({ title, description }: { title: string; description: string }) {
     return (
-        <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--text-accent)]">{eyebrow}</p>
+        <div className="max-w-prose">
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">{title}</h2>
             <p className="mt-3 text-base leading-7 text-[var(--text-secondary)]">{description}</p>
         </div>
@@ -49,7 +52,7 @@ export default function GuidePage() {
             <header className="border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
                     <Link href="/guia" aria-label="MUNET, guía de uso" className="inline-flex items-center gap-3">
-                        <img src="/logo-munet.png" alt="MUNET" className="h-10 w-auto" />
+                        <Image src="/logo-munet.png" alt="MUNET" className="h-10 w-auto" width={954} height={299} unoptimized />
                         <span className="hidden border-l border-[var(--border-color)] pl-3 text-sm font-semibold text-[var(--text-secondary)] sm:block">Guía de uso</span>
                     </Link>
                     <Link href="/login" className="rounded-full border border-[var(--border-color)] px-4 py-2 text-sm font-semibold text-[var(--text-accent)] transition-colors hover:bg-[var(--bg-hover)]">
@@ -61,37 +64,29 @@ export default function GuidePage() {
             <section className="relative overflow-hidden border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-2/5 bg-[linear-gradient(135deg,transparent_48%,var(--sidebar-active-bg)_48%,var(--sidebar-active-bg)_70%,transparent_70%)] opacity-70 lg:block" />
                 <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-accent)]">MUN ESEN · Centro de ayuda</p>
                     <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl">Guía de uso</h1>
                     <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--text-secondary)]">Todo lo que necesitas saber para utilizar MUNET: activa tu cuenta, encuentra tu comité y mantente al día durante el evento.</p>
                     <div className="mt-8 flex flex-wrap gap-3">
-                        <a href="#primeros-pasos" className="rounded-full bg-[var(--text-accent)] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90">Empezar</a>
-                        <a href="#participantes" className="rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]">Soy participante</a>
-                        <a href="#organizadores" className="rounded-full border border-[var(--border-color)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]">Soy organizador</a>
+                        <Button href="#primeros-pasos">Empezar</Button>
                     </div>
                 </div>
             </section>
 
             <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16 lg:py-16">
                 <aside className="lg:sticky lg:top-8 lg:h-fit">
-                    <p className="mb-3 px-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">En esta guía</p>
+                    <p className="mb-3 px-3 text-xs font-bold text-[var(--text-secondary)]">En esta guía</p>
                     <nav aria-label="Secciones de la guía" className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
                         {sections.map((section) => (
                             <a key={section.id} href={`#${section.id}`} className="group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]">
-                                <span className="font-mono text-[11px] text-[var(--text-muted)] group-hover:text-[var(--text-accent)]">{section.number}</span>
                                 <span>{section.label}</span>
                             </a>
                         ))}
                     </nav>
-                    <div className="mt-7 hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] p-4 lg:block">
-                        <p className="text-sm font-semibold">¿Problemas para entrar?</p>
-                        <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">El equipo organizador de tu evento puede ayudarte con tu cuenta y acceso.</p>
-                    </div>
                 </aside>
 
                 <div className="min-w-0 space-y-20">
                     <section id="primeros-pasos" className="scroll-mt-8">
-                        <SectionHeading eyebrow="01 · Bienvenida" title="Primeros pasos" description="MUNET reúne la información y las conversaciones de tu Modelo de Naciones Unidas en un espacio organizado por evento." />
+                        <SectionHeading title="Primeros pasos" description="MUNET reúne la información y las conversaciones de tu Modelo de Naciones Unidas en un espacio organizado por evento." />
                         <div className="mt-8 grid gap-4 sm:grid-cols-2">
                             <TopicCard title="Una cuenta para tu participación">
                                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">El equipo organizador crea las cuentas y asigna un evento. Para empezar, recibirás un código de ingreso y una contraseña inicial. Si participas en más de un evento, podrás elegir entre los que están asociados a tu cuenta.</p>
@@ -112,7 +107,7 @@ export default function GuidePage() {
                     </section>
 
                     <section id="participantes" className="scroll-mt-8">
-                        <SectionHeading eyebrow="02 · Delegados y participantes" title="Tu espacio en el evento" description="Al entrar, verás la navegación de tu evento, tu comité y las herramientas disponibles para tu participación." />
+                        <SectionHeading title="Tu espacio en el evento" description="Al entrar, verás la navegación de tu evento, tu comité y las herramientas disponibles para tu participación." />
                         <div className="mt-8 grid gap-4 sm:grid-cols-2">
                             <TopicCard title="Encuentra tu comité">
                                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">El equipo organizador asigna tu comité. Puedes identificarlo en tu perfil y en la navegación de muros. Si no aparece o necesitas cambiarlo, contacta al equipo organizador del evento.</p>
@@ -122,14 +117,17 @@ export default function GuidePage() {
                                 <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--text-secondary)]">
                                     <li><span className="mr-2 text-[var(--text-accent)]">↗</span>En General o en el muro de tu comité, escribe una publicación y selecciona <strong className="text-[var(--text-primary)]">Publicar</strong>.</li>
                                     <li><span className="mr-2 text-[var(--text-accent)]">↗</span>En <strong className="text-[var(--text-primary)]">Encuesta</strong>, añade de 2 a 10 opciones y publícala. Puedes cambiar tu voto mientras siga abierta.</li>
-                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Abre <strong className="text-[var(--text-primary)]">Comentarios</strong> para comentar o responder a un comentario.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Pulsa el botón de comentarios bajo la publicación: muestra cuántos van y abre la conversación para comentar o responder.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Usa <strong className="text-[var(--text-primary)]">Recientes</strong> o <strong className="text-[var(--text-primary)]">Antiguos</strong> para ordenar el muro y la búsqueda para encontrar una publicación. En General, filtra por comité con las etiquetas.</li>
+                                    <li><span className="mr-2 text-[var(--text-accent)]">↗</span>Cada publicación y mensaje muestra la fecha y la hora en que se envió.</li>
                                 </ul>
+                                <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">El botón <strong className="text-[var(--text-primary)]">Adjuntar</strong> del editor ya permite elegir una imagen JPG o PNG (hasta 5 MB) o un PDF (hasta 20 MB), pero por ahora el archivo no se guarda: la publicación sale solo con el texto.</p>
                                 <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">Los avisos oficiales los publica la administración. Los participantes no pueden publicar ni comentar en ese muro.</p>
                             </TopicCard>
                             <TopicCard title="Tu perfil">
                                 {steps([
                                     { title: "Abre Perfil", text: "Consulta la información de tu participación, tu comité y tu código de delegación si aparece." },
-                                    { title: "Edita tus datos visibles", text: "Selecciona Editar mi perfil para cambiar el nombre visible, el alias o la biografía. Deja el alias vacío si quieres quitarlo." },
+                                    { title: "Edita tus datos visibles", text: "Cambia el nombre mostrado, el alias o la biografía en el formulario y pulsa Guardar perfil. Deja el alias vacío si quieres quitarlo." },
                                     { title: "Actualiza tu fotografía", text: "Elige una imagen JPG, PNG o WebP de hasta 5 MB y pulsa Subir foto." },
                                 ])}
                                 <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Tu cuenta, código de ingreso, evento, comité e institución son administrados por la organización.</p>
@@ -145,23 +143,46 @@ export default function GuidePage() {
                         </div>
                     </section>
 
-                    <section id="organizadores" className="scroll-mt-8">
-                        <SectionHeading eyebrow="03 · Administración" title="Herramientas para organizadores" description="Administra el evento donde tienes permisos. Las operaciones disponibles aparecen en el panel y dependen del evento seleccionado." />
+
+                    <section id="preguntas" className="scroll-mt-8">
+                        <SectionHeading title="Preguntas frecuentes" description="Resuelve las dudas habituales sobre tu cuenta y la participación en el evento." />
+                        <div className="mt-8 divide-y divide-[var(--border-color)] rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 sm:px-7">
+                            {[
+                                ["¿Olvidaste tu contraseña?", "Contacta al equipo organizador de tu evento. Puede restablecerla y entregarte una contraseña temporal. Luego vuelve a iniciar sesión con el código de ingreso."],
+                                ["¿Tu código no funciona?", "Comprueba que lo escribiste tal como te lo entregaron y que estás usando la contraseña correspondiente. Si todavía no puedes activar tu cuenta o entrar, contacta al equipo organizador."],
+                                ["¿Cómo sabes cuál es tu comité?", "Consulta tu perfil o la navegación del evento. Si no aparece, pregunta al equipo organizador si tu cuenta ya tiene un comité asignado."],
+                                ["¿Puedes cambiar tus datos?", "Puedes editar tu nombre visible, alias, biografía y fotografía desde Perfil. Para cambiar tu comité, código de ingreso, evento, rol o institución, solicita ayuda a la organización."],
+                                ["¿Por qué no puedes publicar en Avisos?", "Ese muro está reservado para los comunicados de la administración. Puedes participar en el muro General y en el de tu comité según los permisos del evento."],
+                                ["¿Puedes comunicarte con otro comité?", "Puedes buscar participantes activos de tu mismo evento en Mensajes Directos. El muro de comité se limita al comité que tienes asignado."],
+                                ["¿No aparece tu evento?", "Puede que tu cuenta todavía no tenga una participación activa en ese evento. Contacta al equipo organizador para confirmar el código y la asignación."],
+                            ].map(([question, answer]) => (
+                                <details key={question} className="group py-5">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-[var(--text-primary)] marker:hidden">
+                                        {question}
+                                        <span aria-hidden="true" className="text-xl font-normal text-[var(--text-accent)] transition-transform group-open:rotate-45">+</span>
+                                    </summary>
+                                    <p className="mt-3 max-w-prose pr-8 text-sm leading-6 text-[var(--text-secondary)]">{answer}</p>
+                                </details>
+                            ))}
+                        </div>
+                    </section>
+                    <section id="organizadores" className="scroll-mt-8 border-t border-[var(--border-color)] pt-16">
+                        <SectionHeading title="Herramientas para organizadores" description="Administra el evento donde tienes permisos. Las operaciones disponibles aparecen en el panel y dependen del evento seleccionado." />
                         <div className="mt-8 space-y-4">
                             <TopicCard title="Eventos">
                                 {steps([
-                                    { title: "Abre el panel", text: "Selecciona un evento que ya administras y entra a Eventos y Comités. La opción Cambiar evento también aparece en el panel." },
-                                    { title: "Consulta tus eventos", text: "En Eventos revisa la lista. Pulsa Nuevo evento para abrir el formulario de creación." },
+                                    { title: "Abre el panel", text: "Selecciona un evento que ya administras y entra a Eventos. La opción Cambiar evento también aparece en el panel." },
+                                    { title: "Consulta tus eventos", text: "En Eventos revisa la lista. Cada fila tiene tres iconos: Participantes, Comités y Configurar. Pulsa Nuevo evento para abrir el formulario de creación." },
                                     { title: "Completa los datos", text: "Añade nombre y slug. Si quieres, incluye descripción y fechas. Pulsa Crear evento y edita los datos disponibles desde su ficha." },
                                 ])}
-                                <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">El alta de eventos depende de la configuración de Supabase. Si el evento no aparece en tu lista o no abre sus muros, coordina con el equipo técnico antes de incorporar participantes.</p>
+                                <p className="mt-4 rounded-xl bg-[var(--bg-surface-secondary)] p-3 text-xs leading-5 text-[var(--text-secondary)]">Si el evento no aparece en tu lista o no abre sus muros, coordina con la organización general de MUNET antes de incorporar participantes.</p>
                             </TopicCard>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <TopicCard title="Comités y sus muros">
                                     {steps([
-                                        { title: "Abre Comités", text: "Desde el evento seleccionado, entra en Comités y elige Nuevo comité." },
+                                        { title: "Abre Comités", text: "Usa Comités en la navegación de la izquierda, o el panel de inicio, y elige Nuevo comité." },
                                         { title: "Registra el comité", text: "Escribe el nombre y el código. Puedes añadir descripción y orden." },
-                                        { title: "Edita si hace falta", text: "En el listado, pulsa Editar para actualizar los datos disponibles. Al crear un comité, MUNET también crea su muro." },
+                                        { title: "Edita si hace falta", text: "En el listado, pulsa el icono de lápiz de la fila para actualizar los datos disponibles. Al crear un comité, MUNET también crea su muro." },
                                     ])}
                                 </TopicCard>
                                 <TopicCard title="Registra participantes">
@@ -181,36 +202,12 @@ export default function GuidePage() {
                                         <li><strong className="text-[var(--text-primary)]">Suspender cuenta:</strong> pulsa Suspender cuenta e introduce el motivo.</li>
                                         <li><strong className="text-[var(--text-primary)]">Reactivar cuenta:</strong> pulsa Reactivar cuenta e introduce el motivo. Después, la persona puede volver a entrar.</li>
                                     </ul>
-                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Si se suspende una cuenta antes de que su titular la active, consulta con el equipo técnico antes de reactivarla.</p>
+                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Si se suspende una cuenta antes de que su titular la active, consulta con la organización general antes de reactivarla.</p>
                                 </TopicCard>
                                 <TopicCard title="Publica avisos y gestiona contenido">
                                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Abre el muro <strong className="text-[var(--text-primary)]">Avisos</strong> del evento para publicar y comentar como administración. En los muros donde tengas acceso, usa el control del post o comentario para retirar contenido cuando corresponda.</p>
-                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">Asignaciones y Moderación aparecen en el panel como secciones en construcción. La importación CSV todavía no tiene pantalla. Para cambios de comité, usa la ficha individual de cada participante.</p>
                                 </TopicCard>
                             </div>
-                        </div>
-                    </section>
-
-                    <section id="preguntas" className="scroll-mt-8">
-                        <SectionHeading eyebrow="04 · ¿Necesitas ayuda?" title="Preguntas frecuentes" description="Resuelve las dudas habituales sobre tu cuenta y la participación en el evento." />
-                        <div className="mt-8 divide-y divide-[var(--border-color)] rounded-2xl border border-[var(--border-color)] bg-[var(--bg-surface)] px-5 sm:px-7">
-                            {[
-                                ["¿Olvidaste tu contraseña?", "Contacta al equipo organizador de tu evento. Puede restablecerla y entregarte una contraseña temporal. Luego vuelve a iniciar sesión con el código de ingreso."],
-                                ["¿Tu código no funciona?", "Comprueba que lo escribiste tal como te lo entregaron y que estás usando la contraseña correspondiente. Si todavía no puedes activar tu cuenta o entrar, contacta al equipo organizador."],
-                                ["¿Cómo sabes cuál es tu comité?", "Consulta tu perfil o la navegación del evento. Si no aparece, pregunta al equipo organizador si tu cuenta ya tiene un comité asignado."],
-                                ["¿Puedes cambiar tus datos?", "Puedes editar tu nombre visible, alias, biografía y fotografía desde Perfil. Para cambiar tu comité, código de ingreso, evento, rol o institución, solicita ayuda a la organización."],
-                                ["¿Por qué no puedes publicar en Avisos?", "Ese muro está reservado para los comunicados de la administración. Puedes participar en el muro General y en el de tu comité según los permisos del evento."],
-                                ["¿Puedes comunicarte con otro comité?", "Puedes buscar participantes activos de tu mismo evento en Mensajes Directos. El muro de comité se limita al comité que tienes asignado."],
-                                ["¿No aparece tu evento?", "Puede que tu cuenta todavía no tenga una participación activa en ese evento. Contacta al equipo organizador para confirmar el código y la asignación."],
-                            ].map(([question, answer]) => (
-                                <details key={question} className="group py-5">
-                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-[var(--text-primary)] marker:hidden">
-                                        {question}
-                                        <span aria-hidden="true" className="text-xl font-normal text-[var(--text-accent)] transition-transform group-open:rotate-45">+</span>
-                                    </summary>
-                                    <p className="mt-3 max-w-3xl pr-8 text-sm leading-6 text-[var(--text-secondary)]">{answer}</p>
-                                </details>
-                            ))}
                         </div>
                     </section>
                 </div>
@@ -219,12 +216,10 @@ export default function GuidePage() {
             <footer className="border-t border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                     <div className="flex items-center gap-3">
-                        <img src="/logo-munet.png" alt="" className="h-8 w-auto" />
-                        <p className="text-xs text-[var(--text-secondary)]">Una plataforma para conectar cada delegación.</p>
+                        <MunEsenLogo className="h-8 w-auto" />
+                        <p className="text-xs text-[var(--text-secondary)]">© {new Date().getFullYear()} MUN ESEN</p>
                     </div>
-                    <a href="https://c3.com.sv" target="_blank" rel="noreferrer" className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
-                        Desarrollado por C3 <span aria-hidden="true">↗</span>
-                    </a>
+                    <BrandAttribution />
                 </div>
             </footer>
         </main>

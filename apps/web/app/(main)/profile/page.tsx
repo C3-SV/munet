@@ -3,7 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
+import { Button } from "../../../components/ui/Button";
 import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
+import { buildPersonLabel } from "../../../lib/person-label";
+import { formatRoleLabel } from "../../../lib/role-label";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
 import type { MyProfile } from "../../../types/common";
 
@@ -108,14 +111,14 @@ const ProfilePage = () => {
         }
 
         if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-            setAvatarError("Solo se permiten imagenes JPG, PNG o WEBP.");
+            setAvatarError("Solo se permiten imágenes JPG, PNG o WEBP.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
         }
 
         if (file.size > MAX_AVATAR_BYTES) {
-            setAvatarError("La imagen debe pesar maximo 5MB.");
+            setAvatarError("La imagen debe pesar máximo 5MB.");
             setAvatarFile(null);
             event.currentTarget.value = "";
             return;
@@ -149,6 +152,10 @@ const ProfilePage = () => {
         }
     };
 
+    const profileAlias = profileData
+        ? buildPersonLabel({ name: profileData.profile.displayName, alias: profileData.profile.alias }).alias
+        : null;
+
     if (!profileData) {
         return (
             <div className="p-4 sm:p-6 lg:p-12">
@@ -165,16 +172,15 @@ const ProfilePage = () => {
         <div className="p-4 sm:p-6 lg:p-12">
             <div className="max-w-3xl mx-auto">
                 <header className="mb-8">
-                    <h1 className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight" style={{ color: "var(--text-accent)" }}>
+                    <h1 className="text-3xl sm:text-4xl font-bold font-heading tracking-tight" style={{ color: "var(--text-accent)" }}>
                         Mi perfil
                     </h1>
-                    <p className="font-body mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-                        Información pública y credenciales del evento actual.
-                    </p>
                 </header>
 
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
                     <div className="p-6 sm:p-8 flex items-center gap-6" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                        {/* Avatar externo de la API: sin next/image porque el host no está en remotePatterns. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config */}
                         <img
                             src={profileData.profile.avatar}
                             alt="Avatar"
@@ -190,15 +196,19 @@ const ProfilePage = () => {
                                     profileData.profile.displayName) && (
                                 <p className="text-sm font-body mt-0.5" style={{ color: "var(--text-secondary)" }}>
                                     {`${profileData.profile.firstName} ${profileData.profile.lastName}`.trim()}
-                                    {profileData.profile.alias ? ` · alias “${profileData.profile.alias}”` : ""}
+                                    {profileAlias ? ` · ${profileAlias}` : ""}
                                 </p>
                             )}
-                            <p className="text-[11px] font-extrabold font-heading uppercase tracking-widest mt-1" style={{ color: "var(--text-secondary)" }}>
-                                {profileData.delegationName ?? "Delegacion"}
+                            <p className="text-xs font-semibold font-heading mt-1" style={{ color: "var(--text-secondary)" }}>
+                                {profileData.delegationName ?? "Delegación"}
                                 <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
                                     |
                                 </span>
                                 {profileData.committee?.name ?? "Sin comité"}
+                                <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
+                                    |
+                                </span>
+                                {formatRoleLabel(profileData.role)}
                                 {profileData.delegationCode && (
                                     <>
                                         <span style={{ color: "var(--text-accent)", opacity: 0.7 }} className="mx-1">
@@ -214,50 +224,28 @@ const ProfilePage = () => {
                     <div className="p-6 sm:p-8 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="space-y-2 sm:col-span-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Foto de perfil
                                 </label>
                                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="px-3 py-2.5 rounded-xl font-heading font-bold text-sm transition-all"
-                                            style={{
-                                                backgroundColor: "var(--bg-surface-secondary)",
-                                                border: "1px solid var(--border-color)",
-                                                color: "var(--text-primary)",
-                                            }}
                                         >
                                             Seleccionar archivo
-                                        </button>
-                                        <button
-                                            type="button"
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
                                             onClick={() => void handleAvatarUpload()}
                                             disabled={!avatarFile || uploadingAvatar}
-                                            className="px-4 py-2.5 font-heading font-bold text-sm rounded-xl transition-all"
-                                            style={{
-                                                backgroundColor:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "var(--bg-surface-secondary)"
-                                                        : "var(--bubble-me-bg)",
-                                                border:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "1px solid var(--border-color)"
-                                                        : "1px solid transparent",
-                                                color:
-                                                    !avatarFile || uploadingAvatar
-                                                        ? "var(--text-muted)"
-                                                        : "white",
-                                                cursor:
-                                                    !avatarFile || uploadingAvatar ? "not-allowed" : "pointer",
-                                            }}
+                                            loading={uploadingAvatar}
                                         >
                                             {uploadingAvatar ? "Subiendo..." : "Subir foto"}
-                                        </button>
+                                        </Button>
                                     </div>
                                     {avatarError && (
-                                        <p className="text-xs font-body sm:text-right" style={{ color: "#b91c1c" }}>
+                                        <p className="text-xs font-body sm:text-right" style={{ color: "var(--danger)" }}>
                                             {avatarError}
                                         </p>
                                     )}
@@ -277,18 +265,18 @@ const ProfilePage = () => {
                                     }}
                                 >
                                     <p className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
-                                        {avatarFile ? avatarFile.name : "Ningun archivo seleccionado"}
+                                        {avatarFile ? avatarFile.name : "Ningún archivo seleccionado"}
                                     </p>
                                     <p className="text-xs font-body mt-0.5" style={{ color: "var(--text-muted)" }}>
                                         {avatarFile
                                             ? `${(avatarFile.size / (1024 * 1024)).toFixed(2)} MB`
-                                            : "Formatos: JPG, PNG o WEBP · Maximo 5MB"}
+                                            : "Formatos: JPG, PNG o WEBP · Máximo 5MB"}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Nombre mostrado
                                 </label>
                                 <input
@@ -301,7 +289,7 @@ const ProfilePage = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Alias
                                 </label>
                                 <input
@@ -319,7 +307,7 @@ const ProfilePage = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                                <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                     Correo
                                 </label>
                                 <input
@@ -330,42 +318,16 @@ const ProfilePage = () => {
                                     style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
                                 />
                             </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                    Rol
-                                </label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={profileData.role}
-                                    className="w-full p-3 rounded-xl font-body text-sm outline-none cursor-not-allowed"
-                                    style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
-                                    Comité
-                                </label>
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={profileData.committee?.name ?? "Sin comité"}
-                                    className="w-full p-3 rounded-xl font-body text-sm outline-none cursor-not-allowed"
-                                    style={{ backgroundColor: "var(--bg-surface-secondary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }}
-                                />
-                            </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="block text-xs font-bold font-heading uppercase tracking-wide" style={{ color: "var(--text-primary)" }}>
+                            <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
                                 Biografía
                             </label>
                             <textarea
                                 value={bio}
                                 onChange={(e) => setBio(e.target.value)}
-                                className="w-full min-h-25 p-4 rounded-xl font-body text-[15px] outline-none transition-all resize-none"
+                                className="w-full min-h-25 p-4 rounded-xl font-body text-[15px] outline-none transition-[opacity,transform,background-color,border-color,color] resize-none"
                                 style={{
                                     backgroundColor: "var(--bg-input)",
                                     border: "1px solid var(--input-border)",
@@ -375,7 +337,7 @@ const ProfilePage = () => {
                         </div>
 
                         {error && (
-                            <p className="text-sm font-body" style={{ color: "#b91c1c" }}>
+                            <p className="text-sm font-body" style={{ color: "var(--danger)" }}>
                                 {error}
                             </p>
                         )}
@@ -386,43 +348,23 @@ const ProfilePage = () => {
                         >
                             <LogoutButton />
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {canOpenAdminEditor && activeMembershipId && (
-                                    <button
-                                        onClick={() => router.push(`/profile/${activeMembershipId}`)}
-                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
-                                        style={{
-                                            backgroundColor: "var(--sidebar-active-bg)",
-                                            color: "var(--text-accent)",
-                                            border: "1px solid var(--border-color)",
-                                        }}
-                                    >
-                                        Editar mi perfil
-                                    </button>
-                                )}
                                 {canOpenAdminEditor && (
-                                    <button
+                                    <Button
+                                        variant="ghost"
                                         onClick={() => router.push("/select-event")}
-                                        className="w-full sm:w-auto px-4 py-3 font-heading font-bold text-sm rounded-xl transition-all"
-                                        style={{
-                                            backgroundColor: "var(--bg-surface-secondary)",
-                                            color: "var(--text-secondary)",
-                                            border: "1px solid var(--border-color)",
-                                        }}
+                                        className="w-full sm:w-auto"
                                     >
                                         Cambiar evento
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
+                                <Button
                                     onClick={saveProfile}
                                     disabled={saving}
-                                    className="w-full sm:w-auto px-6 py-3 text-white font-heading font-bold text-sm rounded-xl shadow-md transition-all"
-                                    style={{
-                                        backgroundColor: "var(--bubble-me-bg)",
-                                        opacity: saving ? 0.7 : 1,
-                                    }}
+                                    loading={saving}
+                                    className="w-full sm:w-auto"
                                 >
                                     {saving ? "Guardando..." : "Guardar perfil"}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>

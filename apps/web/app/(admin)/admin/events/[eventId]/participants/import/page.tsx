@@ -18,6 +18,7 @@ import {
 } from "../../../../../../../lib/api/participants";
 import { buildCsv, downloadCsv } from "../../../../../../../lib/csv";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
+import { IconCheck, IconDownload, IconRefresh } from "../../../../../../../components/ui/icons";
 
 const DEFAULT_TEMPLATE_HEADERS = [
     "nombre",
@@ -547,7 +548,7 @@ export default function ImportParticipantsPage() {
                             type="button"
                             variant="secondary"
                             onClick={handleDownloadTemplate}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
+                            icon={<IconDownload size={16} />}
                         >
                             Descargar plantilla CSV
                         </AdminButton>
@@ -952,7 +953,7 @@ export default function ImportParticipantsPage() {
                             variant="secondary"
                             onClick={resetImport}
                             disabled={confirming}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                            icon={<IconRefresh size={16} />}
                         >
                             Volver a subir
                         </AdminButton>
@@ -963,7 +964,7 @@ export default function ImportParticipantsPage() {
                             disabled={
                                 confirming || preview.valid.length === 0
                             }
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             Importar {preview.valid.length}{" "}
                             {preview.valid.length === 1 ? "válida" : "válidas"}
@@ -1175,7 +1176,7 @@ export default function ImportParticipantsPage() {
                             <AdminButton
                                 type="button"
                                 onClick={handleDownloadCredentials}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/download.svg"
+                                icon={<IconDownload size={16} />}
                                 style={{
                                     width: "100%",
                                     justifyContent: "center",
@@ -1209,7 +1210,7 @@ export default function ImportParticipantsPage() {
                             type="button"
                             variant="secondary"
                             onClick={resetImport}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                            icon={<IconRefresh size={16} />}
                         >
                             Importar otro CSV
                         </AdminButton>

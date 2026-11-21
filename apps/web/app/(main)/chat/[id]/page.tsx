@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { ChatInput } from "../../../../components/chat/ChatInput";
 import { ChatMessage } from "../../../../components/chat/ChatMessage";
 import { ChatRoomHeader } from "../../../../components/chat/ChatRoomHeader";
+import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
+import { groupMessages } from "../../../../lib/chat-groups";
 import {
     createConversation,
     deleteConversationMessage,
@@ -12,10 +14,22 @@ import {
     getConversations,
     sendConversationMessage,
 } from "../../../../lib/api/chat";
+import { formatDayLabel, formatTime } from "../../../../lib/format-datetime";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
 import type { Delegate } from "../../../../types/common";
+
+// Distancia en píxeles al final para considerar que el usuario sigue la conversación.
+const NEAR_BOTTOM_PX = 120;
+
+const preferredScrollBehavior = (): ScrollBehavior => {
+    try {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    } catch {
+        return "smooth";
+    }
+};
 
 const ChatRoomPage = () => {
     const params = useParams();
@@ -26,11 +40,16 @@ const ChatRoomPage = () => {
     const eventId = useAuthStore((state) => state.activeEventId);
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
 
-    const bottomRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const nearBottomRef = useRef(true);
+    const initialScrollDoneRef = useRef(false);
+    const knownMessageIdsRef = useRef<Set<string>>(new Set());
+    const [showNewMessagesChip, setShowNewMessagesChip] = useState(false);
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
     const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
     const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+    const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -40,18 +59,37 @@ const ChatRoomPage = () => {
                 ? {
                       ...conversation.otherParticipant,
                       lastActive: conversation.lastMessageAt
-                          ? new Date(conversation.lastMessageAt).toLocaleDateString()
+                          ? `${formatDayLabel(conversation.lastMessageAt)} · ${formatTime(conversation.lastMessageAt)}`
                           : "Nuevo",
                   }
                 : {
                       id: conversationId,
                       name: "Delegado",
-                      avatar: `https://ui-avatars.com/api/?name=Delegado&background=E5E7EB&color=111827`,
-                      role: "DELEGADO",
+                      // Sin avatar: ChatRoomHeader muestra iniciales locales.
+                      avatar: "",
+                      role: "PARTICIPANT",
                       committee: "Comité",
                       lastActive: "desconocido",
                   },
         [conversation, conversationId],
+    );
+
+    // Bloques por día y por autor consecutivo (ver lib/chat-groups.ts).
+    const messageGroups = useMemo(
+        () =>
+            groupMessages(
+                messages.map((message) => ({
+                    id: message.id,
+                    senderId: message.senderId,
+                    createdAt: message.createdAt,
+                })),
+            ),
+        [messages],
+    );
+
+    const messagesById = useMemo(
+        () => new Map(messages.map((message) => [message.id, message])),
+        [messages],
     );
 
     const refreshConversation = useCallback(async () => {
@@ -99,6 +137,13 @@ const ChatRoomPage = () => {
 
         let cancelled = false;
 
+        // Otra conversación no hereda el estado de scroll ni los ids ya conocidos,
+        // aunque el componente no se desmonte al cambiar el parámetro.
+        initialScrollDoneRef.current = false;
+        knownMessageIdsRef.current = new Set();
+        nearBottomRef.current = true;
+        setShowNewMessagesChip(false);
+
         const loadRoom = async () => {
             try {
                 setIsLoading(true);
@@ -142,7 +187,7 @@ const ChatRoomPage = () => {
                     setError(
                         loadError instanceof Error
                             ? loadError.message
-                            : "No se pudo cargar la conversacion.",
+                            : "No se pudo cargar la conversación.",
                     );
                 }
             } finally {
@@ -203,10 +248,61 @@ const ChatRoomPage = () => {
         };
     }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
+    const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+        const element = scrollRef.current;
+        if (!element) {
+            return;
+        }
+
+        element.scrollTo({ top: element.scrollHeight, behavior });
+        nearBottomRef.current = true;
+        setShowNewMessagesChip(false);
+    }, []);
+
+    const handleScroll = () => {
+        const element = scrollRef.current;
+        if (!element) {
+            return;
+        }
+
+        const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+        nearBottomRef.current = distance < NEAR_BOTTOM_PX;
+        if (nearBottomRef.current) {
+            setShowNewMessagesChip(false);
+        }
+    };
+
     useEffect(() => {
-        // Mantiene scroll al final cuando cambia el historial visible.
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        // Carga inicial: baja al final sin animación. Después, solo sigue la conversación
+        // si el usuario está cerca del final o si el mensaje es suyo; si no, ofrece un chip.
+        if (isLoading) {
+            return;
+        }
+
+        const previousIds = knownMessageIdsRef.current;
+        const incoming = messages.filter((message) => !previousIds.has(message.id));
+        knownMessageIdsRef.current = new Set(messages.map((message) => message.id));
+
+        if (!initialScrollDoneRef.current) {
+            initialScrollDoneRef.current = true;
+            scrollToBottom("auto");
+            return;
+        }
+
+        if (incoming.length === 0) {
+            return;
+        }
+
+        const hasOwnIncoming = incoming.some(
+            (message) => message.senderId === activeMembershipId,
+        );
+
+        if (hasOwnIncoming || nearBottomRef.current) {
+            scrollToBottom(preferredScrollBehavior());
+        } else {
+            setShowNewMessagesChip(true);
+        }
+    }, [activeMembershipId, isLoading, messages, scrollToBottom]);
 
     const handleSendMessage = async (text: string) => {
         // Envia mensaje y agrega resultado local para respuesta inmediata.
@@ -237,17 +333,18 @@ const ChatRoomPage = () => {
         }
     };
 
-    const handleDeleteMessage = async (messageId: string) => {
-        // Elimina mensaje propio con confirmacion y refresco posterior.
+    const requestDeleteMessage = (messageId: string) => {
+        // Elimina mensaje propio: pide confirmacion antes de llamar a la API.
         if (!token || !eventId || !conversationId) {
             return;
         }
 
-        const shouldDelete = window.confirm(
-            "Este mensaje dejara de verse en la conversacion, pero quedara registrado en auditoria. Deseas eliminarlo?",
-        );
+        setPendingDeleteMessageId(messageId);
+    };
 
-        if (!shouldDelete) {
+    const handleDeleteMessage = async (messageId: string) => {
+        // Elimina mensaje propio y refresca la conversacion.
+        if (!token || !eventId || !conversationId) {
             return;
         }
 
@@ -285,71 +382,127 @@ const ChatRoomPage = () => {
 
     return (
         <div
-            className="flex flex-col h-full"
+            className="flex flex-col flex-1 min-h-0"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
-            <ChatRoomHeader delegate={delegate} isOnline={false} />
+            <ChatRoomHeader delegate={delegate} />
 
             {error && (
                 <div
                     className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm font-body"
                     style={{
-                        backgroundColor: "color-mix(in srgb, #ef4444 8%, white)",
-                        border: "1px solid color-mix(in srgb, #ef4444 20%, transparent)",
-                        color: "#991b1b",
+                        backgroundColor: "color-mix(in srgb, var(--danger) 8%, var(--bg-surface))",
+                        border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+                        color: "var(--danger)",
                     }}
                 >
                     {error}
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
-                <div className="max-w-3xl mx-auto">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
-                        <span
-                            className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full font-heading"
+            <div className="relative flex-1 min-h-0">
+                <div
+                    ref={scrollRef}
+                    onScroll={handleScroll}
+                    className="h-full overflow-y-auto px-4 py-6 md:px-8"
+                >
+                    <div className="max-w-3xl mx-auto">
+                        {isLoading ? (
+                            <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                                Cargando mensajes...
+                            </p>
+                        ) : messages.length > 0 ? (
+                            messageGroups.map((group, groupIndex) => (
+                                <React.Fragment key={`day-${groupIndex}`}>
+                                    {group.dayLabel && (
+                                        <div className="flex items-center gap-3 my-6">
+                                            <div
+                                                className="flex-1 h-px"
+                                                style={{ backgroundColor: "var(--border-color)" }}
+                                            />
+                                            <span
+                                                className="text-xs font-semibold px-3 py-1 rounded-full font-heading"
+                                                style={{
+                                                    color: "var(--text-muted)",
+                                                    backgroundColor: "var(--bg-surface-secondary)",
+                                                    border: "1px solid var(--border-color)",
+                                                }}
+                                            >
+                                                {group.dayLabel}
+                                            </span>
+                                            <div
+                                                className="flex-1 h-px"
+                                                style={{ backgroundColor: "var(--border-color)" }}
+                                            />
+                                        </div>
+                                    )}
+                                    {group.runs.map((run) =>
+                                        run.messageIds.map((messageId, indexInRun) => {
+                                            const message = messagesById.get(messageId);
+                                            if (!message) {
+                                                return null;
+                                            }
+
+                                            const isMe = message.senderId === activeMembershipId;
+
+                                            return (
+                                                <ChatMessage
+                                                    key={message.id}
+                                                    message={message}
+                                                    isMe={isMe}
+                                                    isNew={newMessageIds.has(message.id)}
+                                                    isLastInRun={indexInRun === run.messageIds.length - 1}
+                                                    onDelete={isMe ? requestDeleteMessage : undefined}
+                                                    isDeleting={deletingMessageIds.has(message.id)}
+                                                />
+                                            );
+                                        }),
+                                    )}
+                                </React.Fragment>
+                            ))
+                        ) : (
+                            <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
+                                Todavía no hay mensajes. Escribe el primero.
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {showNewMessagesChip && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+                        <button
+                            type="button"
+                            onClick={() => scrollToBottom(preferredScrollBehavior())}
+                            className="pointer-events-auto motion-fade-in min-h-11 px-4 rounded-full text-sm font-semibold font-body"
                             style={{
-                                color: "var(--text-muted)",
-                                backgroundColor: "var(--bg-surface-secondary)",
-                                border: "1px solid var(--border-color)",
+                                backgroundColor: "var(--bubble-me-bg)",
+                                color: "var(--text-on-accent)",
+                                boxShadow: "var(--shadow-sm)",
                             }}
                         >
-                            HOY
-                        </span>
-                        <div className="flex-1 h-px" style={{ backgroundColor: "var(--border-color)" }} />
+                            Mensajes nuevos
+                        </button>
                     </div>
-
-                    {isLoading ? (
-                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
-                            Cargando mensajes...
-                        </p>
-                    ) : messages.length > 0 ? (
-                        messages.map((message) => (
-                            <ChatMessage
-                                key={message.id}
-                                message={message}
-                                isMe={message.senderId === activeMembershipId}
-                                isNew={newMessageIds.has(message.id)}
-                                onDelete={
-                                    message.senderId === activeMembershipId
-                                        ? handleDeleteMessage
-                                        : undefined
-                                }
-                                isDeleting={deletingMessageIds.has(message.id)}
-                            />
-                        ))
-                    ) : (
-                        <p className="text-center text-sm font-body" style={{ color: "var(--text-muted)" }}>
-                            Todavia no hay mensajes. Escribe el primero.
-                        </p>
-                    )}
-
-                    <div ref={bottomRef} />
-                </div>
+                )}
             </div>
 
             <ChatInput onSend={handleSendMessage} disabled={isLoading} />
+
+            <ConfirmDialog
+                open={pendingDeleteMessageId !== null}
+                title="¿Eliminar este mensaje?"
+                description="Dejará de verse en la conversación, aunque quedará registrado en auditoría. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                tone="danger"
+                onCancel={() => setPendingDeleteMessageId(null)}
+                onConfirm={() => {
+                    const messageId = pendingDeleteMessageId;
+                    setPendingDeleteMessageId(null);
+                    if (messageId) {
+                        void handleDeleteMessage(messageId);
+                    }
+                }}
+            />
         </div>
     );
 };

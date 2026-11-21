@@ -60,7 +60,7 @@ export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
     id: membership?.id ?? 'unknown',
     name,
     avatar: profile?.profile_image_path ?? avatarForName(name),
-    role: membership?.role ?? 'DELEGADO',
+    role: membership?.role ?? 'PARTICIPANT',
     committee: visibleCommittee?.name ?? visibleCommittee?.code ?? 'Sin comite',
     lastActive: 'Activo',
     delegationName: membership?.delegation_name ?? null,

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../components/admin/AdminStatusBadge";
+import { IconAction } from "../../../../components/admin/IconAction";
 import {
     listEvents,
     type AdminEvent,
@@ -13,6 +13,15 @@ import {
 } from "../../../../lib/api/admin";
 import { ApiError } from "../../../../lib/api/client";
 import { useAuthStore } from "../../../../stores/auth.store";
+import {
+    IconAlertTriangle,
+    IconCalendar,
+    IconCommittees,
+    IconDirectory,
+    IconPlus,
+    IconRefresh,
+    IconSettings,
+} from "../../../../components/ui/icons";
 
 const PAGE_SIZE = 10;
 
@@ -54,10 +63,10 @@ const EventDates = ({
 
 const EventRow = ({ event }: { event: AdminEvent }) => (
     <tr
-        className="transition-colors hover:bg-[var(--bg-hover)]"
+        className="hover:bg-[var(--bg-hover)]"
         style={{ borderBottom: "1px solid var(--border-light)" }}
     >
-        <td className="px-6 py-4">
+        <td className="px-4 py-4 sm:px-6">
             <div className="min-w-0">
                 <p
                     className="text-sm font-semibold font-heading truncate"
@@ -74,37 +83,31 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
             </div>
         </td>
 
-        <td className="px-6 py-4 hidden md:table-cell text-sm whitespace-nowrap">
+        <td className="px-4 py-4 hidden md:table-cell text-sm whitespace-nowrap">
             <EventDates startDate={event.start_date} endDate={event.end_date} />
         </td>
 
-        <td className="px-6 py-4">
+        <td className="px-4 py-4">
             <AdminStatusBadge status={event.status} />
         </td>
 
-        <td className="px-6 py-4">
-            <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                <Link
+        <td className="px-4 py-4">
+            <div className="flex items-center justify-end gap-2">
+                <IconAction
                     href={`/admin/events/${event.id}/participants`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Participantes
-                </Link>
-                <Link
+                    label={`Participantes de ${event.name}`}
+                    icon={<IconDirectory size={18} />}
+                />
+                <IconAction
                     href={`/admin/events/${event.id}/committees`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-secondary)" }}
-                >
-                    Comités
-                </Link>
-                <Link
+                    label={`Comités de ${event.name}`}
+                    icon={<IconCommittees size={18} />}
+                />
+                <IconAction
                     href={`/admin/events/${event.id}`}
-                    className="text-xs font-semibold font-heading transition-opacity hover:opacity-70"
-                    style={{ color: "var(--text-accent)" }}
-                >
-                    Configurar
-                </Link>
+                    label={`Configurar ${event.name}`}
+                    icon={<IconSettings size={18} />}
+                />
             </div>
         </td>
     </tr>
@@ -113,7 +116,7 @@ const EventRow = ({ event }: { event: AdminEvent }) => (
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -178,16 +181,14 @@ export default function AdminEventsPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <AdminPageHeader
                 title="Eventos"
-                description="Crea, configura y administra los eventos del MUN."
                 breadcrumb={[{ label: "Panel", href: "/admin" }, { label: "Eventos" }]}
                 action={
-                    <Link href="/admin/events/new">
-                        <AdminButton
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                        >
-                            Nuevo evento
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href="/admin/events/new"
+                        icon={<IconPlus size={16} />}
+                    >
+                        Nuevo evento
+                    </AdminButton>
                 }
             />
 
@@ -203,14 +204,14 @@ export default function AdminEventsPage() {
 
                 {!loading && error && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="Error al cargar eventos"
                         description={error}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -220,33 +221,34 @@ export default function AdminEventsPage() {
 
                 {!loading && !error && events.length === 0 && (
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg"
+                        icon={<IconCalendar size={32} />}
                         title="No hay eventos registrados"
                         description="Crea el primer evento para empezar a configurar comités y participantes."
                         action={
-                            <Link href="/admin/events/new">
-                                <AdminButton
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
-                                >
-                                    Crear primer evento
-                                </AdminButton>
-                            </Link>
+                            <AdminButton
+                                href="/admin/events/new"
+                                icon={<IconPlus size={16} />}
+                            >
+                                Crear primer evento
+                            </AdminButton>
                         }
                     />
                 )}
 
                 {!loading && !error && events.length > 0 && (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full table-fixed text-left border-collapse">
                             <thead>
                                 <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
-                                    {["Evento", "Fechas", "Estado", ""].map((column, index) => (
+                                    {["Evento", "Fechas", "Estado", "Acciones"].map((column, index) => (
                                         <th
-                                            key={column || index}
+                                            key={column}
                                             className={[
-                                                "px-6 py-3 text-xs font-extrabold uppercase tracking-widest font-heading",
-                                                index === 1 ? "hidden md:table-cell" : "",
-                                                index === 3 ? "text-right" : "",
+                                                "px-4 py-3 text-xs font-bold uppercase tracking-wide font-heading",
+                                                index === 0 ? "sm:px-6" : "",
+                                                index === 1 ? "hidden md:table-cell w-56" : "",
+                                                index === 2 ? "w-28" : "",
+                                                index === 3 ? "w-36 sm:w-44 text-right" : "",
                                             ].join(" ")}
                                             style={{
                                                 color: "var(--text-muted)",

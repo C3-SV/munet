@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../../components/admin/AdminAlertBanner";
@@ -18,6 +17,7 @@ import {
 } from "../../../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCheck, IconRefresh } from "../../../../../../../../components/ui/icons";
 
 type FormState = {
     name: string;
@@ -143,7 +143,7 @@ export default function EditCommitteePage() {
         return () => {
             cancelled = true;
         };
-    }, [committeeId, reloadKey, token]);
+    }, [committeeId, eventId, reloadKey, token]);
 
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -243,9 +243,12 @@ export default function EditCommitteePage() {
                     { label: "Editar comité" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/committees`}>
-                        <AdminButton variant="secondary">Volver a comités</AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/committees`}
+                        variant="secondary"
+                    >
+                        Volver a comités
+                    </AdminButton>
                 }
             />
 
@@ -272,14 +275,14 @@ export default function EditCommitteePage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el comité"
                         description={loadError}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -383,7 +386,7 @@ export default function EditCommitteePage() {
                         <AdminButton
                             type="submit"
                             loading={saving}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {saving ? "Guardando..." : "Guardar cambios"}
                         </AdminButton>

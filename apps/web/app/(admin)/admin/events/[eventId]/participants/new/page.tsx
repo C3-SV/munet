@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
@@ -24,13 +23,8 @@ import {
     type CreateAccountBody,
 } from "../../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
-
-const ROLE_SUGGESTIONS = [
-    "PARTICIPANT",
-    "MODERATOR",
-    "ADMIN_MUN",
-    "ADMIN_TECH",
-];
+import { formatRoleLabel, PARTICIPANT_ROLES } from "../../../../../../../lib/role-label";
+import { IconCheck, IconPlus } from "../../../../../../../components/ui/icons";
 
 type FormState = {
     participant_code: string;
@@ -318,11 +312,12 @@ export default function NewParticipantPage() {
                     { label: "Nuevo participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -382,24 +377,25 @@ export default function NewParticipantPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                        <Link
+                        <AdminButton
                             href={`/admin/events/${eventId}/participants/${created.membershipId}`}
                         >
-                            <AdminButton>Ver participante</AdminButton>
-                        </Link>
+                            Ver participante
+                        </AdminButton>
                         <AdminButton
                             type="button"
                             variant="secondary"
                             onClick={handleCreateAnother}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/plus.svg"
+                            icon={<IconPlus size={16} />}
                         >
                             Registrar otro
                         </AdminButton>
-                        <Link href={`/admin/events/${eventId}/participants`}>
-                            <AdminButton variant="secondary">
-                                Volver a participantes
-                            </AdminButton>
-                        </Link>
+                        <AdminButton
+                            href={`/admin/events/${eventId}/participants`}
+                            variant="secondary"
+                        >
+                            Volver a participantes
+                        </AdminButton>
                     </div>
                 </div>
             ) : (
@@ -440,30 +436,20 @@ export default function NewParticipantPage() {
                             disabled={loading}
                         />
 
-                        <AdminFormInput
+                        <AdminFormSelect
                             id="participant-role"
                             label="Rol"
-                            placeholder="Ej: PARTICIPANT"
                             required
-                            list="participant-role-options"
                             value={form.role}
-                            onChange={(event) =>
-                                handleChange(
-                                    "role",
-                                    event.target.value.toUpperCase(),
-                                )
-                            }
+                            onChange={(event) => handleChange("role", event.target.value)}
+                            options={PARTICIPANT_ROLES.map((role) => ({
+                                value: role,
+                                label: formatRoleLabel(role),
+                            }))}
                             error={errors.role}
-                            hint="Roles habituales: PARTICIPANT, MODERATOR, ADMIN_MUN."
                             disabled={loading}
                         />
                     </div>
-
-                    <datalist id="participant-role-options">
-                        {ROLE_SUGGESTIONS.map((role) => (
-                            <option key={role} value={role} />
-                        ))}
-                    </datalist>
 
                     <AdminFormSelect
                         id="participant-committee"
@@ -600,7 +586,7 @@ export default function NewParticipantPage() {
                         <AdminButton
                             type="submit"
                             loading={loading}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {loading ? "Creando cuenta..." : "Crear participante"}
                         </AdminButton>

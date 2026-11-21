@@ -1,5 +1,6 @@
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { AdminEmptyState } from "../../../../components/admin/AdminEmptyState";
+import { IconShield } from "../../../../components/ui/icons";
 
 // Seccion futura del panel: supervision de muros y contenido.
 export default function AdminModerationPage() {
@@ -23,7 +24,7 @@ export default function AdminModerationPage() {
                 }}
             >
                 <AdminEmptyState
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/shield-alert.svg"
+                    icon={<IconShield size={32} />}
                     title="Sección en construcción"
                     description="La supervisión de muros y la eliminación de contenido estarán disponibles en una próxima entrega."
                 />

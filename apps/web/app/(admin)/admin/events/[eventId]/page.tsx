@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../components/admin/AdminAlertBanner";
@@ -18,6 +17,7 @@ import {
 } from "../../../../../lib/api/admin";
 import { ApiError } from "../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCheck, IconCommittees, IconDirectory, IconRefresh } from "../../../../../components/ui/icons";
 
 type FormState = {
     name: string;
@@ -208,22 +208,20 @@ export default function EventDetailPage() {
 
     const headerAction = event ? (
         <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/events/${eventId}/participants`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
-                >
-                    Participantes
-                </AdminButton>
-            </Link>
-            <Link href={`/admin/events/${eventId}/committees`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
-                >
-                    Gestionar comités
-                </AdminButton>
-            </Link>
+            <AdminButton
+                href={`/admin/events/${eventId}/participants`}
+                variant="secondary"
+                icon={<IconDirectory size={16} />}
+            >
+                Participantes
+            </AdminButton>
+            <AdminButton
+                href={`/admin/events/${eventId}/committees`}
+                variant="secondary"
+                icon={<IconCommittees size={16} />}
+            >
+                Gestionar comités
+            </AdminButton>
         </div>
     ) : undefined;
 
@@ -263,14 +261,14 @@ export default function EventDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el evento"
                         description={loadError}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -380,7 +378,7 @@ export default function EventDetailPage() {
                                 )
                             }
                             disabled={saving}
-                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
+                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                             style={{
                                 backgroundColor: "var(--input-bg)",
                                 border: "1px solid var(--input-border)",
@@ -418,7 +416,7 @@ export default function EventDetailPage() {
                         <AdminButton
                             type="submit"
                             loading={saving}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {saving ? "Guardando..." : "Guardar cambios"}
                         </AdminButton>

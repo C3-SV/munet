@@ -1,19 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { formatRoleLabel } from "../../lib/role-label";
 import { useTheme } from "../../lib/theme-context";
 import { useAuthStore } from "../../stores/auth.store";
+import {
+    IconCalendar,
+    IconClose,
+    IconCommittees,
+    IconDashboard,
+    IconDirectory,
+    IconMenu,
+    IconTheme,
+} from "../ui/icons";
 
 type AdminNavItem = {
     name: string;
     href: string;
-    icon: string;
+    icon: ReactNode;
     current: boolean;
 };
 
-const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean }) => {
+const AdminNavLink = ({ item }: { item: AdminNavItem }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
@@ -21,7 +32,7 @@ const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean })
             href={item.href}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="group flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading transition-all duration-150"
+            className="group flex min-h-11 items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading"
             style={{
                 backgroundColor: item.current
                     ? "var(--sidebar-active-bg)"
@@ -33,15 +44,14 @@ const AdminNavLink = ({ item, isDark }: { item: AdminNavItem; isDark: boolean })
                     : "var(--text-primary)",
             }}
         >
-            <img
-                src={item.icon}
-                className="size-5 transition-opacity"
+            <span
+                className="flex size-5 shrink-0 items-center justify-center"
                 style={{
-                    opacity: item.current || isHovered ? 1 : 0.5,
-                    filter: isDark ? "invert(1)" : "none",
+                    color: item.current || isHovered ? "var(--sidebar-active-text)" : "var(--text-secondary)",
                 }}
-                alt=""
-            />
+            >
+                {item.icon}
+            </span>
             <span className="flex-1">{item.name}</span>
         </Link>
     );
@@ -77,41 +87,39 @@ export const AdminSidebar = () => {
     };
 
     const isParticipantsRoute = pathname?.includes("/participants") ?? false;
+    const isCommitteesRoute = pathname?.includes("/committees") ?? false;
 
     const navigation: AdminNavItem[] = [
         {
             name: "Inicio Panel",
             href: "/admin",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/layout-dashboard.svg",
+            icon: <IconDashboard size={20} />,
             current: pathname === "/admin",
         },
         {
-            name: "Eventos y Comités",
+            name: "Eventos",
             href: "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/calendar-event.svg",
+            icon: <IconCalendar size={20} />,
             current:
                 (pathname?.startsWith("/admin/events") ?? false) &&
-                !isParticipantsRoute,
+                !isParticipantsRoute &&
+                !isCommitteesRoute,
+        },
+        {
+            name: "Comités",
+            href: activeEventId
+                ? `/admin/events/${activeEventId}/committees`
+                : "/admin/events",
+            icon: <IconCommittees size={20} />,
+            current: isCommitteesRoute,
         },
         {
             name: "Participantes",
             href: activeEventId
                 ? `/admin/events/${activeEventId}/participants`
                 : "/admin/events",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg",
+            icon: <IconDirectory size={20} />,
             current: isParticipantsRoute,
-        },
-        {
-            name: "Asignaciones",
-            href: "/admin/assignments",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg",
-            current: pathname?.startsWith("/admin/assignments") ?? false,
-        },
-        {
-            name: "Moderación",
-            href: "/admin/moderation",
-            icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/shield-alert.svg",
-            current: pathname?.startsWith("/admin/moderation") ?? false,
         },
     ];
 
@@ -125,17 +133,19 @@ export const AdminSidebar = () => {
                 }}
             >
                 <Link href="/admin" className="shrink-0">
-                    <img
+                    {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
+                    <Image
                         alt="MUNET Admin"
                         src="/logo-munet.png"
                         className="h-8 w-auto hover:opacity-80 transition-opacity"
                         style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                        width={954} height={299} unoptimized
                     />
                 </Link>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={toggleTheme}
-                        className="px-3 py-2 rounded-lg transition-all text-xs font-heading font-semibold"
+                        className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-xs font-heading font-semibold"
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "1px solid var(--border-color)",
@@ -147,16 +157,17 @@ export const AdminSidebar = () => {
                     </button>
                     <button
                         onClick={() => setIsMobileMenuOpen(true)}
-                        className="p-2 rounded-lg transition-all active:scale-95"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg"
                         style={{
                             backgroundColor: "var(--bg-surface-secondary)",
                             border: "1px solid var(--border-color)",
                             color: "var(--text-primary)",
                         }}
+                        aria-label="Abrir menú"
                         aria-controls="admin-sidebar"
                         aria-expanded={isMobileMenuOpen}
                     >
-                        Menú
+                        <IconMenu size={22} />
                     </button>
                 </div>
             </div>
@@ -182,20 +193,22 @@ export const AdminSidebar = () => {
                 <div className="flex flex-col mt-8 md:mt-10 shrink-0">
                     <div className="flex items-center justify-between">
                         <Link href="/admin" className="shrink-0">
-                            <img
+                            {/* Logo local de tamaño fijo; next/image no aporta aquí. */}
+                            <Image
                                 alt="MUNET Admin"
                                 src="/logo-munet.png"
                                 className="h-9 w-auto hover:opacity-80 transition-opacity"
                                 style={{ filter: isDark ? "brightness(0) invert(1)" : "none" }}
+                                width={954} height={299} unoptimized
                             />
                         </Link>
                         <button
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="md:hidden p-1.5 rounded-md transition-all text-xs font-semibold font-heading"
-                            style={{ color: "var(--text-muted)" }}
+                            className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-md"
+                            style={{ color: "var(--text-secondary)" }}
                             aria-label="Cerrar menú"
                         >
-                            Cerrar
+                            <IconClose size={22} />
                         </button>
                     </div>
                     <div
@@ -203,13 +216,7 @@ export const AdminSidebar = () => {
                         style={{ backgroundColor: "var(--text-accent)", opacity: 0.8 }}
                     />
                     <p
-                        className="mt-4 text-[10px] font-extrabold uppercase tracking-widest font-heading"
-                        style={{ color: "var(--text-secondary)" }}
-                    >
-                        Panel de Control
-                    </p>
-                    <p
-                        className="mt-1 text-sm font-bold font-heading truncate"
+                        className="mt-4 text-sm font-bold font-heading truncate"
                         style={{ color: "var(--text-primary)" }}
                         title={activeEventName}
                     >
@@ -218,14 +225,14 @@ export const AdminSidebar = () => {
                     <div className="mt-3 flex flex-col gap-1.5">
                         <Link
                             href="/select-event"
-                            className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
+                            className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-accent)" }}
                         >
                             Cambiar evento
                         </Link>
                         <Link
                             href="/feed"
-                            className="text-[11px] font-extrabold uppercase tracking-widest font-heading hover:opacity-80 transition-opacity"
+                            className="inline-flex min-h-11 items-center text-xs font-bold font-heading hover:opacity-80 transition-opacity"
                             style={{ color: "var(--text-secondary)" }}
                         >
                             ← Volver al Feed
@@ -237,7 +244,7 @@ export const AdminSidebar = () => {
                     <ul className="flex flex-col gap-y-1">
                         {navigation.map((item) => (
                             <li key={item.name}>
-                                <AdminNavLink item={item} isDark={isDark} />
+                                <AdminNavLink item={item} />
                             </li>
                         ))}
                     </ul>
@@ -252,7 +259,7 @@ export const AdminSidebar = () => {
                 >
                     <button
                         onClick={toggleTheme}
-                        className="flex w-full items-center gap-x-3 rounded-xl p-3 mb-2 text-sm font-medium font-heading transition-all hover:bg-[var(--bg-hover)]"
+                        className="mb-2 flex min-h-11 w-full items-center gap-x-3 rounded-xl p-3 text-sm font-medium font-heading hover:bg-[var(--bg-hover)]"
                         style={{ color: "var(--text-secondary)" }}
                     >
                         <span
@@ -263,23 +270,14 @@ export const AdminSidebar = () => {
                                 color: "var(--text-secondary)",
                             }}
                         >
-                            <img
-                                src={
-                                    isDark
-                                        ? "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/sun.svg"
-                                        : "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/moon.svg"
-                                }
-                                className="size-4"
-                                style={{ filter: isDark ? "invert(1)" : "none" }}
-                                alt=""
-                            />
+                            <IconTheme size={16} />
                         </span>
                         {isDark ? "Modo claro" : "Modo oscuro"}
                     </button>
 
                     <Link
                         href="/profile"
-                        className="flex w-full items-center gap-x-3 rounded-2xl p-3 text-left transition-all hover:bg-[var(--bg-hover)]"
+                        className="flex min-h-11 w-full items-center gap-x-3 rounded-2xl p-3 text-left hover:bg-[var(--bg-hover)]"
                         style={{ color: "var(--text-primary)" }}
                     >
                         <div className="flex flex-1 flex-col min-w-0">
@@ -290,18 +288,18 @@ export const AdminSidebar = () => {
                                 {activeMembership?.participantCode ?? "Administrador"}
                             </span>
                             <span
-                                className="text-[10px] font-extrabold uppercase tracking-widest"
+                                className="text-xs font-bold"
                                 style={{ color: "var(--text-accent)" }}
                             >
-                                {activeMembership?.role ?? "ADMIN"}
+                                {formatRoleLabel(activeMembership?.role ?? "ADMIN")}
                             </span>
                         </div>
                     </Link>
 
                     <button
                         onClick={handleLogout}
-                        className="mt-1 w-full rounded-xl p-2.5 text-xs font-semibold font-heading transition-all hover:bg-[var(--bg-hover)]"
-                        style={{ color: "#ef4444" }}
+                        className="mt-1 min-h-11 w-full rounded-xl p-2.5 text-xs font-semibold font-heading hover:bg-[var(--bg-hover)]"
+                        style={{ color: "var(--danger)" }}
                     >
                         Cerrar sesión
                     </button>

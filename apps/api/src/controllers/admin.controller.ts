@@ -5,7 +5,7 @@ import { logAudit } from '../utils/audit.logger';
 import bcrypt from 'bcrypt';
 import { validateCatalogBody } from '../utils/admin.validation';
 import { generateInitialPassword } from '../utils/password.utils';
-import { isAdminRole } from '../utils/rbac.utils';
+import { isAdminRole, isMembershipRole, MEMBERSHIP_ROLES } from '../utils/rbac.utils';
 import { assignDelegationCode, createParticipantAccount } from '../services/participant-account.service';
 import { searchParticipants } from '../services/participant-search.service';
 
@@ -45,6 +45,10 @@ export const createAccount = async (
       return res.status(400).json({
         error: 'event_id, participant_code, role, first_name y last_name son requeridos'
       });
+    }
+
+    if (!isMembershipRole(role)) {
+      return res.status(400).json({ error: `role debe ser uno de: ${MEMBERSHIP_ROLES.join(', ')}` });
     }
 
     if (body.alias !== undefined && body.alias !== null && (typeof body.alias !== 'string' || body.alias.trim().length > 60)) {
@@ -1047,6 +1051,9 @@ export const listParticipants = async (req: Request, res: Response) => {
     }
 
     const role = typeof req.query.role === 'string' ? req.query.role : null;
+    if (role && !isMembershipRole(role)) {
+      return res.status(400).json({ error: `role debe ser uno de: ${MEMBERSHIP_ROLES.join(', ')}` });
+    }
     if (role) query = query.eq('role', role);
 
     const status = typeof req.query.status === 'string' ? req.query.status : null;

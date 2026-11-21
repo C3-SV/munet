@@ -2,37 +2,23 @@
 
 // Banner de feedback para confirmar acciones y mostrar advertencias en el panel admin.
 
+import {
+    IconAlertTriangle,
+    IconCheckCircle,
+    IconClose,
+    IconXCircle,
+} from "../ui/icons";
+
 type AdminAlertBannerProps = {
     type: "success" | "error" | "warning";
     message: string;
     onDismiss?: () => void;
 };
 
-const PALETTES = {
-    success: {
-        color: "#16a34a",
-        backgroundColor: "color-mix(in srgb, #22c55e 10%, transparent)",
-        border: "1px solid color-mix(in srgb, #22c55e 25%, transparent)",
-        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-check.svg",
-        iconFilter:
-            "invert(40%) sepia(80%) saturate(400%) hue-rotate(100deg)",
-    },
-    error: {
-        color: "#ef4444",
-        backgroundColor: "color-mix(in srgb, #ef4444 10%, transparent)",
-        border: "1px solid color-mix(in srgb, #ef4444 25%, transparent)",
-        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/circle-x.svg",
-        iconFilter:
-            "invert(30%) sepia(80%) saturate(600%) hue-rotate(330deg)",
-    },
-    warning: {
-        color: "#b45309",
-        backgroundColor: "color-mix(in srgb, #f59e0b 10%, transparent)",
-        border: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
-        icon: "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg",
-        iconFilter:
-            "invert(55%) sepia(90%) saturate(800%) hue-rotate(345deg) brightness(85%)",
-    },
+const TONES = {
+    success: "var(--success)",
+    error: "var(--danger)",
+    warning: "#b45309",
 } as const;
 
 export const AdminAlertBanner = ({
@@ -40,24 +26,25 @@ export const AdminAlertBanner = ({
     message,
     onDismiss,
 }: AdminAlertBannerProps) => {
-    const palette = PALETTES[type];
+    const tone = TONES[type];
+    const Icon =
+        type === "success"
+            ? IconCheckCircle
+            : type === "error"
+              ? IconXCircle
+              : IconAlertTriangle;
 
     return (
         <div
             className="flex items-start gap-3 rounded-xl px-4 py-3"
             role={type === "error" ? "alert" : "status"}
             style={{
-                backgroundColor: palette.backgroundColor,
-                border: palette.border,
-                color: palette.color,
+                backgroundColor: `color-mix(in srgb, ${tone} 10%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${tone} 25%, transparent)`,
+                color: tone,
             }}
         >
-            <img
-                src={palette.icon}
-                className="size-5 mt-0.5 shrink-0"
-                style={{ filter: palette.iconFilter }}
-                alt=""
-            />
+            <Icon size={20} className="mt-0.5 shrink-0" />
             <p className="text-sm font-medium flex-1">{message}</p>
             {onDismiss && (
                 <button
@@ -65,12 +52,7 @@ export const AdminAlertBanner = ({
                     className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
                     aria-label="Cerrar"
                 >
-                    <img
-                        src="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/x.svg"
-                        className="size-4"
-                        style={{ filter: palette.iconFilter }}
-                        alt=""
-                    />
+                    <IconClose size={16} />
                 </button>
             )}
         </div>
