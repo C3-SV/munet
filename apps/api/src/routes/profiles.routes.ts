@@ -16,8 +16,8 @@ const router = Router();
 router.get('/me', requireAuth, getMyProfile);
 router.patch('/me', requireAuth, requireEventOpenForWrites, updateMyProfile);
 router.post('/me/avatar', requireAuth, requireEventOpenForWrites, uploadMyAvatar);
-router.patch('/:membershipId', requireAuth, updatePublicProfileAsAdmin);
-router.post('/:membershipId/avatar', requireAuth, uploadPublicAvatarAsAdmin);
+router.patch('/:membershipId', requireAuth, requireEventOpenForWrites, updatePublicProfileAsAdmin);
+router.post('/:membershipId/avatar', requireAuth, requireEventOpenForWrites, uploadPublicAvatarAsAdmin);
 router.get('/:membershipId', requireAuth, getPublicProfile);
 
 export default router;
