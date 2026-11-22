@@ -5,14 +5,16 @@ const vm = require('node:vm');
 const ts = require('typescript');
 require('ts-node').register({ project: 'apps/api/tsconfig.json' });
 
-function harness({ memberships = [], invalidToken = false, token = 'Bearer valido', resource = { data: null } } = {}) {
+function harness({ memberships = [], invalidToken = false, token = 'Bearer valido', resource = { data: null }, auditError = null } = {}) {
   const calls = [];
   const queries = [];
+  const audits = [];
+  const errors = [];
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(__dirname + '/auth.middleware.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { module, exports: module.exports, console, require(name) {
+  vm.runInNewContext(code, { module, exports: module.exports, console: { error: (...args) => errors.push(args) }, require(name) {
     if (name === '../lib/supabase') return { supabaseAdmin: { from(table) {
       const steps = [];
       queries.push({ table, steps });
@@ -30,12 +32,13 @@ function harness({ memberships = [], invalidToken = false, token = 'Bearer valid
       async getMembershipsByUserId(id) { assert.equal(id, 'user'); return memberships; },
     };
     if (name === '../utils/rbac.utils') return require('../utils/rbac.utils.ts');
+    if (name === '../utils/audit.logger') return { async logAudit(entry) { audits.push(entry); if (auditError) throw auditError; } };
     throw new Error(`Import inesperado: ${name}`);
   } });
   const req = { header: name => name === 'authorization' ? token : undefined };
   const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   let nextCalls = 0;
-  return { middleware: module.exports, req, res, calls, queries, get nextCalls() { return nextCalls; }, async run(resolver = () => 'event', options) {
+  return { middleware: module.exports, req, res, calls, queries, audits, errors, get nextCalls() { return nextCalls; }, async run(resolver = () => 'event', options) {
     let authenticated = false;
     await module.exports.requireAuth(req, res, () => { authenticated = true; });
     if (authenticated) await module.exports.requireEventAdmin(resolver, options)(req, res, () => { nextCalls++; });
@@ -137,14 +140,14 @@ test('todas las rutas administrativas tienen autenticacion y autorizacion apropi
 });
 
 
-test('superadmin exige ADMIN_TECH exacto normalizado y activo, y adjunta actor', () => {
+test('superadmin exige ADMIN_TECH exacto normalizado y activo, y adjunta actor', async () => {
   for (const role of ['ADMIN_TECH', ' admin_tech ', 'ADMIN_MUN', 'ADMIN', 'MODERATOR', 'XADMIN_TECH']) {
     for (const accountStatus of ['ACTIVE', 'SUSPENDED', 'PENDING_ACTIVATION']) {
       const h = harness();
       const membership = { id: 'actor', eventId: 'otro', role, accountStatus };
       h.req.auth = { memberships: [membership] };
       let next = false;
-      h.middleware.requireSuperAdmin(h.req, h.res, () => { next = true; });
+      await h.middleware.requireSuperAdmin(h.req, h.res, () => { next = true; });
       const allowed = role.trim().toUpperCase() === 'ADMIN_TECH' && accountStatus === 'ACTIVE';
       assert.equal(next, allowed);
       assert.equal(h.res.statusCode, allowed ? 200 : 403);
@@ -176,7 +179,7 @@ test('moderador no administra cuentas, comites, roles ni eventos', async () => {
   await h.run();
   assert.equal(h.res.statusCode, 403);
   assert.equal(h.nextCalls, 0);
-  h.middleware.requireAdmin(h.req, h.res, () => assert.fail('No debe listar eventos'));
+  await h.middleware.requireAdmin(h.req, h.res, () => assert.fail('No debe listar eventos'));
   assert.equal(h.res.statusCode, 403);
   const source = fs.readFileSync(__dirname + '/../routes/admin.routes.ts', 'utf8');
   for (const path of ['/create-account', '/participants/:membershipId/committee', '/participants/:membershipId/role']) {
@@ -195,4 +198,90 @@ test('moderacion conserva missingStatus y maneja errores del resolver', async ()
   const h = harness();
   await h.middleware.requireEventModerator(() => { throw new Error('simulado'); })(h.req, h.res, () => assert.fail());
   assert.equal(h.res.statusCode, 500);
+});
+
+// Denegaciones de autorizacion: cada 403 queda en audit_logs como DENIED con la
+// ruta (sin query), y el 403 se envia aunque la escritura del log falle.
+const denialCases = [
+  {
+    name: 'requireEventAdmin con participante del evento',
+    auth: { userId: 'user', memberships: [{ id: 'm-part', userId: 'user', eventId: 'event', role: 'PARTICIPANT', accountStatus: 'ACTIVE' }] },
+    run: (h, next) => h.middleware.requireEventAdmin(async () => 'event')(h.req, h.res, next),
+    expected: { eventId: 'event', actorUserId: 'user', actorMembershipId: 'm-part', actorRole: 'PARTICIPANT', entityType: 'EVENT', entityId: 'event' },
+  },
+  {
+    name: 'requireEventModerator con admin de otro evento',
+    auth: { userId: 'user', memberships: [{ id: 'm-otro', userId: 'user', eventId: 'otro', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] },
+    run: (h, next) => h.middleware.requireEventModerator(async () => 'event')(h.req, h.res, next),
+    expected: { eventId: 'event', actorUserId: 'user', actorMembershipId: null, actorRole: null, entityType: 'EVENT', entityId: 'event' },
+  },
+  {
+    name: 'requireSuperAdmin sin ADMIN_TECH',
+    auth: { userId: 'user', memberships: [{ id: 'm-mun', userId: 'user', eventId: 'event', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] },
+    run: (h, next) => h.middleware.requireSuperAdmin(h.req, h.res, next),
+    expected: { eventId: null, actorUserId: 'user', entityType: 'ACCOUNT', entityId: 'user' },
+  },
+  {
+    name: 'requireAdmin sin membership administrativa',
+    auth: { userId: 'user', memberships: [{ id: 'm-part', userId: 'user', eventId: 'event', role: 'PARTICIPANT', accountStatus: 'ACTIVE' }] },
+    run: (h, next) => h.middleware.requireAdmin(h.req, h.res, next),
+    expected: { eventId: null, actorUserId: 'user', entityType: 'ACCOUNT', entityId: 'user' },
+  },
+  {
+    name: 'requireRole con rol ajeno a la lista',
+    auth: { userId: 'user', memberships: [], currentMembership: { id: 'm-part', userId: 'user', eventId: 'event', role: 'PARTICIPANT', accountStatus: 'ACTIVE' } },
+    run: (h, next) => h.middleware.requireRole('ADMIN_MUN')(h.req, h.res, next),
+    expected: { eventId: 'event', actorUserId: 'user', actorMembershipId: 'm-part', actorRole: 'PARTICIPANT', entityType: 'EVENT', entityId: 'event' },
+  },
+];
+
+test('cada denegacion de autorizacion se audita como DENIED y el 403 se envia aunque el log falle', async () => {
+  for (const c of denialCases) {
+    for (const auditError of [null, new Error('simulado')]) {
+      const h = harness({ auditError });
+      Object.assign(h.req, { method: 'GET', baseUrl: '/admin', route: { path: '/events' }, auth: c.auth });
+      let nextCalls = 0;
+      await c.run(h, () => { nextCalls++; });
+      assert.equal(h.res.statusCode, 403, c.name);
+      assert.equal(nextCalls, 0, c.name);
+      assert.equal(h.audits.length, 1, c.name);
+      const audit = h.audits[0];
+      assert.equal(audit.outcome, 'DENIED', c.name);
+      assert.equal(audit.actionType, 'ACCESS_DENIED', c.name);
+      assert.match(audit.reason, /^Denegado GET \/admin\/events: se requiere /, c.name);
+      assert.deepEqual(Object.fromEntries(Object.keys(c.expected).map(k => [k, audit[k] ?? null])), c.expected, c.name);
+      assert.equal(h.errors.length, auditError ? 1 : 0, c.name);
+    }
+  }
+});
+
+test('sin usuario autenticado ni evento no hay denegacion que atribuir: el 403 se envia sin auditoria', async () => {
+  const h = harness();
+  let nextCalls = 0;
+  await h.middleware.requireAdmin(h.req, h.res, () => { nextCalls++; });
+  assert.equal(h.res.statusCode, 403);
+  assert.equal(nextCalls, 0);
+  assert.equal(h.audits.length, 0);
+});
+
+test('un acceso permitido no genera auditoria de denegacion', async () => {
+  const h = harness();
+  h.req.auth = { userId: 'user', memberships: [{ id: 'm-mun', userId: 'user', eventId: 'event', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] };
+  let nextCalls = 0;
+  await h.middleware.requireAdmin(h.req, h.res, () => { nextCalls++; });
+  await h.middleware.requireEventAdmin(async () => 'event')(h.req, h.res, () => { nextCalls++; });
+  assert.equal(nextCalls, 2);
+  assert.equal(h.audits.length, 0);
+});
+
+test('la auditoria de denegaciones se limita a 10 por usuario y ventana, y el 403 se mantiene', async () => {
+  const h = harness();
+  const participant = [{ id: 'm1', eventId: 'event', role: 'PARTICIPANT', accountStatus: 'ACTIVE' }];
+  for (let i = 0; i < 15; i++) {
+    const req = { header: () => 'Bearer valido', auth: { userId: 'user', memberships: participant } };
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await h.middleware.requireEventAdmin(() => 'event')(req, res, () => {});
+    assert.equal(res.statusCode, 403);
+  }
+  assert.equal(h.audits.length, h.middleware.DENIAL_AUDIT_LIMIT);
 });
