@@ -87,6 +87,8 @@ export type ListModerationPostsParams = {
     status?: ModerationStatusFilter;
     page?: number;
     limit?: number;
+    // Filtra por persona (membership del evento) dentro del muro; omitido = todas.
+    author_membership_id?: string;
 };
 
 // El máximo de fijados por muro lo valida la API; se usa solo para deshabilitar el botón.
@@ -109,7 +111,7 @@ export const listModerationWalls = async (
 export const listModerationPosts = (
     token: string,
     wallId: string,
-    { status = "VISIBLE", page = 1, limit = 20 }: ListModerationPostsParams = {},
+    { status = "VISIBLE", page = 1, limit = 20, author_membership_id }: ListModerationPostsParams = {},
 ) => {
     const params = new URLSearchParams({
         wall_id: wallId,
@@ -117,6 +119,10 @@ export const listModerationPosts = (
         page: String(page),
         limit: String(limit),
     });
+
+    if (author_membership_id) {
+        params.set("author_membership_id", author_membership_id);
+    }
 
     return requestApi<{
         posts: ModerationPost[];

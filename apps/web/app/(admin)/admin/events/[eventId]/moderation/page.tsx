@@ -18,9 +18,12 @@ import {
     type ModerationStatusFilter,
     type ModerationWall,
 } from "../../../../../../lib/api/moderation";
+import { type AdminParticipant, listParticipants } from "../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../stores/auth.store";
 
 const PAGE_SIZE = 20;
+// Máximo que admite la API de participantes por página; se recorren todas para el selector.
+const PEOPLE_PAGE_SIZE = 100;
 // Espera tras un 429 antes de permitir otra acción de escritura.
 const COOLDOWN_MS = 5000;
 
@@ -34,6 +37,13 @@ type ToastState = { type: "success" | "error"; message: string };
 
 const wallLabel = (wall: ModerationWall) =>
     `${wall.name} · ${wall.visible_posts} visibles · ${wall.pinned_posts} fijados`;
+
+const personLabel = (person: AdminParticipant) => {
+    const name =
+        person.profile?.display_name?.trim() ||
+        `${person.profile?.first_name ?? ""} ${person.profile?.last_name ?? ""}`.trim();
+    return name ? `${name} · ${person.participant_code}` : person.participant_code;
+};
 
 export default function ModerationPage() {
     const params = useParams<{ eventId: string }>();
@@ -49,6 +59,12 @@ export default function ModerationPage() {
     const [wallsLoading, setWallsLoading] = useState(true);
     const [wallsError, setWallsError] = useState<string | null>(null);
     const [wallId, setWallId] = useState("");
+
+    const [people, setPeople] = useState<AdminParticipant[]>([]);
+    const [peopleLoading, setPeopleLoading] = useState(true);
+    const [peopleError, setPeopleError] = useState<string | null>(null);
+    // "" = todas las personas del muro seleccionado.
+    const [authorId, setAuthorId] = useState("");
 
     const [status, setStatus] = useState<ModerationStatusFilter>("VISIBLE");
     const [page, setPage] = useState(1);
@@ -118,6 +134,54 @@ export default function ModerationPage() {
         void loadWalls();
     }, [loadWalls]);
 
+    // Personas del evento para el selector. Si falla, el selector se deshabilita y el resto sigue.
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+        setPeopleLoading(true);
+        setPeopleError(null);
+
+        const loadPeople = async () => {
+            const all: AdminParticipant[] = [];
+            for (let current = 1; ; current += 1) {
+                const data = await listParticipants(token, {
+                    eventId,
+                    page: current,
+                    limit: PEOPLE_PAGE_SIZE,
+                });
+                all.push(...data.participants);
+                if (current >= data.pagination.total_pages || data.participants.length === 0) {
+                    return all;
+                }
+            }
+        };
+
+        loadPeople()
+            .then((list) => {
+                if (!cancelled) {
+                    setPeople(list);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPeople([]);
+                    setPeopleError("No se pudo cargar la lista de personas.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setPeopleLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [token, eventId]);
+
     useEffect(() => {
         if (!token || !wallId) {
             return;
@@ -127,7 +191,12 @@ export default function ModerationPage() {
         setPostsLoading(true);
         setPostsError(null);
 
-        listModerationPosts(token, wallId, { status, page, limit: PAGE_SIZE })
+        listModerationPosts(token, wallId, {
+            status,
+            page,
+            limit: PAGE_SIZE,
+            author_membership_id: authorId || undefined,
+        })
             .then((data) => {
                 if (!cancelled) {
                     setPosts(data.posts);
@@ -148,7 +217,7 @@ export default function ModerationPage() {
         return () => {
             cancelled = true;
         };
-    }, [token, wallId, status, page, reloadKey, describeError]);
+    }, [token, wallId, status, page, authorId, reloadKey, describeError]);
 
     const handleChanged = (message: string) => {
         setToast({ type: "success", message });
@@ -203,16 +272,37 @@ export default function ModerationPage() {
                         boxShadow: "var(--shadow-sm)",
                     }}
                 >
-                    <AdminFormSelect
-                        id="moderation-wall"
-                        label="Muro"
-                        value={wallId}
-                        onChange={(event) => {
-                            setWallId(event.target.value);
-                            setPage(1);
-                        }}
-                        options={walls.map((wall) => ({ value: wall.id, label: wallLabel(wall) }))}
-                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <AdminFormSelect
+                            id="moderation-wall"
+                            label="Muro"
+                            value={wallId}
+                            onChange={(event) => {
+                                setWallId(event.target.value);
+                                setPage(1);
+                            }}
+                            options={walls.map((wall) => ({ value: wall.id, label: wallLabel(wall) }))}
+                        />
+
+                        <AdminFormSelect
+                            id="moderation-author"
+                            label="Persona"
+                            value={authorId}
+                            disabled={peopleLoading || peopleError !== null}
+                            error={peopleError ?? undefined}
+                            onChange={(event) => {
+                                setAuthorId(event.target.value);
+                                setPage(1);
+                            }}
+                            options={[
+                                { value: "", label: "Todas las personas" },
+                                ...people.map((person) => ({
+                                    value: person.id,
+                                    label: personLabel(person),
+                                })),
+                            ]}
+                        />
+                    </div>
 
                     <div role="tablist" aria-label="Estado de las publicaciones" className="flex gap-2">
                         {TABS.map((tab) => (
@@ -269,7 +359,11 @@ export default function ModerationPage() {
                         <AdminEmptyState
                             icon={<IconShield size={32} />}
                             title="Sin publicaciones"
-                            description="No hay publicaciones con este estado en el muro."
+                            description={
+                                authorId
+                                    ? "Esta persona no tiene publicaciones con este estado en el muro."
+                                    : "No hay publicaciones con este estado en el muro."
+                            }
                         />
                     )}
 
