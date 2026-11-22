@@ -161,3 +161,13 @@ export const updateCommittee = async (
         token,
         body,
     });
+
+// Borrado lógico del comité y de su muro. Los participantes quedan sin comité.
+export const deleteCommittee = async (
+    token: string,
+    committeeId: string,
+): Promise<{ message: string }> =>
+    requestApi(`/admin/committees/${committeeId}`, {
+        method: "DELETE",
+        token,
+    });
