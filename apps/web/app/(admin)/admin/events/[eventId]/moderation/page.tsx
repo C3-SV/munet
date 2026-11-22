@@ -11,9 +11,11 @@ import { ModerationPostCard } from "../../../../../../components/admin/Moderatio
 import { IconAlertTriangle, IconRefresh, IconShield } from "../../../../../../components/ui/icons";
 import { ApiError } from "../../../../../../lib/api/client";
 import {
+    listModerationPeople,
     listModerationPosts,
     listModerationWalls,
     type ModerationPagination,
+    type ModerationPerson,
     type ModerationPost,
     type ModerationStatusFilter,
     type ModerationWall,
@@ -35,6 +37,11 @@ type ToastState = { type: "success" | "error"; message: string };
 const wallLabel = (wall: ModerationWall) =>
     `${wall.name} · ${wall.visible_posts} visibles · ${wall.pinned_posts} fijados`;
 
+const personLabel = (person: ModerationPerson) => {
+    const name = `${person.first_name} ${person.last_name}`.trim() || person.alias || "";
+    return name ? `${name} · ${person.participant_code}` : person.participant_code;
+};
+
 export default function ModerationPage() {
     const params = useParams<{ eventId: string }>();
     const eventId = params.eventId;
@@ -49,6 +56,12 @@ export default function ModerationPage() {
     const [wallsLoading, setWallsLoading] = useState(true);
     const [wallsError, setWallsError] = useState<string | null>(null);
     const [wallId, setWallId] = useState("");
+
+    const [people, setPeople] = useState<ModerationPerson[]>([]);
+    const [peopleLoading, setPeopleLoading] = useState(true);
+    const [peopleError, setPeopleError] = useState<string | null>(null);
+    // "" = todas las personas del muro seleccionado.
+    const [authorId, setAuthorId] = useState("");
 
     const [status, setStatus] = useState<ModerationStatusFilter>("VISIBLE");
     const [page, setPage] = useState(1);
@@ -118,6 +131,40 @@ export default function ModerationPage() {
         void loadWalls();
     }, [loadWalls]);
 
+    // Personas del evento para el selector. Si falla, el selector se deshabilita y el resto sigue.
+    useEffect(() => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        let cancelled = false;
+        setPeopleLoading(true);
+        setPeopleError(null);
+        setAuthorId("");
+
+        listModerationPeople(token, eventId)
+            .then((list) => {
+                if (!cancelled) {
+                    setPeople(list);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPeople([]);
+                    setPeopleError("No se pudo cargar la lista de personas.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setPeopleLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [token, eventId]);
+
     useEffect(() => {
         if (!token || !wallId) {
             return;
@@ -127,7 +174,12 @@ export default function ModerationPage() {
         setPostsLoading(true);
         setPostsError(null);
 
-        listModerationPosts(token, wallId, { status, page, limit: PAGE_SIZE })
+        listModerationPosts(token, wallId, {
+            status,
+            page,
+            limit: PAGE_SIZE,
+            author_membership_id: authorId || undefined,
+        })
             .then((data) => {
                 if (!cancelled) {
                     setPosts(data.posts);
@@ -148,7 +200,7 @@ export default function ModerationPage() {
         return () => {
             cancelled = true;
         };
-    }, [token, wallId, status, page, reloadKey, describeError]);
+    }, [token, wallId, status, page, authorId, reloadKey, describeError]);
 
     const handleChanged = (message: string) => {
         setToast({ type: "success", message });
@@ -203,16 +255,37 @@ export default function ModerationPage() {
                         boxShadow: "var(--shadow-sm)",
                     }}
                 >
-                    <AdminFormSelect
-                        id="moderation-wall"
-                        label="Muro"
-                        value={wallId}
-                        onChange={(event) => {
-                            setWallId(event.target.value);
-                            setPage(1);
-                        }}
-                        options={walls.map((wall) => ({ value: wall.id, label: wallLabel(wall) }))}
-                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <AdminFormSelect
+                            id="moderation-wall"
+                            label="Muro"
+                            value={wallId}
+                            onChange={(event) => {
+                                setWallId(event.target.value);
+                                setPage(1);
+                            }}
+                            options={walls.map((wall) => ({ value: wall.id, label: wallLabel(wall) }))}
+                        />
+
+                        <AdminFormSelect
+                            id="moderation-author"
+                            label="Persona"
+                            value={authorId}
+                            disabled={peopleLoading || peopleError !== null}
+                            error={peopleError ?? undefined}
+                            onChange={(event) => {
+                                setAuthorId(event.target.value);
+                                setPage(1);
+                            }}
+                            options={[
+                                { value: "", label: "Todas las personas" },
+                                ...people.map((person) => ({
+                                    value: person.id,
+                                    label: personLabel(person),
+                                })),
+                            ]}
+                        />
+                    </div>
 
                     <div role="tablist" aria-label="Estado de las publicaciones" className="flex gap-2">
                         {TABS.map((tab) => (
@@ -269,7 +342,11 @@ export default function ModerationPage() {
                         <AdminEmptyState
                             icon={<IconShield size={32} />}
                             title="Sin publicaciones"
-                            description="No hay publicaciones con este estado en el muro."
+                            description={
+                                authorId
+                                    ? "Esta persona no tiene publicaciones con este estado en el muro."
+                                    : "No hay publicaciones con este estado en el muro."
+                            }
                         />
                     )}
 

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 
 const POST_STATE = 'id, event_id, wall_id, author_membership_id, status, deleted_at, deleted_by_membership_id, deleted_by_membership_uuid, is_pinned, pinned_at, pinned_by_membership_id';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMMENT_STATE = 'id, event_id, post_id, author_membership_id, status, deleted_at, deleted_by_actor_type, deleted_by_membership_uuid';
 
 type Profile = { first_name: string; last_name: string; display_name?: string | null; alias?: string | null };
@@ -111,6 +112,36 @@ export const listModerationWalls = async (req: Request, res: Response) => {
   }
 };
 
+// Solo lectura para moderadores: nombre y codigo de las personas activas del evento, sin datos de contacto.
+export const listModerationPeople = async (req: Request, res: Response) => {
+  const eventId = req.auth!.currentMembership!.eventId;
+  try {
+    const people: { id: string; participant_code: string; first_name: string; last_name: string; alias: string | null }[] = [];
+    // Pagina internamente por id para no truncar eventos grandes.
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabaseAdmin.from('event_memberships')
+        .select('id, participant_code, profiles (first_name, last_name, alias)')
+        .eq('event_id', eventId).is('deleted_at', null)
+        .order('id').range(offset, offset + 499);
+      if (error) throw error;
+      for (const row of (data ?? []) as unknown as { id: string; participant_code: string; profiles: Profile | Profile[] | null }[]) {
+        const profile = first(row.profiles);
+        people.push({
+          id: row.id, participant_code: row.participant_code,
+          first_name: profile?.first_name ?? '', last_name: profile?.last_name ?? '', alias: profile?.alias ?? null,
+        });
+      }
+      if ((data?.length ?? 0) < 500) break;
+    }
+    people.sort((a, b) => a.last_name.localeCompare(b.last_name, 'es') || a.first_name.localeCompare(b.first_name, 'es')
+      || a.participant_code.localeCompare(b.participant_code) || a.id.localeCompare(b.id));
+    return res.json({ people });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudieron listar las personas' });
+  }
+};
+
 export const listModerationPosts = async (req: Request, res: Response) => {
   const status = statusFilter(req);
   const page = positiveInteger(req.query.page, 1, 1_000_000);
@@ -118,12 +149,29 @@ export const listModerationPosts = async (req: Request, res: Response) => {
   if (!status || !page || !limit || typeof req.query.wall_id !== 'string' || !req.query.wall_id.trim()) {
     return res.status(400).json({ error: 'wall_id, status, page o limit invalidos' });
   }
+  // Filtro opcional por persona (membership) dentro del muro; sin el parametro no cambia nada.
+  const rawAuthor = req.query.author_membership_id;
+  let authorMembershipId: string | undefined;
+  if (rawAuthor !== undefined) {
+    if (typeof rawAuthor !== 'string' || !UUID_PATTERN.test(rawAuthor)) {
+      return res.status(400).json({ error: 'author_membership_id debe ser un UUID' });
+    }
+    authorMembershipId = rawAuthor;
+  }
   const eventId = req.auth!.currentMembership!.eventId;
   try {
+    if (authorMembershipId) {
+      // La membresia debe pertenecer al evento del contexto; si no, no revela si existe en otro evento.
+      const { data: author, error: authorError } = await supabaseAdmin.from('event_memberships')
+        .select('id').eq('id', authorMembershipId).eq('event_id', eventId).maybeSingle();
+      if (authorError) throw authorError;
+      if (!author) return res.status(404).json({ error: 'La persona no pertenece a este evento' });
+    }
     let query = supabaseAdmin.from('posts')
       .select(`${POST_STATE}, post_type, title, content, created_at, updated_at, ${authorSelect('posts')}`, { count: 'exact' })
       .eq('event_id', eventId).eq('wall_id', req.query.wall_id);
     if (status !== 'ALL') query = query.eq('status', status);
+    if (authorMembershipId) query = query.eq('author_membership_id', authorMembershipId);
     const { data, count, error } = await query
       .order('is_pinned', { ascending: false }).order('pinned_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }).order('id', { ascending: false })
