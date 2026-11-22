@@ -105,6 +105,8 @@ Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como 
 | `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |
 | `POST /admin/moderation/comments/:commentId/delete` | `reason` (3–500) | Igual que el anterior. |
 | `POST /admin/moderation/posts/:postId/pin` y `/unpin` | — | Máximo 3 fijados por muro (409 al cuarto). Solo posts `VISIBLE`. |
+| `POST /admin/moderation/posts/:postId/hide` y `/unhide`, `POST /admin/moderation/comments/:commentId/hide` y `/unhide` | `{ reason }` (obligatorio) | Ocultar sin borrar (`VISIBLE` ↔ `HIDDEN`); 409 si el estado no corresponde; ocultar un post fijado lo desfija. Los participantes no ven lo oculto ni pueden comentar, votar o borrar sobre ello (404). Audita `HIDE_*` y `UNHIDE_*`. |
+| `GET /admin/audit-logs?event_id&limit&before` | — | Consulta de auditoría de un evento (`limit` 1 a 100, `before` ISO 8601 con zona). Respuesta `{ logs, next_before }`. `ADMIN_TECH` ve el registro completo; `ADMIN_MUN` solo acciones de cuidado general (moderación, suspender, reactivar, restablecer contraseña, `ACCESS_DENIED`). Ver [ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md). |
 
 ### Contrato CSV
 
