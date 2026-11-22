@@ -4,10 +4,14 @@ import { useState } from "react";
 import {
     deleteModerationComment,
     deleteModerationPost,
+    hideModerationComment,
+    hideModerationPost,
     listModerationComments,
     MAX_PINNED_POSTS,
     pinPost,
     removeModerationAttachment,
+    unhideModerationComment,
+    unhideModerationPost,
     unpinPost,
     type ModerationComment,
     type ModerationDetail,
@@ -33,29 +37,66 @@ type ModerationPostCardProps = {
     onChanged: (message: string) => void;
 };
 
-type DeleteTarget =
+// Acciones que piden motivo; comparten el mismo diálogo.
+type ReasonTarget =
     | { kind: "post" }
     | { kind: "attachment" }
-    | { kind: "comment"; comment: ModerationComment };
+    | { kind: "comment"; comment: ModerationComment }
+    | { kind: "hidePost" }
+    | { kind: "unhidePost" }
+    | { kind: "hideComment"; comment: ModerationComment }
+    | { kind: "unhideComment"; comment: ModerationComment };
 
-const DIALOG_COPY: Record<DeleteTarget["kind"], { title: string; description: string; confirmLabel: string }> = {
+const DIALOG_COPY: Record<
+    ReasonTarget["kind"],
+    { title: string; description: string; confirmLabel: string; tone: "default" | "danger" }
+> = {
     post: {
         title: "¿Eliminar esta publicación?",
         description:
             "El contenido dejará de verse para los participantes. Quedará registrado quién lo eliminó y por qué.",
         confirmLabel: "Eliminar",
+        tone: "danger",
     },
     comment: {
         title: "¿Eliminar este comentario?",
         description:
             "El contenido dejará de verse para los participantes. Quedará registrado quién lo eliminó y por qué.",
         confirmLabel: "Eliminar",
+        tone: "danger",
     },
     attachment: {
         title: "¿Retirar este adjunto?",
         description:
             "El archivo dejará de estar disponible y no se puede recuperar. La publicación y su texto se conservan. Quedará registrado quién lo retiró y por qué.",
         confirmLabel: "Retirar adjunto",
+        tone: "danger",
+    },
+    hidePost: {
+        title: "¿Ocultar esta publicación?",
+        description:
+            "Dejará de verse para los participantes, pero no se elimina y puede restaurarse después.",
+        confirmLabel: "Ocultar",
+        tone: "default",
+    },
+    unhidePost: {
+        title: "¿Restaurar esta publicación?",
+        description: "Volverá a verse para los participantes.",
+        confirmLabel: "Restaurar",
+        tone: "default",
+    },
+    hideComment: {
+        title: "¿Ocultar este comentario?",
+        description:
+            "Dejará de verse para los participantes, pero no se elimina y puede restaurarse después.",
+        confirmLabel: "Ocultar",
+        tone: "default",
+    },
+    unhideComment: {
+        title: "¿Restaurar este comentario?",
+        description: "Volverá a verse para los participantes.",
+        confirmLabel: "Restaurar",
+        tone: "default",
     },
 };
 
@@ -148,7 +189,7 @@ export const ModerationPostCard = ({
 }: ModerationPostCardProps) => {
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
-    const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+    const [reasonTarget, setReasonTarget] = useState<ReasonTarget | null>(null);
     const [dialogError, setDialogError] = useState<string | null>(null);
 
     const [commentsOpen, setCommentsOpen] = useState(false);
@@ -158,6 +199,7 @@ export const ModerationPostCard = ({
 
     const isDeleted = post.status === "DELETED";
     const isVisible = post.status === "VISIBLE";
+    const isHidden = post.status === "HIDDEN";
     const pinLimitReached = !post.is_pinned && wallPinnedPosts >= MAX_PINNED_POSTS;
     const typeLabel = TYPE_LABELS[post.post_type];
 
@@ -202,8 +244,8 @@ export const ModerationPostCard = ({
         }
     };
 
-    const handleDelete = async (reason: string) => {
-        if (!deleteTarget) {
+    const handleReasonConfirm = async (reason: string) => {
+        if (!reasonTarget) {
             return;
         }
 
@@ -211,19 +253,37 @@ export const ModerationPostCard = ({
         setDialogError(null);
 
         try {
-            if (deleteTarget.kind === "post") {
+            if (reasonTarget.kind === "post") {
                 await deleteModerationPost(token, post.id, reason);
-                setDeleteTarget(null);
+                setReasonTarget(null);
                 onChanged("Publicación eliminada.");
-            } else if (deleteTarget.kind === "attachment") {
+            } else if (reasonTarget.kind === "attachment") {
                 await removeModerationAttachment(token, post.id, reason);
-                setDeleteTarget(null);
+                setReasonTarget(null);
                 onChanged("Adjunto retirado.");
-            } else {
-                await deleteModerationComment(token, deleteTarget.comment.id, reason);
-                setDeleteTarget(null);
+            } else if (reasonTarget.kind === "comment") {
+                await deleteModerationComment(token, reasonTarget.comment.id, reason);
+                setReasonTarget(null);
                 await loadComments();
                 onChanged("Comentario eliminado.");
+            } else if (reasonTarget.kind === "hidePost") {
+                await hideModerationPost(token, post.id, reason);
+                setReasonTarget(null);
+                onChanged("Publicación oculta.");
+            } else if (reasonTarget.kind === "unhidePost") {
+                await unhideModerationPost(token, post.id, reason);
+                setReasonTarget(null);
+                onChanged("Publicación restaurada.");
+            } else if (reasonTarget.kind === "hideComment") {
+                await hideModerationComment(token, reasonTarget.comment.id, reason);
+                setReasonTarget(null);
+                await loadComments();
+                onChanged("Comentario oculto.");
+            } else {
+                await unhideModerationComment(token, reasonTarget.comment.id, reason);
+                setReasonTarget(null);
+                await loadComments();
+                onChanged("Comentario restaurado.");
             }
         } catch (error) {
             setDialogError(describeError(error));
@@ -240,7 +300,7 @@ export const ModerationPostCard = ({
                     {post.is_pinned && <Badge>Fijado</Badge>}
                     {typeLabel && <Badge tone="muted">{typeLabel}</Badge>}
                     {isDeleted && <Badge tone="danger">Eliminado</Badge>}
-                    {!isDeleted && !isVisible && <Badge tone="muted">Oculto</Badge>}
+                    {isHidden && <Badge tone="muted">Oculto</Badge>}
                 </div>
             </div>
 
@@ -291,7 +351,7 @@ export const ModerationPostCard = ({
                         size="sm"
                         onClick={() => {
                             setDialogError(null);
-                            setDeleteTarget({ kind: "attachment" });
+                            setReasonTarget({ kind: "attachment" });
                         }}
                         disabled={busy || actionsBlocked}
                         aria-label={`Retirar adjunto ${post.attachment.name}`}
@@ -325,7 +385,7 @@ export const ModerationPostCard = ({
                             variant="secondary"
                             size="sm"
                             onClick={() => void handlePin()}
-                            loading={busy && !deleteTarget}
+                            loading={busy && !reasonTarget}
                             disabled={busy || actionsBlocked || pinLimitReached}
                             title={
                                 pinLimitReached
@@ -336,17 +396,41 @@ export const ModerationPostCard = ({
                             {post.is_pinned ? "Desfijar" : "Fijar"}
                         </Button>
                         <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                                setDialogError(null);
+                                setReasonTarget({ kind: "hidePost" });
+                            }}
+                            disabled={busy || actionsBlocked}
+                        >
+                            Ocultar
+                        </Button>
+                        <Button
                             variant="danger-text"
                             size="sm"
                             onClick={() => {
                                 setDialogError(null);
-                                setDeleteTarget({ kind: "post" });
+                                setReasonTarget({ kind: "post" });
                             }}
                             disabled={busy || actionsBlocked}
                         >
                             Eliminar
                         </Button>
                     </>
+                )}
+                {isHidden && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            setDialogError(null);
+                            setReasonTarget({ kind: "unhidePost" });
+                        }}
+                        disabled={busy || actionsBlocked}
+                    >
+                        Restaurar
+                    </Button>
                 )}
             </div>
 
@@ -380,22 +464,50 @@ export const ModerationPostCard = ({
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <AuthorLine detail={comment} />
-                                    {comment.status === "VISIBLE" && (
-                                        <Button
-                                            variant="danger-text"
-                                            size="sm"
-                                            onClick={() => {
-                                                setDialogError(null);
-                                                setDeleteTarget({ kind: "comment", comment });
-                                            }}
-                                            disabled={busy || actionsBlocked}
-                                        >
-                                            Eliminar
-                                        </Button>
-                                    )}
-                                    {!commentDeleted && comment.status !== "VISIBLE" && (
-                                        <Badge tone="muted">Oculto</Badge>
-                                    )}
+                                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                        {comment.status === "VISIBLE" && (
+                                            <>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setDialogError(null);
+                                                        setReasonTarget({ kind: "hideComment", comment });
+                                                    }}
+                                                    disabled={busy || actionsBlocked}
+                                                >
+                                                    Ocultar
+                                                </Button>
+                                                <Button
+                                                    variant="danger-text"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setDialogError(null);
+                                                        setReasonTarget({ kind: "comment", comment });
+                                                    }}
+                                                    disabled={busy || actionsBlocked}
+                                                >
+                                                    Eliminar
+                                                </Button>
+                                            </>
+                                        )}
+                                        {comment.status === "HIDDEN" && (
+                                            <>
+                                                <Badge tone="muted">Oculto</Badge>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setDialogError(null);
+                                                        setReasonTarget({ kind: "unhideComment", comment });
+                                                    }}
+                                                    disabled={busy || actionsBlocked}
+                                                >
+                                                    Restaurar
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 <p
                                     className="mt-1 text-sm font-body"
@@ -421,17 +533,17 @@ export const ModerationPostCard = ({
                 </div>
             )}
 
-            {deleteTarget && (
+            {reasonTarget && (
                 <AdminReasonDialog
-                    title={DIALOG_COPY[deleteTarget.kind].title}
-                    description={DIALOG_COPY[deleteTarget.kind].description}
-                    confirmLabel={DIALOG_COPY[deleteTarget.kind].confirmLabel}
-                    tone="danger"
+                    title={DIALOG_COPY[reasonTarget.kind].title}
+                    description={DIALOG_COPY[reasonTarget.kind].description}
+                    confirmLabel={DIALOG_COPY[reasonTarget.kind].confirmLabel}
+                    tone={DIALOG_COPY[reasonTarget.kind].tone}
                     loading={busy}
                     error={dialogError}
                     confirmDisabled={actionsBlocked}
-                    onConfirm={handleDelete}
-                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={handleReasonConfirm}
+                    onCancel={() => setReasonTarget(null)}
                 />
             )}
         </Card>

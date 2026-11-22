@@ -13,6 +13,7 @@ import {
     IconCommittees,
     IconDashboard,
     IconDirectory,
+    IconFile,
     IconMenu,
     IconShield,
     IconTheme,
@@ -95,6 +96,10 @@ export const AdminSidebar = () => {
         ? `/admin/events/${activeEventId}/moderation`
         : "/admin/events";
     const isModerationRoute = pathname?.includes("/moderation") ?? false;
+    const auditHref = activeEventId
+        ? `/admin/events/${activeEventId}/audit`
+        : "/admin/events";
+    const isAuditRoute = pathname?.includes("/audit") ?? false;
 
     const moderationItem: AdminNavItem = {
         name: "Moderación",
@@ -119,7 +124,8 @@ export const AdminSidebar = () => {
                 (pathname?.startsWith("/admin/events") ?? false) &&
                 !isParticipantsRoute &&
                 !isCommitteesRoute &&
-                !isModerationRoute,
+                !isModerationRoute &&
+                !isAuditRoute,
         },
         {
             name: "Comités",
@@ -138,6 +144,12 @@ export const AdminSidebar = () => {
             current: isParticipantsRoute,
         },
         moderationItem,
+        {
+            name: "Auditoría",
+            href: auditHref,
+            icon: <IconFile size={20} />,
+            current: isAuditRoute,
+        },
     ];
 
     return (

@@ -28,6 +28,7 @@ const COOLDOWN_MS = 5000;
 
 const TABS: { value: ModerationStatusFilter; label: string }[] = [
     { value: "VISIBLE", label: "Visibles" },
+    { value: "HIDDEN", label: "Ocultos" },
     { value: "DELETED", label: "Eliminados" },
     { value: "ALL", label: "Todos" },
 ];
