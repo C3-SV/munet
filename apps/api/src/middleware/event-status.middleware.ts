@@ -11,7 +11,8 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Membership del evento sobre el que actua la peticion:
 // - rutas de moderacion: requireEventModerator ya fija req.auth.currentMembership desde el recurso;
-// - rutas de participante: el evento llega en x-event-id, igual que en sus controladores.
+// - rutas de participante y de perfil administrativo: el evento llega en x-event-id, igual que en sus
+//   controladores, que cargan la membresia objetivo dentro de ese mismo evento.
 const resolveRequestMembership = (req: Request): AuthMembership | null => {
   const auth = req.auth;
   if (!auth) return null;
