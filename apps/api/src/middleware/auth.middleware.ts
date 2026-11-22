@@ -55,6 +55,12 @@ export const requireAuth = async (
 
     const memberships = await getMembershipsByUserId(systemUser.id);
 
+    // Sin membresia activa (suspendida o retirada) la sesion deja de servir: el 401
+    // hace que la web cierre la sesion en vez de dejarla abierta sin permisos.
+    if (!memberships.length) {
+      return res.status(401).json({ error: 'Cuenta suspendida o sin membresia activa' });
+    }
+
     req.auth = {
       token,
       supabaseAuthUserId: authData.user.id,
