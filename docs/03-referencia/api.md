@@ -77,7 +77,7 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /admin/committees/:committeeId` | — | Edición. |
 | `POST /admin/committees` | `event_id`, `name`, `code`, `description?`, `sort_order?` | Alta con creación de muro. |
 | `PATCH /admin/committees/:committeeId` | `name?`, `code?`, `description?`, `sort_order?` | Edición. Actualiza nombre del muro cuando cambia el nombre. |
-| `DELETE /admin/committees/:committeeId` | — | Sin pantalla. Borrado lógico de comité e intento de borrar su muro. |
+| `DELETE /admin/committees/:committeeId` | — | Botón «Eliminar» en la lista de comités, con confirmación. Borrado lógico de comité e intento de borrar su muro; no comprueba participantes (quedan sin comité en el contexto, aunque conservan `committee_id`). |
 | `POST /admin/memberships` | `event_id`, `user_id`, `role`, `participant_code`, campos opcionales de comité/delegación/institución | Sin pantalla. Vincula un usuario existente sin generar contraseña inicial ni perfil. Valida que el comité exista, sea del evento y no esté archivado (404 o 400). 409 si el código ya existe en el evento o si lo usa otra persona en otro evento. |
 | `POST /admin/create-account` | `event_id`, `participant_code`, `role`, `first_name`, `last_name`, campos opcionales de comité y perfil | Alta individual. Devuelve `initial_password`, `delegation_code` y `warnings`. La pantalla muestra la contraseña. 409 si el código ya existe en el evento o lo usa otra persona en otro evento. |
 | `GET /admin/participants` | `event_id`, `page?`, `limit?`, `committee_id?`, `role?`, `status?`, `q?` | Listado y filtros. La API admite búsqueda `q` por nombre, alias o códigos. |
@@ -105,6 +105,8 @@ Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como 
 | `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |
 | `POST /admin/moderation/comments/:commentId/delete` | `reason` (3–500) | Igual que el anterior. |
 | `POST /admin/moderation/posts/:postId/pin` y `/unpin` | — | Máximo 3 fijados por muro (409 al cuarto). Solo posts `VISIBLE`. |
+| `POST /admin/moderation/posts/:postId/hide` y `/unhide`, `POST /admin/moderation/comments/:commentId/hide` y `/unhide` | `{ reason }` (obligatorio) | Ocultar sin borrar (`VISIBLE` ↔ `HIDDEN`); 409 si el estado no corresponde; ocultar un post fijado lo desfija. Los participantes no ven lo oculto ni pueden comentar, votar o borrar sobre ello (404). Audita `HIDE_*` y `UNHIDE_*`. |
+| `GET /admin/audit-logs?event_id&limit&before` | — | Consulta de auditoría de un evento (`limit` 1 a 100, `before` ISO 8601 con zona). Respuesta `{ logs, next_before }`. `ADMIN_TECH` ve el registro completo; `ADMIN_MUN` solo acciones de cuidado general (moderación, suspender, reactivar, restablecer contraseña, `ACCESS_DENIED`). Ver [ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md). |
 
 ### Contrato CSV
 

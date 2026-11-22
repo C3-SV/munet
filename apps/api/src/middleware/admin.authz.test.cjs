@@ -97,7 +97,7 @@ test('admin activo del evento avanza y adjunta la membership correcta', async ()
 });
 test('resolver sin evento devuelve 400 o missingStatus configurado', async () => {
   for (const options of [undefined, { missingStatus: 404, missingMessage: 'No encontrado' }]) {
-    const h = harness();
+    const h = harness({ memberships: [{ eventId: 'event', role: 'ADMIN_MUN', accountStatus: 'ACTIVE' }] });
     await h.run(async () => null, options);
     assert.equal(h.res.statusCode, options?.missingStatus ?? 400);
     assert.equal(h.nextCalls, 0);
@@ -284,4 +284,12 @@ test('la auditoria de denegaciones se limita a 10 por usuario y ventana, y el 40
     assert.equal(res.statusCode, 403);
   }
   assert.equal(h.audits.length, h.middleware.DENIAL_AUDIT_LIMIT);
+});
+
+test('un usuario sin membresia activa (suspendido) recibe 401 en requireAuth y no avanza', async () => {
+  const h = harness({ memberships: [] });
+  await h.run();
+  assert.equal(h.res.statusCode, 401);
+  assert.match(h.res.body.error, /suspendida o sin membresia activa/);
+  assert.equal(h.nextCalls, 0);
 });

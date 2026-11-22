@@ -16,7 +16,8 @@ function harness(results, service = {}) {
     assert.equal(typeof service[name], 'function', `Servicio inesperado: ${name}`);
     return service[name](...args);
   }]));
-  const client = { from(table) {
+  const authUpdates = [];
+  const client = { auth: { admin: { async updateUserById(id, attrs) { authUpdates.push({ id, attrs }); return { error: null }; } } }, from(table) {
     const call = { table, steps: [] };
     calls.push(call);
     const result = results.shift();
@@ -48,7 +49,7 @@ function harness(results, service = {}) {
     throw new Error(name);
   } });
   const res = { statusCode: 200, headers: {}, setHeader(name, value) { this.headers[name.toLowerCase()] = value; return this; }, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
-  return { controller: module.exports, calls, audits, serviceCalls, searchCalls, res };
+  return { controller: module.exports, calls, audits, serviceCalls, searchCalls, authUpdates, res };
 }
 
 test('createEvent crea membership ADMIN_TECH y ambos muros antes de auditar', async () => {
@@ -544,9 +545,17 @@ test('events-by-code ya no devuelve el rol de las membresias pendientes', async 
   await h.controller.getEventsByParticipantCode({ params: { participant_code: 'COD001' } }, h.res);
   assert.equal(h.res.statusCode, 200);
   const [item] = JSON.parse(JSON.stringify(h.res.body.events));
-  assert.equal(item.membership_id, 'm1');
   assert.equal(item.event.id, 'event');
   assert.equal('role' in item, false);
+  assert.equal('membership_id' in item, false);
+  assert.deepEqual(Object.keys(item.event).sort(), ['id', 'name']);
+});
+
+test('events-by-code no filtra el mensaje de error de la base (Q01-H2)', async () => {
+  const h = harness([{ data: null, error: { message: 'detalle interno de la base' } }]);
+  await h.controller.getEventsByParticipantCode({ params: { participant_code: 'COD001' } }, h.res);
+  assert.equal(h.res.statusCode, 500);
+  assert.doesNotMatch(JSON.stringify(h.res.body), /detalle interno/);
 });
 
 test('restablecer contraseña marca la respuesta como no cacheable en cada rama (Q02-8)', async () => {
@@ -573,4 +582,27 @@ test('no suspende una cuenta que nunca se activó y explica qué hacer (reactiva
   assert.match(h.res.body.error, /Restablece su contraseña inicial/);
   assert.equal(h.calls.length, 1);
   assert.equal(h.audits.length, 0);
+});
+
+const suspensionRows = (status) => ({ data: { id: 'm1', event_id: 'event', user_id: 'u1', account_status: status } });
+
+test('suspender banea al usuario en Auth cuando no le queda otra membresia activa', async () => {
+  const h = harness([suspensionRows('ACTIVE'), { data: { id: 'm1' } }, { data: [] }, { data: { supabase_auth_user_id: 'auth1' } }]);
+  await h.controller.suspendParticipant({ params: { membershipId: 'm1' }, body: { reason: 'motivo' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.authUpdates)), [{ id: 'auth1', attrs: { ban_duration: '876000h' } }]);
+});
+
+test('suspender no banea si el usuario conserva otra membresia activa', async () => {
+  const h = harness([suspensionRows('ACTIVE'), { data: { id: 'm1' } }, { data: [{ id: 'm2' }] }]);
+  await h.controller.suspendParticipant({ params: { membershipId: 'm1' }, body: { reason: 'motivo' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.authUpdates.length, 0);
+});
+
+test('reactivar quita el baneo del usuario en Auth', async () => {
+  const h = harness([suspensionRows('SUSPENDED'), { data: { id: 'm1' } }, { data: { supabase_auth_user_id: 'auth1' } }]);
+  await h.controller.reactivateParticipant({ params: { membershipId: 'm1' }, body: { reason: 'motivo' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.authUpdates)), [{ id: 'auth1', attrs: { ban_duration: 'none' } }]);
 });

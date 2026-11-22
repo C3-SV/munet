@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../components/admin/AdminEmptyState";
+import { AdminEventStatusCard, type AdminEventStatusFeedback } from "../../../../../components/admin/AdminEventStatusCard";
 import { AdminFormInput } from "../../../../../components/admin/AdminFormInput";
 import { AdminFormTextarea } from "../../../../../components/admin/AdminFormTextarea";
 import { AdminPageHeader } from "../../../../../components/admin/AdminPageHeader";
+import { getEventStatusToggleTarget } from "../../../../../lib/admin-event-status";
 import {
     getEvent,
     updateEvent,
@@ -83,6 +85,10 @@ export default function EventDetailPage() {
     const [apiError, setApiError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [statusSaving, setStatusSaving] = useState(false);
+    const [statusDialogError, setStatusDialogError] = useState<string | null>(null);
+    const [statusFeedback, setStatusFeedback] = useState<AdminEventStatusFeedback | null>(null);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -206,6 +212,42 @@ export default function EventDetailPage() {
         }
     };
 
+    // Cierra o reabre el evento con un PATCH que solo envía `status`. Se actualiza
+    // solo el estado del formulario para no perder cambios sin guardar en otros campos.
+    const handleConfirmStatusChange = async () => {
+        const target = event ? getEventStatusToggleTarget(event.status) : null;
+
+        if (!token || !target) {
+            setStatusDialogError("No se pudo cambiar el estado. Recarga la página.");
+            return;
+        }
+
+        setStatusSaving(true);
+        setStatusDialogError(null);
+
+        try {
+            const response = await updateEvent(token, eventId, { status: target });
+            setEvent(response.event);
+            setForm((previous) => ({ ...previous, status: response.event.status }));
+            setStatusDialogOpen(false);
+            setStatusFeedback({
+                type: "success",
+                message:
+                    response.event.status === "CLOSED"
+                        ? "El evento está cerrado. Participantes y moderadores solo podrán leer."
+                        : "El evento está abierto de nuevo.",
+            });
+        } catch (statusError) {
+            setStatusDialogError(
+                statusError instanceof ApiError
+                    ? statusError.message
+                    : "No se pudo cambiar el estado del evento. Intenta de nuevo.",
+            );
+        } finally {
+            setStatusSaving(false);
+        }
+    };
+
     const headerAction = event ? (
         <div className="flex flex-wrap items-center gap-2">
             <AdminButton
@@ -275,6 +317,28 @@ export default function EventDetailPage() {
                         }
                     />
                 </div>
+            )}
+
+            {!loading && !loadError && event && (
+                <AdminEventStatusCard
+                    status={event.status}
+                    disabled={saving}
+                    dialogOpen={statusDialogOpen}
+                    dialogLoading={statusSaving}
+                    dialogError={statusDialogError}
+                    feedback={statusFeedback}
+                    onOpenDialog={() => {
+                        setStatusFeedback(null);
+                        setStatusDialogError(null);
+                        setStatusDialogOpen(true);
+                    }}
+                    onCloseDialog={() => {
+                        setStatusDialogOpen(false);
+                        setStatusDialogError(null);
+                    }}
+                    onConfirm={() => void handleConfirmStatusChange()}
+                    onDismissFeedback={() => setStatusFeedback(null)}
+                />
             )}
 
             {!loading && !loadError && event && (

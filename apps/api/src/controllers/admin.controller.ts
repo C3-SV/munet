@@ -783,17 +783,24 @@ export const getEventsByParticipantCode = async (
       .is('deleted_at', null);
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      // No se expone el mensaje de la base en un endpoint publico (Q01-H2).
+      console.error('events-by-code:', error.message);
+      return res.status(500).json({ error: 'No se pudo validar la cuenta' });
     }
 
+    // Respuesta minima: solo lo que la activacion necesita para elegir evento.
+    // Sin membership_id ni datos internos del evento (slug, estado, fechas).
     const events = (data ?? [])
-      .map((item: any) => ({
-        membership_id: item.id,
+      .map((item: any) => {
+        const event = Array.isArray(item.events) ? item.events[0] : item.events;
+        return { item, event };
+      })
+      .filter(({ event }: any) => event && !event.deleted_at)
+      .map(({ item, event }: any) => ({
         participant_code: item.participant_code,
         account_status: item.account_status,
-        event: Array.isArray(item.events) ? item.events[0] : item.events
-      }))
-      .filter((item: any) => item.event && !item.event.deleted_at);
+        event: { id: event.id, name: event.name }
+      }));
 
     return res.json({ events });
   } catch (error) {
@@ -1371,6 +1378,8 @@ export const suspendParticipant = async (
       return res.status(400).json({ error: error.message });
     }
 
+    await setAuthAccessForUser(existing.user_id, true);
+
     await logAudit({
       eventId: existing.event_id,
       actorUserId: actorUserId ?? undefined,
@@ -1388,6 +1397,39 @@ export const suspendParticipant = async (
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Corta o restablece el acceso del usuario en Supabase Auth: un usuario baneado no
+// puede renovar su token, asi que la sesion (y su canal Realtime) termina cuando vence
+// el token actual. Solo se banea si no le queda otra membresia activa. Un fallo se
+// registra y no impide suspender: el 401 de requireAuth ya frena la API.
+const setAuthAccessForUser = async (userId: string, blocked: boolean) => {
+  try {
+    if (blocked) {
+      const { data: remaining, error: remainingError } = await supabaseAdmin
+        .from('event_memberships')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('account_status', 'ACTIVE')
+        .is('deleted_at', null)
+        .limit(1);
+      if (remainingError) throw remainingError;
+      if (remaining?.length) return;
+    }
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('supabase_auth_user_id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError) throw userError;
+    if (!user?.supabase_auth_user_id) return;
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.supabase_auth_user_id, {
+      ban_duration: blocked ? '876000h' : 'none',
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.error('No se pudo actualizar el acceso en Auth:', error);
   }
 };
 
@@ -1435,6 +1477,8 @@ export const reactivateParticipant = async (
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    await setAuthAccessForUser(existing.user_id, false);
 
     await logAudit({
       eventId: existing.event_id,

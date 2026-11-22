@@ -3,7 +3,7 @@ import { requestApi } from "./client";
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export type ModerationStatus = "VISIBLE" | "HIDDEN" | "DELETED";
-export type ModerationStatusFilter = "VISIBLE" | "DELETED" | "ALL";
+export type ModerationStatusFilter = "VISIBLE" | "HIDDEN" | "DELETED" | "ALL";
 
 export type ModerationWall = {
     id: string;
@@ -188,6 +188,59 @@ export const deleteModerationComment = async (
 ): Promise<ModerationCommentState> => {
     const payload = await requestApi<{ comment: ModerationCommentState }>(
         `/admin/moderation/comments/${commentId}/delete`,
+        { method: "POST", token, body: { reason } },
+    );
+
+    return payload.comment;
+};
+
+// Ocultar y restaurar: el contenido no se borra. Exigen motivo; 409 si el estado no corresponde.
+export const hideModerationPost = async (
+    token: string,
+    postId: string,
+    reason: string,
+): Promise<ModerationPostState> => {
+    const payload = await requestApi<{ post: ModerationPostState }>(
+        `/admin/moderation/posts/${postId}/hide`,
+        { method: "POST", token, body: { reason } },
+    );
+
+    return payload.post;
+};
+
+export const unhideModerationPost = async (
+    token: string,
+    postId: string,
+    reason: string,
+): Promise<ModerationPostState> => {
+    const payload = await requestApi<{ post: ModerationPostState }>(
+        `/admin/moderation/posts/${postId}/unhide`,
+        { method: "POST", token, body: { reason } },
+    );
+
+    return payload.post;
+};
+
+export const hideModerationComment = async (
+    token: string,
+    commentId: string,
+    reason: string,
+): Promise<ModerationCommentState> => {
+    const payload = await requestApi<{ comment: ModerationCommentState }>(
+        `/admin/moderation/comments/${commentId}/hide`,
+        { method: "POST", token, body: { reason } },
+    );
+
+    return payload.comment;
+};
+
+export const unhideModerationComment = async (
+    token: string,
+    commentId: string,
+    reason: string,
+): Promise<ModerationCommentState> => {
+    const payload = await requestApi<{ comment: ModerationCommentState }>(
+        `/admin/moderation/comments/${commentId}/unhide`,
         { method: "POST", token, body: { reason } },
     );
 

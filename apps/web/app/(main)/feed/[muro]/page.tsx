@@ -11,6 +11,7 @@ import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { AttachmentUploadError } from "../../../../lib/attachment-upload";
+import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
@@ -315,7 +316,8 @@ const Feed = () => {
                 eventId,
             });
 
-            setPosts((currentPosts) => [newPost, ...currentPosts]);
+            // Mezcla sin duplicar: el refresco por Realtime puede traer la publicación antes que esta respuesta.
+            setPosts((currentPosts) => mergeFeedPosts(currentPosts, [newPost]));
         } catch (submitError) {
             setPublishError(publishErrorMessage(submitError, Boolean(draft.attachment)));
             throw submitError;
@@ -364,13 +366,8 @@ const Feed = () => {
         setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
     };
 
-    const sortedAndFilteredPosts = [...filteredPosts].sort((a, b) => {
-        if (sortOrder === "recent") {
-            return b.timestamp - a.timestamp;
-        }
-
-        return a.timestamp - b.timestamp;
-    });
+    // Fijados primero (por fecha de fijado); el resto sigue el orden elegido.
+    const sortedAndFilteredPosts = orderFeedPosts(filteredPosts, sortOrder);
 
     const headerTitle = activeWall
         ? activeWall.kind === "committee"

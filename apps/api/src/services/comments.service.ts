@@ -180,7 +180,8 @@ const ensurePostAccess = async (params: {
     throw new Error(error.message);
   }
 
-  if (!post || post.event_id !== params.eventId) {
+  // Un post oculto por moderacion no existe para el participante: ni se lista ni se comenta en el.
+  if (!post || post.event_id !== params.eventId || post.status === 'HIDDEN') {
     // Asegura aislamiento por evento en rutas basadas en postId.
     return {
       allowed: false,
@@ -307,7 +308,7 @@ export const createPostComment = async (params: {
     // Parent se valida por evento+post para impedir cruces entre hilos.
     const { data: parent, error: parentError } = await supabaseAdmin
       .from('post_comments')
-      .select('id, post_id, parent_comment_id')
+      .select('id, post_id, parent_comment_id, status')
       .eq('id', parentCommentId)
       .eq('event_id', params.eventId)
       .is('deleted_at', null)
@@ -317,7 +318,8 @@ export const createPostComment = async (params: {
       throw new Error(parentError.message);
     }
 
-    if (!parent || parent.post_id !== params.postId) {
+    // Un comentario padre oculto no se responde: para el participante no existe.
+    if (!parent || parent.post_id !== params.postId || parent.status === 'HIDDEN') {
       // Impide referenciar comentario padre de otro post.
       return {
         status: 404,
@@ -393,7 +395,7 @@ export const deletePostComment = async (params: {
 
   const { data: comment, error: commentError } = await supabaseAdmin
     .from('post_comments')
-    .select('id, post_id, author_membership_id')
+    .select('id, post_id, author_membership_id, status')
     .eq('id', params.commentId)
     .eq('event_id', params.eventId)
     .is('deleted_at', null)
@@ -403,7 +405,8 @@ export const deletePostComment = async (params: {
     throw new Error(commentError.message);
   }
 
-  if (!comment || comment.post_id !== params.postId) {
+  // Un comentario oculto no se elimina desde la ruta de participante: lo gestiona moderacion.
+  if (!comment || comment.post_id !== params.postId || comment.status === 'HIDDEN') {
     return {
       status: 404,
       body: { error: 'Comentario no encontrado en este post' },

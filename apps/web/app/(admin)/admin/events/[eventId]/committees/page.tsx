@@ -3,11 +3,15 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminButton } from "../../../../../../components/admin/AdminButton";
+import { AdminConfirmDialog } from "../../../../../../components/admin/AdminConfirmDialog";
 import { AdminEmptyState } from "../../../../../../components/admin/AdminEmptyState";
 import { AdminPageHeader } from "../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../components/admin/AdminStatusBadge";
+import { AdminToast } from "../../../../../../components/admin/AdminToast";
 import { IconAction } from "../../../../../../components/admin/IconAction";
+import { describeCommitteeDeleteError } from "../../../../../../lib/admin-committee-delete";
 import {
+    deleteCommittee,
     getEvent,
     listCommittees,
     type AdminCommittee,
@@ -16,12 +20,36 @@ import { ApiError } from "../../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../../stores/auth.store";
 import { IconAlertTriangle, IconCommittees, IconEdit, IconPlus, IconRefresh } from "../../../../../../components/ui/icons";
 
+// Papelera local: icons.tsx no la incluye. Mismo trazo y tamaño que el resto de iconos.
+const IconTrash = ({ size = 18 }: { size?: number }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M6 6l1 14h10l1-14" />
+        <path d="M10 11v6M14 11v6" />
+    </svg>
+);
+
 const CommitteeRow = ({
     committee,
     eventId,
+    onDelete,
 }: {
     committee: AdminCommittee;
     eventId: string;
+    onDelete: (committee: AdminCommittee) => void;
 }) => (
     <tr
         className="hover:bg-[var(--bg-hover)]"
@@ -71,11 +99,17 @@ const CommitteeRow = ({
         </td>
 
         <td className="px-6 py-4">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
                 <IconAction
                     href={`/admin/events/${eventId}/committees/${committee.id}/edit`}
                     label={`Editar ${committee.name}`}
                     icon={<IconEdit size={18} />}
+                />
+                <IconAction
+                    label={`Eliminar ${committee.name}`}
+                    icon={<IconTrash size={18} />}
+                    tone="danger"
+                    onClick={() => onDelete(committee)}
                 />
             </div>
         </td>
@@ -98,6 +132,10 @@ export default function CommitteesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+    const [committeeToDelete, setCommitteeToDelete] = useState<AdminCommittee | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -156,6 +194,39 @@ export default function CommitteesPage() {
             cancelled = true;
         };
     }, [eventId, reloadKey, token]);
+
+    const closeDeleteDialog = () => {
+        setCommitteeToDelete(null);
+        setDeleteError(null);
+    };
+
+    // Borrado lógico en la API. Si sale bien, el comité se quita de la lista sin recargarla.
+    const handleConfirmDelete = async () => {
+        const target = committeeToDelete;
+
+        if (!token || !target) {
+            setDeleteError("Sesión no válida. Recarga la página.");
+            return;
+        }
+
+        setDeleting(true);
+        setDeleteError(null);
+
+        try {
+            await deleteCommittee(token, target.id);
+            setCommittees((previous) => previous.filter((item) => item.id !== target.id));
+            setCommitteeToDelete(null);
+            setToast({ type: "success", message: `Comité «${target.name}» eliminado.` });
+        } catch (deleteFailure) {
+            setDeleteError(
+                describeCommitteeDeleteError(
+                    deleteFailure instanceof ApiError ? deleteFailure.status : null,
+                ),
+            );
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -264,6 +335,10 @@ export default function CommitteesPage() {
                                         key={committee.id}
                                         committee={committee}
                                         eventId={eventId}
+                                        onDelete={(item) => {
+                                            setDeleteError(null);
+                                            setCommitteeToDelete(item);
+                                        }}
                                     />
                                 ))}
                             </tbody>
@@ -284,6 +359,27 @@ export default function CommitteesPage() {
                     </div>
                 )}
             </div>
+
+            {committeeToDelete && (
+                <AdminConfirmDialog
+                    title="¿Eliminar este comité?"
+                    description={`Se eliminará el comité «${committeeToDelete.name}» y su muro. Los participantes asignados quedarán sin comité, y el muro con sus publicaciones dejará de estar disponible. No se puede deshacer desde el panel.`}
+                    confirmLabel="Eliminar comité"
+                    variant="danger"
+                    loading={deleting}
+                    error={deleteError}
+                    onCancel={closeDeleteDialog}
+                    onConfirm={() => void handleConfirmDelete()}
+                />
+            )}
+
+            {toast && (
+                <AdminToast
+                    type={toast.type}
+                    message={toast.message}
+                    onDismiss={() => setToast(null)}
+                />
+            )}
         </div>
     );
 }

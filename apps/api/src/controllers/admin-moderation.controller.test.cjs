@@ -350,3 +350,123 @@ test('listado de personas: solo lectura del evento, sin contacto, ordenado y pag
   await failing.controller.listModerationPeople(failing.req, failing.res);
   assert.equal(failing.res.statusCode, 500);
 });
+
+test('ocultar post: VISIBLE a HIDDEN, desfija si estaba fijado, audita con motivo y acota al evento', async () => {
+  const h = harness([{ data: { id: 'post', wall_id: 'wall', status: 'VISIBLE', author_membership_id: 'author', is_pinned: true } }, { data: { id: 'post', status: 'HIDDEN', is_pinned: false } }]);
+  await h.controller.hideModerationPost(h.req, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.res.body.post.status, 'HIDDEN');
+  assert.ok(h.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
+  const update = h.calls[1].steps.find(s => s[0] === 'update')[1];
+  assert.equal(update.status, 'HIDDEN');
+  assert.equal(update.is_pinned, false);
+  assert.equal(update.pinned_at, null);
+  assert.equal(update.pinned_by_membership_id, null);
+  assert.equal(update.updated_by_membership_id, 'moderator');
+  assert.ok(!('deleted_at' in update) && !('content' in update));
+  assert.ok(h.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'VISIBLE'));
+  assert.ok(h.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
+  assert.equal(h.audits.length, 1);
+  assert.equal(h.audits[0].actionType, 'HIDE_POST');
+  assert.equal(h.audits[0].entityType, 'POST');
+  assert.equal(h.audits[0].entityId, 'post');
+  assert.equal(h.audits[0].targetMembershipId, 'author');
+  assert.equal(h.audits[0].membership, h.actor);
+  assert.equal(h.audits[0].reason, 'Incumple las reglas');
+});
+
+test('restaurar post: HIDDEN a VISIBLE sin tocar fijados y audita UNHIDE_POST con motivo', async () => {
+  const h = harness([{ data: { id: 'post', wall_id: 'wall', status: 'HIDDEN', author_membership_id: 'author', is_pinned: false } }, { data: { id: 'post', status: 'VISIBLE', is_pinned: false } }]);
+  await h.controller.unhideModerationPost(h.req, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.res.body.post.status, 'VISIBLE');
+  const update = h.calls[1].steps.find(s => s[0] === 'update')[1];
+  assert.equal(update.status, 'VISIBLE');
+  assert.ok(!('is_pinned' in update) && !('pinned_at' in update) && !('pinned_by_membership_id' in update));
+  assert.ok(h.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'HIDDEN'));
+  assert.equal(h.audits.length, 1);
+  assert.equal(h.audits[0].actionType, 'UNHIDE_POST');
+  assert.equal(h.audits[0].targetMembershipId, 'author');
+  assert.equal(h.audits[0].reason, 'Incumple las reglas');
+});
+
+test('ocultar y restaurar comentario: tabla de comentarios, sin campos de fijado y auditoria propia', async () => {
+  const hide = harness([{ data: { id: 'comment', status: 'VISIBLE', author_membership_id: 'author' } }, { data: { id: 'comment', status: 'HIDDEN' } }]);
+  await hide.controller.hideModerationComment(hide.req, hide.res);
+  assert.equal(hide.res.statusCode, 200);
+  assert.equal(hide.res.body.comment.status, 'HIDDEN');
+  assert.equal(hide.calls[1].table, 'post_comments');
+  const hideUpdate = hide.calls[1].steps.find(s => s[0] === 'update')[1];
+  assert.equal(hideUpdate.status, 'HIDDEN');
+  assert.ok(!('is_pinned' in hideUpdate) && !('pinned_at' in hideUpdate));
+  assert.equal(hide.audits[0].actionType, 'HIDE_COMMENT');
+  assert.equal(hide.audits[0].entityType, 'COMMENT');
+  assert.equal(hide.audits[0].entityId, 'comment');
+  assert.equal(hide.audits[0].targetMembershipId, 'author');
+
+  const unhide = harness([{ data: { id: 'comment', status: 'HIDDEN', author_membership_id: 'author' } }, { data: { id: 'comment', status: 'VISIBLE' } }]);
+  await unhide.controller.unhideModerationComment(unhide.req, unhide.res);
+  assert.equal(unhide.res.statusCode, 200);
+  assert.equal(unhide.res.body.comment.status, 'VISIBLE');
+  assert.equal(unhide.calls[1].steps.find(s => s[0] === 'update')[1].status, 'VISIBLE');
+  assert.equal(unhide.audits[0].actionType, 'UNHIDE_COMMENT');
+  assert.equal(unhide.audits[0].reason, 'Incumple las reglas');
+});
+
+test('ocultar y restaurar validan el motivo sin consultar la base', async () => {
+  for (const method of ['hideModerationPost', 'unhideModerationPost', 'hideModerationComment', 'unhideModerationComment']) {
+    for (const reason of [undefined, null, {}, ['motivo'], '', ' ab ', 'a'.repeat(501)]) {
+      const h = harness();
+      h.req.body = { reason };
+      await h.controller[method](h.req, h.res);
+      assert.equal(h.res.statusCode, 400);
+      assert.equal(h.calls.length, 0);
+      assert.equal(h.audits.length, 0);
+    }
+  }
+});
+
+test('ocultar y restaurar rechazan estados incorrectos o ausencias sin auditar', async () => {
+  for (const [method, row, status] of [
+    ['hideModerationPost', { status: 'HIDDEN' }, 409],
+    ['hideModerationPost', { status: 'DELETED' }, 409],
+    ['unhideModerationPost', { status: 'VISIBLE' }, 409],
+    ['unhideModerationPost', { status: 'DELETED' }, 409],
+    ['hideModerationComment', { status: 'HIDDEN' }, 409],
+    ['unhideModerationComment', { status: 'VISIBLE' }, 409],
+    ['hideModerationPost', null, 404],
+    ['unhideModerationComment', null, 404],
+  ]) {
+    const h = harness([{ data: row ? { id: 'resource', author_membership_id: 'author', ...row } : null }]);
+    await h.controller[method](h.req, h.res);
+    assert.equal(h.res.statusCode, status, method);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.audits.length, 0);
+  }
+  for (const [method, results, status] of [
+    ['hideModerationPost', [{ error: { message: 'lectura' } }], 500],
+    ['hideModerationPost', [{ data: { id: 'post', status: 'VISIBLE', author_membership_id: 'author' } }, { error: { message: 'escritura' } }], 500],
+    ['hideModerationPost', [{ data: { id: 'post', status: 'VISIBLE', author_membership_id: 'author' } }, { data: null }], 409],
+    ['unhideModerationComment', [{ data: { id: 'comment', status: 'HIDDEN', author_membership_id: 'author' } }, { error: { message: 'escritura' } }], 500],
+  ]) {
+    const h = harness(results);
+    await h.controller[method](h.req, h.res);
+    assert.equal(h.res.statusCode, status, method);
+    assert.equal(h.audits.length, 0);
+  }
+});
+
+test('listados de moderacion aceptan HIDDEN para que moderacion vea lo oculto con su status', async () => {
+  const posts = harness([{ data: [], count: 0 }]);
+  posts.req.query = { wall_id: 'wall', status: 'HIDDEN' };
+  await posts.controller.listModerationPosts(posts.req, posts.res);
+  assert.equal(posts.res.statusCode, 200);
+  assert.ok(posts.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'HIDDEN'));
+
+  const comments = harness([{ data: [{ id: 'comment', status: 'HIDDEN', author: null }] }]);
+  comments.req.query.status = 'HIDDEN';
+  await comments.controller.listModerationComments(comments.req, comments.res);
+  assert.equal(comments.res.statusCode, 200);
+  assert.equal(comments.res.body.comments[0].status, 'HIDDEN');
+  assert.ok(comments.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'HIDDEN'));
+});

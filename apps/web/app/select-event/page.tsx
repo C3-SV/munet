@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
 import { BrandAttribution } from "../../components/layout/BrandAttribution";
 import { formatRoleLabel } from "../../lib/role-label";
-import { withoutPracticeMembership } from "../../lib/practice/membership";
+import { readLastUsedMembershipId, selectableMemberships } from "../../lib/event-selection";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -19,13 +19,25 @@ const SelectEventPage = () => {
     const memberships = useAuthStore((state) => state.memberships);
     const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
     const enterPractice = useAuthStore((state) => state.enterPractice);
+    const refreshContext = useAuthStore((state) => state.refreshContext);
+    // Eventos elegibles (sin práctica, activos), en orden de selección: el último usado va primero.
     // La práctica tiene su propia tarjeta: no se lista también como un evento más.
-    const realMemberships = withoutPracticeMembership(memberships);
+    const choices = useMemo(() => selectableMemberships(memberships), [memberships]);
+    const lastUsedMembershipId = readLastUsedMembershipId();
 
     useEffect(() => {
         // Hidrata sesion guardada antes de aplicar reglas de redireccion.
         hydrateAuth();
     }, [hydrateAuth]);
+
+    useEffect(() => {
+        if (!hydrated || !token) {
+            return;
+        }
+
+        // Trae las membresías vigentes antes de elegir. Si la petición falla, queda la copia guardada.
+        void refreshContext().catch(() => undefined);
+    }, [hydrated, refreshContext, token]);
 
     useEffect(() => {
         if (!hydrated) {
@@ -37,30 +49,33 @@ const SelectEventPage = () => {
             return;
         }
 
+        // Administradores: siempre eligen evento en esta pantalla.
         const hasAdminMembership = memberships.some((membership) =>
             isAdminRole(membership.role),
         );
-        const firstMembership = memberships[0];
 
-        // Si ya existe contexto activo:
-        // - Admin puede quedarse en selector para cambiar de evento manualmente.
-        // - Participante debe volver al feed.
-        if (activeEventId && activeMembershipId) {
-            if (hasAdminMembership) {
-                return;
-            }
-
-            router.replace("/feed");
+        if (hasAdminMembership) {
             return;
         }
 
-        // Participantes sin rol admin entran directo al primer evento.
-        if (!hasAdminMembership && firstMembership) {
-            // Aunque esté en /select-event, el delegado no debe quedarse aquí.
-            setActiveMembership(firstMembership.id);
-            router.replace("/feed");
+        // Participante con varias membresías: elige aquí, también cuando cambia de evento desde el menú.
+        if (choices.length > 1) {
+            return;
         }
-    }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
+
+        // Participante con una sola membresía: entra directo. Si ya hay contexto activo, no se cambia.
+        const onlyChoice = choices[0];
+
+        if (!onlyChoice) {
+            return;
+        }
+
+        if (!(activeEventId && activeMembershipId)) {
+            setActiveMembership(onlyChoice.id);
+        }
+
+        router.replace("/feed");
+    }, [activeEventId, activeMembershipId, choices, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleChooseEvent = (membershipId: string) => {
         // Seleccion explicita de contexto para admins (o multi-evento).
@@ -93,7 +108,7 @@ const SelectEventPage = () => {
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {realMemberships.map((membership) => (
+                    {choices.map((membership) => (
                         <button
                             key={membership.id}
                             type="button"
@@ -110,6 +125,17 @@ const SelectEventPage = () => {
                             >
                                 {membership.eventName}
                             </h2>
+                            {choices.length > 1 && membership.id === lastUsedMembershipId && (
+                                <span
+                                    className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                                    style={{
+                                        backgroundColor: "var(--sidebar-active-bg)",
+                                        color: "var(--sidebar-active-text)",
+                                    }}
+                                >
+                                    Último usado
+                                </span>
+                            )}
                             <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
                                 {formatRoleLabel(membership.role)}
                             </p>
@@ -147,7 +173,7 @@ const SelectEventPage = () => {
                     )}
                 </div>
 
-                {realMemberships.length === 0 && (
+                {choices.length === 0 && (
                     <div
                         className="rounded-2xl p-6 mt-4"
                         style={{
