@@ -242,6 +242,20 @@ export const PostCard = ({
                 </UserHoverCard>
 
                 <div className="flex flex-col items-end gap-2">
+                    {post.isPinned && !post.isDeleted && (
+                        <span
+                            className="px-2.5 py-1 text-xs font-semibold rounded-full font-heading"
+                            style={{
+                                color: "var(--text-accent)",
+                                backgroundColor:
+                                    "color-mix(in srgb, var(--text-accent) 10%, transparent)",
+                                border:
+                                    "1px solid color-mix(in srgb, var(--text-accent) 20%, transparent)",
+                            }}
+                        >
+                            Fijado
+                        </span>
+                    )}
                     {committeeTags.length > 0 && (
                         <div className="flex flex-wrap gap-2 justify-end">
                             {committeeTags.map((tag) => (

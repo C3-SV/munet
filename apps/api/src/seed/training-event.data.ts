@@ -60,10 +60,18 @@ const DELEGATIONS = [
   'Portugal', 'Etiopía', 'Panamá', 'Irlanda', 'Jordania', 'Ecuador', 'Países Bajos',
 ];
 
-export const PARTICIPANT_COUNT = 37;
-export const ACTIVE_PARTICIPANTS = 22; // 1..22
-export const PENDING_PARTICIPANTS = 10; // 23..32
-export const SUSPENDED_PARTICIPANTS = 5; // 33..37
+// Participantes que quedan tras retirar 28 de las 40 cuentas originales (entrega 3). Cada una conserva
+// su número original: de él salen nombre, delegación y comité, así que no cambian respecto de la base.
+// Con el staff (ADM, MOD1, MOD2) son las 12 cuentas del evento.
+export const ACTIVE_PARTICIPANT_NUMBERS: readonly number[] = [1, 2, 3, 4, 5, 6];
+export const PENDING_PARTICIPANT_NUMBERS: readonly number[] = [23, 24];
+export const SUSPENDED_PARTICIPANT_NUMBERS: readonly number[] = [33];
+export const PARTICIPANT_NUMBERS: readonly number[] = [
+  ...ACTIVE_PARTICIPANT_NUMBERS,
+  ...PENDING_PARTICIPANT_NUMBERS,
+  ...SUSPENDED_PARTICIPANT_NUMBERS,
+];
+export const PARTICIPANT_COUNT = PARTICIPANT_NUMBERS.length;
 export const INSTITUTION = 'Entrenamiento MUNET';
 
 const pad = (n: number) => String(n).padStart(3, '0');
@@ -90,8 +98,12 @@ export const initialPassword = (code: string, secret: string) => `Inicial-${shor
 export const passwordFor = (account: Pick<SeedAccount, 'code' | 'state'>, secret: string) =>
   account.state === 'PENDING' ? initialPassword(account.code, secret) : knownPassword(account.code, secret);
 
-export const stateOfParticipant = (n: number): SeedState =>
-  n <= ACTIVE_PARTICIPANTS ? 'ACTIVE' : n <= ACTIVE_PARTICIPANTS + PENDING_PARTICIPANTS ? 'PENDING' : 'SUSPENDED';
+export const stateOfParticipant = (n: number): SeedState => {
+  if (ACTIVE_PARTICIPANT_NUMBERS.includes(n)) return 'ACTIVE';
+  if (PENDING_PARTICIPANT_NUMBERS.includes(n)) return 'PENDING';
+  if (SUSPENDED_PARTICIPANT_NUMBERS.includes(n)) return 'SUSPENDED';
+  throw new Error(`Participante ${n} fuera de la lista del entrenamiento`);
+};
 
 export const buildRoster = (): SeedAccount[] => {
   const prefix = TRAINING_EVENT.codePrefix;
@@ -101,7 +113,7 @@ export const buildRoster = (): SeedAccount[] => {
     { code: `${prefix}-MOD2`, role: 'MODERATOR', state: 'ACTIVE', firstName: 'Moderador', lastName: 'Dos', alias: 'Mesa 2', committeeCode: null, delegation: null, institution: INSTITUTION },
   ];
 
-  for (let n = 1; n <= PARTICIPANT_COUNT; n += 1) {
+  for (const n of PARTICIPANT_NUMBERS) {
     const committee = TRAINING_COMMITTEES[(n - 1) % TRAINING_COMMITTEES.length];
     roster.push({
       code: `${prefix}-${pad(n)}`,
@@ -212,10 +224,10 @@ export const TRAINING_POLL: SeedPoll = {
   author: ADM,
   question: '¿Qué función de MUNET te pareció más útil hasta ahora?',
   options: ['Los muros de comité', 'Los mensajes directos', 'La encuesta y los votos', 'El directorio de delegados'],
+  // Un voto por persona: solo quedan seis participantes activas para votar.
   votes: [
     { voter: P(1), option: 0 }, { voter: P(2), option: 0 }, { voter: P(3), option: 1 },
     { voter: P(4), option: 1 }, { voter: P(5), option: 0 }, { voter: P(6), option: 2 },
-    { voter: P(7), option: 3 }, { voter: P(8), option: 1 }, { voter: P(9), option: 0 },
   ],
   hoursAgo: 10,
 };
@@ -229,10 +241,10 @@ export const TRAINING_COMMENTS: readonly SeedComment[] = [
   { post: 'presentate', author: ADM, content: '¡Excelente! Sigan presentándose; en la siguiente actividad usaremos la encuesta.', hoursAgo: 54, replyTo: 0 },
   { post: 'tema-agua', author: P(4), content: 'Yo propondría enfocarnos en infraestructura y financiamiento, que suelen ser los puntos de acuerdo.', hoursAgo: 38 },
   { post: 'tema-agua', author: P(6), content: 'Coincido. También conviene citar datos recientes de la ONU sobre acceso al agua.', hoursAgo: 36 },
-  { post: 'consejo-discurso', author: P(7), content: 'Muy útil. ¿Y si nos queda tiempo, qué recomiendas cerrar con una pregunta o con la propuesta?', hoursAgo: 28 },
+  { post: 'consejo-discurso', author: P(6), content: 'Muy útil. ¿Y si nos queda tiempo, qué recomiendas cerrar con una pregunta o con la propuesta?', hoursAgo: 28 },
   { post: 'consejo-discurso', author: P(5), content: 'Cierra con la propuesta; la pregunta va al inicio para captar la atención.', hoursAgo: 27, replyTo: 0 },
-  { post: 'recursos', author: P(8), content: 'Gracias por el PDF, ahora el procedimiento me queda mucho más claro.', hoursAgo: 24 },
-  { post: 'ag-agenda', author: P(9), content: 'De acuerdo con ese orden: seguridad alimentaria primero.', hoursAgo: 19 },
+  { post: 'recursos', author: P(4), content: 'Gracias por el PDF, ahora el procedimiento me queda mucho más claro.', hoursAgo: 24 },
+  { post: 'ag-agenda', author: P(1), content: 'De acuerdo con ese orden: seguridad alimentaria primero.', hoursAgo: 19 },
   { post: 'cs-reglas', author: P(6), content: 'Gracias por el recordatorio. ¿Las abstenciones cuentan como votos en contra?', hoursAgo: 17 },
 ];
 

@@ -36,7 +36,8 @@ export type AuditActionType =
   | 'IMPORT_PARTICIPANTS'
   | 'UPLOAD_ATTACHMENT'
   | 'DELETE_ATTACHMENT'
-  | 'MODERATE_DELETE_ATTACHMENT';
+  | 'MODERATE_DELETE_ATTACHMENT'
+  | 'ACCESS_DENIED';
 
 export type AuditEntityType =
   | 'POST'
@@ -56,8 +57,11 @@ export type AuditEntityType =
 export type AuditOutcome = 'SUCCESS' | 'FAILURE' | 'DENIED';
 
 // Inserta un evento en audit_logs con fallback a membership o actor explicito.
+// Nunca lanza: un fallo (error de Supabase o excepcion) se registra con console.error
+// para que la operacion que llama no se corte por su auditoria.
+// eventId es null para denegaciones globales (audit_logs.event_id es nullable).
 export const logAudit = async (params: {
-  eventId: string;
+  eventId: string | null;
   membership?: AuthMembership;
   actorUserId?: string;
   actorMembershipId?: string;

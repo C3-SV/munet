@@ -110,7 +110,7 @@ Un límite solo endurece lo oficial: nunca permite más que RN-11.
 
 ### 6. Entrenamiento de organizadores (evento del servidor)
 
-Estado: **entrega 3 implementada, pendiente de aplicar** (retiro con simulación por defecto; `--apply` solo con autorización de la persona dueña).
+Estado: **entrega 3 aplicada el 21 de noviembre de 2026** (el retiro simula por defecto; `--apply` exige autorización de la persona dueña, que ya se dio).
 
 El evento sembrado se mantiene solo para organizadores, con **12 cuentas** que son un subconjunto de las que ya existen: `CON-ADM` (instructor), `CON-MOD1` y `CON-MOD2` (moderadores), `CON-001` a `CON-006` (participantes activos que dan vida al contenido), `CON-023` y `CON-024` (pendientes) y `CON-033` (suspendida). El contenido de ejemplo se reasigna a esos 6 participantes.
 
@@ -132,7 +132,7 @@ El evento sembrado se mantiene solo para organizadores, con **12 cuentas** que s
 
 ### Estado de la entrega 3
 
-Entrega 3 implementada, pendiente de aplicar (rama `feat/entrenamiento-reducir-cuentas`, sin publicar). El script `retire-training-extra-accounts.ts` simula por defecto y regenera el listado de las 12 cuentas; `--apply` no se ha ejecutado y requiere la autorización de la persona dueña. Guía: [evento-de-entrenamiento.md](evento-de-entrenamiento.md).
+Entrega 3 aplicada (fusionada en el PR 17). El script `retire-training-extra-accounts.ts` simula por defecto y regenera el listado de las 12 cuentas; con el retiro ya aplicado una nueva simulación informa 0 cuentas a retirar. Guía: [evento-de-entrenamiento.md](evento-de-entrenamiento.md).
 
 ### Estado de la entrega 1
 

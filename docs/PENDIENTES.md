@@ -1,38 +1,42 @@
 # Pendientes de MUNET
 
-Lista única de lo que falta por hacer, decidir o verificar. Reemplaza a `07-auditoria/pendientes.md` y a las listas dispersas de los planes. Última revisión: 21 de noviembre de 2026.
+Lista única de lo que falta por hacer, decidir o verificar. Reemplaza a `07-auditoria/pendientes.md` y a las listas dispersas de los planes. Última revisión: 21 de noviembre de 2026 (tras la rama `fix/q02-auditoria-login-seed`).
 
 Los IDs B, S, D, W, Q y A vienen de los [planes del equipo web](04-desarrollo/plan-web/README.md) y de la planilla externa del plan maestro, que no está en el repositorio.
 
 ## 1. Orden propuesto
 
-Reordenado el 21 de noviembre de 2026 tras auditar cada pendiente contra el código de `main` (revisión de solo lectura, con un segundo revisor por informe). Ninguno de estos trabajos estaba hecho en el repositorio; el estado de la base real sigue sin la migración 002. Se ordena primero lo que no necesita decisión de producto.
+Reordenado el 21 de noviembre de 2026 tras auditar cada pendiente contra el código de `main` (revisión de solo lectura, con un segundo revisor por informe). Desde entonces se aplicó la migración 002 y se hicieron varias correcciones (ver las filas 1 a 3 y la sección 8). Se ordena primero lo que no necesita decisión de producto.
 
 | Prioridad | Trabajo | Estado | Resultado verificable |
 |---|---|---|---|
 | 1 | Migración 002 (código de delegación): aplicada y verificada el 21 de noviembre de 2026. Falta probar un lote CSV mixto de punta a punta. | Hecho; queda la prueba del CSV. | Existen `event_delegation_counters` y `assign_delegation_code`; las 13 membresías vigentes tienen código; un lote CSV mixto devuelve resultados, credenciales y código. |
-| 2 | Correcciones de seguridad y cuentas sin decisión de producto. Hechas el 21 de noviembre de 2026: Q01-H1, Q01-H4, H3 (middleware sin uso eliminado), Q02-3, Q02-4 (compensación al activar), Q02-5, Q02-8, la reactivación sin salida (ya no se suspende una cuenta nunca activada) y `role` fuera de `events-by-code`. | Hecho; queda verificar en el evento demo. | Pruebas de unidad por cada corrección (289 en la API); sin cambios de contrato HTTP. |
-| 3 | Código de ingreso entre eventos (B07, B14). Hecho el 21 de noviembre de 2026: un código solo puede repetirse entre eventos si es la misma persona; las altas nuevas (individual, CSV y vinculación) rechazan con 409 el código de otra persona, y `events-by-code` tiene límite por IP. Pendiente: confirmar la regla con MUN ESEN (B07), selección de evento con varias membresías (B14) y Q02-2 (login que distingue 400 de 401). | Implementado; pendiente de confirmar la regla. | Las colisiones de código tienen una regla escrita y el login las resuelve sin casos sin salida. |
-| 4 | Ciclo del evento: borrador, cierre, archivo y reapertura; guarda central de solo lectura; borrar comités. | Pendiente; requiere decisiones (ver sección 2). | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
-| 5 | Moderación mínima para MUN ESEN: ocultar sin borrar, endurecer la suspensión, consulta de auditoría y, si se decide, expulsión. Ya existen: eliminar con motivo, retirar adjuntos, fijar, suspender y reactivar. | Parcial; requiere decisiones (ver sección 2). | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
-| 6 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. Sin base aislada, se hace en el evento de entrenamiento «Conoce MUNET» ([guía](04-desarrollo/evento-de-entrenamiento.md)), sembrado el 21 de noviembre de 2026 con 40 cuentas y reiniciable; el ciclo de cuentas ya se recorrió ahí por la API. Falta hacerlo con personas. | Pendiente, con el equipo. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
-| En curso | Modo práctica local de «Conoce MUNET» ([diseño](04-desarrollo/diseno-sandbox-conoce-munet.md)). Entrega 1 (núcleo, PR 14) y entrega 2 (superficies: muro, encuestas, comentarios, adjuntos locales, directorio, perfil y mensajes directos) implementadas el 21 de noviembre de 2026; la entrega 2 está en la rama `feat/modo-practica-superficies`, sin publicar. Falta la entrega 3 (reducir el evento del servidor a unas 12 cuentas) y decidir si el botón se esconde en producción hasta fusionar todo. | Entregas 1 y 2 hechas; 3 pendiente. | Cada participante practica en su navegador sin tocar datos reales. |
+| 2 | Correcciones de seguridad y cuentas sin decisión de producto. Hechas el 21 de noviembre de 2026: Q01-H1, Q01-H4, H3 (middleware sin uso eliminado), Q02-2 (login con 401 uniforme), Q02-3, Q02-4 (compensación al activar), Q02-5, Q02-6 (auditoría de denegaciones, con límite), Q02-8, la reactivación sin salida (ya no se suspende una cuenta nunca activada) y `role` fuera de `events-by-code`. | Hecho; queda verificar en el evento demo. | Pruebas de unidad por cada corrección (343 en la API); sin cambios de contrato HTTP. |
+| 3 | Código de ingreso entre eventos (B07, B14). Hecho el 21 de noviembre de 2026: un código solo puede repetirse entre eventos si es la misma persona; las altas nuevas (individual, CSV y vinculación) rechazan con 409 el código de otra persona, y `events-by-code` tiene límite por IP. Pendiente: confirmar la regla con MUN ESEN (B07), selección de evento con varias membresías (B14). | Implementado; pendiente de confirmar la regla. | Las colisiones de código tienen una regla escrita y el login las resuelve sin casos sin salida. |
+| 4 | Ciclo del evento: borrador, cierre, archivo y reapertura; guarda central de solo lectura; borrar comités. | Decisiones de cierre, archivo y reapertura tomadas el 21 de noviembre de 2026 ([ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)); pendiente implementarlas. Siguen sin decidirse el borrador y el borrado de comités. | El evento cerrado sigue visible a quien corresponda y se rechazan las escrituras definidas por la regla. |
+| 5 | Moderación mínima para MUN ESEN: ocultar sin borrar, endurecer la suspensión, consulta de auditoría y, si se decide, expulsión. Ya existen: eliminar con motivo, retirar adjuntos, fijar, suspender y reactivar. | Parcial. Decisiones de ocultar, auditoría y suspensión tomadas el 21 de noviembre de 2026 ([ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)); sigue sin decidirse la expulsión. | El equipo resuelve un caso de moderación con los permisos y la trazabilidad acordados. |
+| 6 | Validar el recorrido de un evento de ensayo con delegados en comités distintos. Sin base aislada, se hace en el evento de entrenamiento «Conoce MUNET» ([guía](04-desarrollo/evento-de-entrenamiento.md)), sembrado el 21 de noviembre de 2026, reducido a 12 cuentas y reiniciable; el ciclo de cuentas ya se recorrió ahí por la API. Falta hacerlo con personas. | Pendiente, con el equipo. | El equipo ejecuta el [recorrido de validación](04-desarrollo/pruebas-y-validacion.md#recorrido-en-un-entorno-aislado) y registra resultados. |
+| En curso | Modo práctica local de «Conoce MUNET» ([diseño](04-desarrollo/diseno-sandbox-conoce-munet.md)). Entrega 1 (núcleo, PR 14) y entrega 2 (superficies: muro, encuestas, comentarios, adjuntos locales, directorio, perfil y mensajes directos) implementadas el 21 de noviembre de 2026; la entrega 2 está en la rama `feat/modo-practica-superficies`, sin publicar. La entrega 3 (reducir el evento del servidor a 12 cuentas) está aplicada en la base real; el seed y el contenido de ejemplo ya definen solo esas 12 cuentas; falta decidir si el botón se esconde en producción hasta fusionar todo. | Entregas 1, 2 y 3 hechas; falta decidir el botón en producción y publicar la entrega 2. | Cada participante practica en su navegador sin tocar datos reales. |
 | Hecho | Adjuntos de publicaciones en Cloudflare R2 ([ADR-006](06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](04-desarrollo/plan-adjuntos-r2.md)), fusionado en el PR 9 y verificado en el evento demo. | Hecho; queda probar un PDF cercano a 20 MB y el origen de producción. Ver la sección 3. | Un delegado adjunta una imagen o un PDF a una publicación y los lectores autorizados lo abren. |
 
 ## 2. Decisiones de producto
 
-- Recuperación autónoma de cuenta, verificación de identidad y efectos de la suspensión sobre sesiones y Realtime.
+- Recuperación autónoma de cuenta y verificación de identidad.
+- Efectos de la suspensión sobre sesiones y Realtime: decididos el 21 de noviembre de 2026 ([ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)). Falta verificarlos.
 - Necesidad de reportes, notificaciones, fijado, reapertura de encuestas y exportación masiva. Vigencia de REQ-20 (reportes) y REQ-22 (avisos).
-- Supervisión, bloqueo y expulsión de DM, con permisos, motivo, retención y privacidad (B15), y consulta de auditoría.
-- Reglas de selección de evento para participantes con varias membresías (B14) y colisión de códigos de ingreso (B07), para W07.
+- Supervisión, bloqueo y expulsión de DM, con permisos, motivo, retención y privacidad (B15).
+- Consulta de auditoría: decidida el 21 de noviembre de 2026 ([ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)): completa para `ADMIN_TECH`, acotada a su evento para `ADMIN_MUN`. Falta implementarla y actualizar la matriz de reglas de negocio y REQ-24.
+- Expulsión de participantes: sin decidir.
+- Colisión de códigos de ingreso (B07), para W07.
+- Selección de evento para participantes con varias membresías (B14): decidida el 21 de noviembre de 2026 ([ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)). Falta implementarla en W07.
 - Formato, guion, público y ubicación del tour (B11).
 - Definición de S3-11 y S3-08.
-- Registrar en el repositorio las decisiones B03, B04, B07, B11, B14, B15, S2-13, S3-08 y S3-11, que hoy están solo en los planes o en la planilla externa.
+- Registrar en el repositorio las decisiones B03, B04, B07, B11, B15, S2-13, S3-08 y S3-11, que hoy están solo en los planes o en la planilla externa. B14 ya se registró en [ADR-007](06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md).
 - B01: PNG oficial de MUN ESEN y su ubicación definitiva. Hoy `/guia`, el login y el footer usan los logos provisionales de `public/`.
 - B02: ejemplos aprobados de conteo de publicaciones, para W04.
 - B12: meta de carga (concurrencia, mezcla, duración y umbrales), para Q03.
 - Destino de soporte y términos de uso para la guía (D06).
-- Node: `engines` declara `>=18`, pero el lockfile exige Node 20.9 por Next.js 16.1.5 y `@supabase/supabase-js`. Decidir el cambio.
+- ~~Node: `engines` declaraba `>=18`~~ Resuelto el 21 de noviembre de 2026: `engines.node` es `>=20.9` en la raíz y en las apps, según el lockfile.
 
 ### P-01 Modelo de autorización administrativa
 
@@ -68,8 +72,8 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 ### Q01 · Autorización cruzada
 
 - Ejecutar en QA fixtures, cambio de comité, suspensión, retiro de contenido y Realtime. Requiere dos cuentas de participante de prueba; el sondeo de solo lectura ya está preparado y no se ejecutó.
-- H1: `POST /admin/memberships` no valida que el comité pertenezca al evento.
-- H2: `GET /auth/events-by-code/:participant_code` es público y devuelve `membership_id`.
+- ~~H1: `POST /admin/memberships` no validaba que el comité perteneciera al evento.~~ Resuelto el 21 de noviembre de 2026.
+- H2: `GET /auth/events-by-code/:participant_code` es público. Ya tiene límite por IP y no devuelve `role`; sigue revelando códigos con cuenta pendiente.
 - ~~H3: `requireEventMembership` sin uso.~~ Resuelto el 21 de noviembre de 2026: el middleware se eliminó.
 - ~~H4: UPDATEs por id sin `event_id` en DM y comentarios.~~ Resuelto el 21 de noviembre de 2026.
 - H5: `POST /admin/events` y `GET /admin/events` usan `requireAdmin` global; decisión de producto.
@@ -77,12 +81,12 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 ### Q02 · Autenticación y auditoría
 
 - Límite de intentos: el Sprint 3 añadió `rate-limit.ts`. Falta decidir la persistencia del contador (hoy en memoria), el umbral de bloqueo y la política de auditoría ante fallo.
-- Enumeración: el login distingue 400 de 401 (Q02-2).
+- ~~Enumeración: el login distingue 400 de 401 (Q02-2).~~ Resuelto el 21 de noviembre de 2026: el login responde 401 también si el código no tiene membresía activa, y la web muestra el mismo mensaje. Sigue abierto fuera de esta corrección: `GET /auth/events-by-code/:participant_code` (Q01-H2) y el 404 «Membership no encontrado» de `POST /auth/activate` siguen distinguiendo códigos pendientes o inexistentes, y el tiempo de respuesta no se igualó.
 - ~~`logAuthAttempt` ignora el error de Supabase (Q02-3).~~ Resuelto el 21 de noviembre de 2026: se registra en consola sin cortar el flujo.
 - ~~Activación sin compensación si falla tras crear la cuenta de Auth (Q02-4).~~ Resuelto el 21 de noviembre de 2026: se borra el usuario de Auth creado, se revierte `users` y la cuenta sigue pendiente con su contraseña inicial.
 - ~~`last_login_at` sin revisar errores (Q02-5).~~ Resuelto el 21 de noviembre de 2026: el error se registra y no impide el login.
-- Denegaciones de middleware sin auditar (Q02-6).
-- `logAudit` es best effort (Q02-7).
+- ~~Denegaciones de middleware sin auditar (Q02-6).~~ Resuelto el 21 de noviembre de 2026: los 403 de los middlewares de autorización registran `ACCESS_DENIED`. Límite contra abuso: 10 registros por usuario cada 10 minutos, en memoria por instancia. Falta confirmar que `audit_logs` acepta ese valor de acción en la base real.
+- `logAudit` es best effort (Q02-7): registra el error con `console.error` y no lanza; se mantiene así a propósito.
 - `initial_password` y `temporary_password` viajan en respuestas JSON (Q02-8). El handler de reset ya fija `Cache-Control: no-store` (resuelto el 21 de noviembre de 2026); las otras respuestas con contraseñas ya lo tenían.
 - Sesión completa en `localStorage` (Q02-10).
 - Pruebas con reloj simulado, sin ejecutar.
@@ -92,7 +96,7 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 - La migración 002 se aplicó el 21 de noviembre de 2026 (P-06 cerrado): la función `assign_delegation_code` y la tabla `event_delegation_counters` existen y las membresías vigentes tienen código. Falta verificar privilegios de `service_role` frente a `anon` y `authenticated` por la vía de la API con un alta real.
 - Verificar RLS, publicación Realtime (incluida `poll_votes`), buckets y configuración de Auth en la base real. Es solo lectura y requiere autorización expresa.
 - Discrepancias D1–D9 del inventario, incluida la RPC `assign_delegation_code` sin guarda de versión (D1) y el valor de estado que el código escribe y el enum no declara (D5).
-- `ALLOW_DEMO_POSTS=true` en `apps/api/.env` no se lee en `apps/api/src`; retirarlo o documentarlo.
+- `ALLOW_DEMO_POSTS=true` aparece en `apps/api/.env.example` (versionado) y en `apps/api/.env` local, pero no se lee en `apps/api/src`; retirarlo del ejemplo o documentarlo.
 
 ### Trabajo técnico posterior
 
@@ -107,8 +111,8 @@ Completitud del DDL, políticas RLS y Storage, transacciones e idempotencia, aud
 - W04: conteo de publicaciones, bloqueado por B02.
 - W06: contenido del tour y su enlace en `/guia`, tras aprobar B11.
 - A03: evidencia de QA de las migraciones 001/002 y decisión sobre dónde mostrar el código de delegación (S2-13) en tarjetas, búsqueda, DM y chat.
-- Marca «Fijado» en `PostCard` y mapeo de `isPinned`/`pinnedAt` del feed (componente compartido).
-- Moderación: si se elimina el último post de una página distinta de la primera, la lista queda vacía hasta volver a la anterior.
+- ~~Marca «Fijado» en `PostCard`~~ hecha el 21 de noviembre de 2026. Falta, solo si MUN ESEN lo pide, que el feed muestre primero los fijados (hoy ordena por fecha en el cliente); fijar ya lo puede hacer Admin MUN.
+- ~~Moderación: lista vacía al eliminar el último post de una página distinta de la primera.~~ Resuelto el 21 de noviembre de 2026: retrocede a la página anterior.
 - El moderador llega al panel por el enlace «Moderación» del sidebar. Un moderador con varios eventos solo cambia de evento desde `/select-event`.
 
 ## 6. Verificación y QA
