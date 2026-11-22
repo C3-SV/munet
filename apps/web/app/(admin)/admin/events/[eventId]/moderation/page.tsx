@@ -11,19 +11,18 @@ import { ModerationPostCard } from "../../../../../../components/admin/Moderatio
 import { IconAlertTriangle, IconRefresh, IconShield } from "../../../../../../components/ui/icons";
 import { ApiError } from "../../../../../../lib/api/client";
 import {
+    listModerationPeople,
     listModerationPosts,
     listModerationWalls,
     type ModerationPagination,
+    type ModerationPerson,
     type ModerationPost,
     type ModerationStatusFilter,
     type ModerationWall,
 } from "../../../../../../lib/api/moderation";
-import { type AdminParticipant, listParticipants } from "../../../../../../lib/api/participants";
 import { useAuthStore } from "../../../../../../stores/auth.store";
 
 const PAGE_SIZE = 20;
-// Máximo que admite la API de participantes por página; se recorren todas para el selector.
-const PEOPLE_PAGE_SIZE = 100;
 // Espera tras un 429 antes de permitir otra acción de escritura.
 const COOLDOWN_MS = 5000;
 
@@ -38,10 +37,8 @@ type ToastState = { type: "success" | "error"; message: string };
 const wallLabel = (wall: ModerationWall) =>
     `${wall.name} · ${wall.visible_posts} visibles · ${wall.pinned_posts} fijados`;
 
-const personLabel = (person: AdminParticipant) => {
-    const name =
-        person.profile?.display_name?.trim() ||
-        `${person.profile?.first_name ?? ""} ${person.profile?.last_name ?? ""}`.trim();
+const personLabel = (person: ModerationPerson) => {
+    const name = `${person.first_name} ${person.last_name}`.trim() || person.alias || "";
     return name ? `${name} · ${person.participant_code}` : person.participant_code;
 };
 
@@ -60,7 +57,7 @@ export default function ModerationPage() {
     const [wallsError, setWallsError] = useState<string | null>(null);
     const [wallId, setWallId] = useState("");
 
-    const [people, setPeople] = useState<AdminParticipant[]>([]);
+    const [people, setPeople] = useState<ModerationPerson[]>([]);
     const [peopleLoading, setPeopleLoading] = useState(true);
     const [peopleError, setPeopleError] = useState<string | null>(null);
     // "" = todas las personas del muro seleccionado.
@@ -143,23 +140,9 @@ export default function ModerationPage() {
         let cancelled = false;
         setPeopleLoading(true);
         setPeopleError(null);
+        setAuthorId("");
 
-        const loadPeople = async () => {
-            const all: AdminParticipant[] = [];
-            for (let current = 1; ; current += 1) {
-                const data = await listParticipants(token, {
-                    eventId,
-                    page: current,
-                    limit: PEOPLE_PAGE_SIZE,
-                });
-                all.push(...data.participants);
-                if (current >= data.pagination.total_pages || data.participants.length === 0) {
-                    return all;
-                }
-            }
-        };
-
-        loadPeople()
+        listModerationPeople(token, eventId)
             .then((list) => {
                 if (!cancelled) {
                     setPeople(list);

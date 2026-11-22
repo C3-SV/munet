@@ -98,7 +98,8 @@ Aceptan administrador o `MODERATOR` activo del evento del recurso. Errores como 
 | Método y ruta | Entrada principal | Uso en web |
 |---|---|---|
 | `GET /admin/moderation/walls` | `event_id` | Selector de muro con `visible_posts` y `pinned_posts`. |
-| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100) | Lista paginada, fijados primero. Incluye texto original, datos de borrado y `attachment` (`id`, `name`, `mimeType`, `size`, o `null`), también en posts eliminados hasta la purga. |
+| `GET /admin/moderation/people` | `event_id` | Solo lectura para moderadores. Personas activas del evento (`id` de membresía, `participant_code`, `first_name`, `last_name`, `alias`), ordenadas por apellido y nombre, sin datos de contacto. Alimenta el selector «Persona». |
+| `GET /admin/moderation/posts` | `wall_id`, `status?` (`VISIBLE`, `DELETED`, `ALL`), `page?`, `limit?` (máx. 100), `author_membership_id?` (UUID) | Lista paginada, fijados primero. Incluye texto original, datos de borrado y `attachment` (`id`, `name`, `mimeType`, `size`, o `null`), también en posts eliminados hasta la purga. `author_membership_id` filtra por persona dentro del muro; si viene vacío o no es UUID responde 400, y si la membresía no pertenece al evento responde 404 «La persona no pertenece a este evento». Sin el parámetro la respuesta no cambia. |
 | `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Botón «Retirar adjunto» de la tarjeta. Retira el adjunto sin borrar el post. 404 si ya no hay adjunto. Audita `MODERATE_DELETE_ATTACHMENT`. |
 | `GET /admin/moderation/posts/:postId/comments` | `status?` | Comentarios al expandir un post. La web pide `ALL`. |
 | `POST /admin/moderation/posts/:postId/delete` | `reason` (3–500) | Devuelve solo el estado; la web recarga la lista. 409 si ya estaba borrado. |

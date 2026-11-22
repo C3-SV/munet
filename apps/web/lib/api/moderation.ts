@@ -108,6 +108,27 @@ export const listModerationWalls = async (
     return payload.walls;
 };
 
+// Solo lectura para moderadores: sin contacto y ordenada por apellido y nombre en la API.
+export type ModerationPerson = {
+    id: string;
+    participant_code: string;
+    first_name: string;
+    last_name: string;
+    alias: string | null;
+};
+
+export const listModerationPeople = async (
+    token: string,
+    eventId: string,
+): Promise<ModerationPerson[]> => {
+    const payload = await requestApi<{ people: ModerationPerson[] }>(
+        `/admin/moderation/people?event_id=${encodeURIComponent(eventId)}`,
+        { token },
+    );
+
+    return payload.people;
+};
+
 export const listModerationPosts = (
     token: string,
     wallId: string,
