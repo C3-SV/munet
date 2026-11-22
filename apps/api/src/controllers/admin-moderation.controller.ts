@@ -4,7 +4,7 @@ import { logAudit } from '../utils/audit.logger';
 
 const POST_STATE = 'id, event_id, wall_id, author_membership_id, status, deleted_at, deleted_by_membership_id, deleted_by_membership_uuid, is_pinned, pinned_at, pinned_by_membership_id';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const COMMENT_STATE ='id, event_id, post_id, author_membership_id, status, deleted_at, deleted_by_actor_type, deleted_by_membership_uuid';
+const COMMENT_STATE = 'id, event_id, post_id, author_membership_id, status, deleted_at, deleted_by_actor_type, deleted_by_membership_uuid';
 
 type Profile = { first_name: string; last_name: string; display_name?: string | null; alias?: string | null };
 type Author = {
@@ -109,6 +109,36 @@ export const listModerationWalls = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'No se pudieron listar los muros' });
+  }
+};
+
+// Solo lectura para moderadores: nombre y codigo de las personas activas del evento, sin datos de contacto.
+export const listModerationPeople = async (req: Request, res: Response) => {
+  const eventId = req.auth!.currentMembership!.eventId;
+  try {
+    const people: { id: string; participant_code: string; first_name: string; last_name: string; alias: string | null }[] = [];
+    // Pagina internamente por id para no truncar eventos grandes.
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabaseAdmin.from('event_memberships')
+        .select('id, participant_code, profiles (first_name, last_name, alias)')
+        .eq('event_id', eventId).is('deleted_at', null)
+        .order('id').range(offset, offset + 499);
+      if (error) throw error;
+      for (const row of (data ?? []) as unknown as { id: string; participant_code: string; profiles: Profile | Profile[] | null }[]) {
+        const profile = first(row.profiles);
+        people.push({
+          id: row.id, participant_code: row.participant_code,
+          first_name: profile?.first_name ?? '', last_name: profile?.last_name ?? '', alias: profile?.alias ?? null,
+        });
+      }
+      if ((data?.length ?? 0) < 500) break;
+    }
+    people.sort((a, b) => a.last_name.localeCompare(b.last_name, 'es') || a.first_name.localeCompare(b.first_name, 'es')
+      || a.participant_code.localeCompare(b.participant_code) || a.id.localeCompare(b.id));
+    return res.json({ people });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudieron listar las personas' });
   }
 };
 

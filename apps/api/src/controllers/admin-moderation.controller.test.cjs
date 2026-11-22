@@ -309,6 +309,7 @@ test('filtro por persona: valida UUID, exige membresia del evento y solo filtra 
   assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'author_membership_id' && s[2] === AUTHOR));
   assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'wall_id' && s[2] === 'wall'));
   assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'VISIBLE'));
+  assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
 
   const unfiltered = harness([{ data: [], count: 0 }]);
   unfiltered.req.query = { wall_id: 'wall', status: 'ALL' };
@@ -318,4 +319,34 @@ test('filtro por persona: valida UUID, exige membresia del evento y solo filtra 
   assert.equal(unfiltered.calls[0].table, 'posts');
   assert.ok(!unfiltered.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'author_membership_id'));
   assert.deepEqual(JSON.parse(JSON.stringify(unfiltered.res.body.pagination)), { page: 1, limit: 20, total: 0, total_pages: 0 });
+});
+
+test('listado de personas: solo lectura del evento, sin contacto, ordenado y paginado de 500 en 500', async () => {
+  const row = (id, last, first, alias = null) => ({ id, participant_code: `C-${id}`, profiles: [{ first_name: first, last_name: last, alias }] });
+  const page1 = Array.from({ length: 500 }, (_, i) => row(`p${String(i).padStart(3, '0')}`, 'Zeta', 'Ana'));
+  const h = harness([
+    { data: [row('m2', 'Bravo', 'Luis', 'LuisB'), { id: 'm1', participant_code: 'C-m1', profiles: null }] },
+  ]);
+  h.req.query = { event_id: 'event' };
+  await h.controller.listModerationPeople(h.req, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.calls[0].table, 'event_memberships');
+  assert.ok(h.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
+  assert.ok(h.calls[0].steps.some(s => s[0] === 'is' && s[1] === 'deleted_at' && s[2] === null));
+  assert.deepEqual(JSON.parse(JSON.stringify(h.res.body.people)), [
+    { id: 'm1', participant_code: 'C-m1', first_name: '', last_name: '', alias: null },
+    { id: 'm2', participant_code: 'C-m2', first_name: 'Luis', last_name: 'Bravo', alias: 'LuisB' },
+  ]);
+  for (const key of Object.keys(h.res.body.people[0])) assert.ok(!/email|mail|phone/.test(key));
+
+  const paged = harness([{ data: page1 }, { data: [row('x', 'Abril', 'Eva')] }]);
+  await paged.controller.listModerationPeople(paged.req, paged.res);
+  assert.equal(paged.res.body.people.length, 501);
+  assert.equal(paged.res.body.people[0].last_name, 'Abril');
+  assert.ok(paged.calls[0].steps.some(s => s[0] === 'range' && s[1] === 0 && s[2] === 499));
+  assert.ok(paged.calls[1].steps.some(s => s[0] === 'range' && s[1] === 500 && s[2] === 999));
+
+  const failing = harness([{ error: { message: 'fallo' } }]);
+  await failing.controller.listModerationPeople(failing.req, failing.res);
+  assert.equal(failing.res.statusCode, 500);
 });

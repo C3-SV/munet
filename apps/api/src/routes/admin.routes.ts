@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { moderationWriteLimiter } from '../middleware/rate-limit';
 import { deleteModerationAttachment } from '../controllers/attachments.controller';
 import {
-  listModerationWalls, listModerationPosts, listModerationComments,
+  listModerationWalls, listModerationPeople, listModerationPosts, listModerationComments,
   deleteModerationPost, deleteModerationComment, pinModerationPost, unpinModerationPost,
 } from '../controllers/admin-moderation.controller';
 import {
@@ -111,6 +111,7 @@ const requireWallModerator = requireEventModerator(eventIdFromWall, { missingSta
 const requirePostModerator = requireEventModerator(eventIdFromPost, { missingStatus: 404, missingMessage: 'Post no encontrado' });
 const requireCommentModerator = requireEventModerator(eventIdFromComment, { missingStatus: 404, missingMessage: 'Comentario no encontrado' });
 router.get('/moderation/walls', requireAuth, requireEventModerator(eventIdFromQuery), listModerationWalls);
+router.get('/moderation/people', requireAuth, requireEventModerator(eventIdFromQuery), listModerationPeople);
 router.get('/moderation/posts', requireAuth, requireWallModerator, listModerationPosts);
 router.get('/moderation/posts/:postId/comments', requireAuth, requirePostModerator, listModerationComments);
 router.post('/moderation/posts/:postId/delete', requireAuth, requirePostModerator, moderationWriteLimiter, deleteModerationPost);
