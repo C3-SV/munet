@@ -783,17 +783,24 @@ export const getEventsByParticipantCode = async (
       .is('deleted_at', null);
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      // No se expone el mensaje de la base en un endpoint publico (Q01-H2).
+      console.error('events-by-code:', error.message);
+      return res.status(500).json({ error: 'No se pudo validar la cuenta' });
     }
 
+    // Respuesta minima: solo lo que la activacion necesita para elegir evento.
+    // Sin membership_id ni datos internos del evento (slug, estado, fechas).
     const events = (data ?? [])
-      .map((item: any) => ({
-        membership_id: item.id,
+      .map((item: any) => {
+        const event = Array.isArray(item.events) ? item.events[0] : item.events;
+        return { item, event };
+      })
+      .filter(({ event }: any) => event && !event.deleted_at)
+      .map(({ item, event }: any) => ({
         participant_code: item.participant_code,
         account_status: item.account_status,
-        event: Array.isArray(item.events) ? item.events[0] : item.events
-      }))
-      .filter((item: any) => item.event && !item.event.deleted_at);
+        event: { id: event.id, name: event.name }
+      }));
 
     return res.json({ events });
   } catch (error) {

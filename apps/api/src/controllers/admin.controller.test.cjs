@@ -544,9 +544,17 @@ test('events-by-code ya no devuelve el rol de las membresias pendientes', async 
   await h.controller.getEventsByParticipantCode({ params: { participant_code: 'COD001' } }, h.res);
   assert.equal(h.res.statusCode, 200);
   const [item] = JSON.parse(JSON.stringify(h.res.body.events));
-  assert.equal(item.membership_id, 'm1');
   assert.equal(item.event.id, 'event');
   assert.equal('role' in item, false);
+  assert.equal('membership_id' in item, false);
+  assert.deepEqual(Object.keys(item.event).sort(), ['id', 'name']);
+});
+
+test('events-by-code no filtra el mensaje de error de la base (Q01-H2)', async () => {
+  const h = harness([{ data: null, error: { message: 'detalle interno de la base' } }]);
+  await h.controller.getEventsByParticipantCode({ params: { participant_code: 'COD001' } }, h.res);
+  assert.equal(h.res.statusCode, 500);
+  assert.doesNotMatch(JSON.stringify(h.res.body), /detalle interno/);
 });
 
 test('restablecer contraseña marca la respuesta como no cacheable en cada rama (Q02-8)', async () => {

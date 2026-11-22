@@ -73,13 +73,11 @@ export async function authContextRequest(token: string): Promise<{
 export type ActivationEvent = {
     event_id: string;
     event_name: string;
-    membership_id: string;
 };
 
 type ActivationEventResponse = {
     event?: { id: string; name: string } | null;
     account_status: string;
-    membership_id: string;
 };
 
 // Valida cuentas pendientes de activacion por codigo de participante.
@@ -112,7 +110,6 @@ export async function validateActivationRequest(
             {
                 event_id: item.event.id,
                 event_name: item.event.name,
-                membership_id: item.membership_id,
             },
         ];
     });
