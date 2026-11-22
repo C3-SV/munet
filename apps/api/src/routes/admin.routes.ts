@@ -4,6 +4,7 @@ import { deleteModerationAttachment } from '../controllers/attachments.controlle
 import {
   listModerationWalls, listModerationPeople, listModerationPosts, listModerationComments,
   deleteModerationPost, deleteModerationComment, pinModerationPost, unpinModerationPost,
+  hideModerationPost, unhideModerationPost, hideModerationComment, unhideModerationComment,
 } from '../controllers/admin-moderation.controller';
 import {
   createAccount,
@@ -46,6 +47,7 @@ import {
   requireSuperAdmin,
 } from '../middleware/auth.middleware';
 import { requireEventOpenForWrites } from '../middleware/event-status.middleware';
+import { listAuditLogs } from '../controllers/admin-audit.controller';
 
 const router = Router();
 
@@ -120,5 +122,13 @@ router.post('/moderation/posts/:postId/attachment/delete', requireAuth, requireP
 router.post('/moderation/comments/:commentId/delete', requireAuth, requireCommentModerator, requireEventOpenForWrites, moderationWriteLimiter, deleteModerationComment);
 router.post('/moderation/posts/:postId/pin', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, pinModerationPost);
 router.post('/moderation/posts/:postId/unpin', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, unpinModerationPost);
+router.post('/moderation/posts/:postId/hide', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, hideModerationPost);
+router.post('/moderation/posts/:postId/unhide', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, unhideModerationPost);
+router.post('/moderation/comments/:commentId/hide', requireAuth, requireCommentModerator, requireEventOpenForWrites, moderationWriteLimiter, hideModerationComment);
+router.post('/moderation/comments/:commentId/unhide', requireAuth, requireCommentModerator, requireEventOpenForWrites, moderationWriteLimiter, unhideModerationComment);
+
+// Consulta de auditoria por evento (ADR-007). Solo lectura: sin guarda de cierre.
+// ADMIN_TECH ve el registro completo; ADMIN_MUN, solo las acciones de cuidado general.
+router.get('/audit-logs', requireAuth, requireEventAdmin(eventIdFromQuery), listAuditLogs);
 
 export default router;

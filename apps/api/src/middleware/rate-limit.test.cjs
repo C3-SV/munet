@@ -95,7 +95,7 @@ test('las rutas montan los limitadores despues de autenticar y solo en escritura
   assert.deepEqual(dm.get('post /conversations/:conversationId/messages'), ['requireAuth', 'requireEventOpenForWrites', 'sendDmLimiter', 'sendMessage']);
   for (const path of ['login', 'activate']) assert.deepEqual(auth.get(`post /${path}`).slice(0, 2), ['authIpLimiter', 'authParticipantLimiter']);
   const moderationWrites = [...admin].filter(([path]) => path.startsWith('post /moderation/'));
-  assert.equal(moderationWrites.length, 5);
+  assert.equal(moderationWrites.length, 9);
   for (const [, handlers] of moderationWrites) {
     assert.equal(handlers[0], 'requireAuth');
     assert.deepEqual(handlers.slice(2, 4), ['requireEventOpenForWrites', 'moderationWriteLimiter']);

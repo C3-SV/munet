@@ -143,7 +143,7 @@ test('perfil: solo el propio (/me) lleva la guarda', () => {
 test('administracion: solo la moderacion lleva la guarda', () => {
   const routes = writeRoutes('admin.routes.ts');
   const moderation = routes.filter((route) => route.path.startsWith('/moderation/'));
-  assert.equal(moderation.length, 5);
+  assert.equal(moderation.length, 9);
   for (const route of routes) {
     assert.equal(route.guarded, route.path.startsWith('/moderation/'), `admin ${route.method} ${route.path}`);
   }

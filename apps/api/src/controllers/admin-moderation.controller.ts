@@ -25,7 +25,7 @@ const authorSelect = (table: string) => `author:event_memberships!${table}_autho
 )`;
 const statusFilter = (req: Request) => {
   const value = req.query.status ?? 'VISIBLE';
-  return typeof value === 'string' && ['VISIBLE', 'DELETED', 'ALL'].includes(value) ? value : null;
+  return typeof value === 'string' && ['VISIBLE', 'HIDDEN', 'DELETED', 'ALL'].includes(value) ? value : null;
 };
 const positiveInteger = (value: unknown, fallback: number, max: number) => {
   if (value === undefined) return fallback;
@@ -194,7 +194,7 @@ export const listModerationPosts = async (req: Request, res: Response) => {
 
 export const listModerationComments = async (req: Request, res: Response) => {
   const status = statusFilter(req);
-  if (!status) return res.status(400).json({ error: 'status debe ser VISIBLE, DELETED o ALL' });
+  if (!status) return res.status(400).json({ error: 'status debe ser VISIBLE, HIDDEN, DELETED o ALL' });
   const eventId = req.auth!.currentMembership!.eventId;
   try {
     const comments = [];
@@ -312,3 +312,55 @@ const setPinned = async (req: Request, res: Response, pinned: boolean) => {
 
 export const pinModerationPost = (req: Request, res: Response) => setPinned(req, res, true);
 export const unpinModerationPost = (req: Request, res: Response) => setPinned(req, res, false);
+
+// Oculta (VISIBLE -> HIDDEN) o restaura (HIDDEN -> VISIBLE) sin borrar. Siempre acotado al evento de la membresia.
+const setHidden = async (req: Request, res: Response, isPost: boolean, hidden: boolean) => {
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+  if (reason.length < 3 || reason.length > 500) {
+    return res.status(400).json({ error: 'reason debe tener entre 3 y 500 caracteres' });
+  }
+  const membership = req.auth!.currentMembership!;
+  const table = isPost ? 'posts' : 'post_comments';
+  const id = String(isPost ? req.params.postId : req.params.commentId);
+  const select = isPost ? POST_STATE : COMMENT_STATE;
+  const from = hidden ? 'VISIBLE' : 'HIDDEN';
+  const to = hidden ? 'HIDDEN' : 'VISIBLE';
+  try {
+    const { data: resource, error } = await supabaseAdmin.from(table).select(select)
+      .eq('id', id).eq('event_id', membership.eventId)
+      .maybeSingle<{ status: string; author_membership_id: string }>();
+    if (error) throw error;
+    if (!resource) return res.status(404).json({ error: isPost ? 'Post no encontrado' : 'Comentario no encontrado' });
+    if (resource.status === 'DELETED') return res.status(409).json({ error: 'El recurso ya estaba eliminado' });
+    if (resource.status !== from) {
+      return res.status(409).json({ error: hidden ? 'Solo se pueden ocultar recursos VISIBLE' : 'Solo se pueden restaurar recursos HIDDEN' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin.from(table).update({
+      status: to,
+      updated_by_membership_id: membership.id,
+      // Un post oculto no puede ocupar cupo de fijados: al ocultarlo se desfija.
+      ...(hidden && isPost ? { is_pinned: false, pinned_at: null, pinned_by_membership_id: null } : {}),
+    }).eq('id', id).eq('event_id', membership.eventId).eq('status', from)
+      .select(select).maybeSingle();
+    if (updateError) throw updateError;
+    // La condicion de estado impide auditar dos cambios simultaneos como exitosos.
+    if (!updated) return res.status(409).json({ error: 'El recurso cambio; vuelve a cargarlo' });
+    await logAudit({
+      eventId: membership.eventId, membership, targetMembershipId: resource.author_membership_id,
+      actionType: hidden
+        ? (isPost ? 'HIDE_POST' : 'HIDE_COMMENT')
+        : (isPost ? 'UNHIDE_POST' : 'UNHIDE_COMMENT'),
+      entityType: isPost ? 'POST' : 'COMMENT', entityId: id, outcome: 'SUCCESS', reason,
+    });
+    return res.json({ [isPost ? 'post' : 'comment']: updated });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: hidden ? 'No se pudo ocultar el recurso' : 'No se pudo restaurar el recurso' });
+  }
+};
+
+export const hideModerationPost = (req: Request, res: Response) => setHidden(req, res, true, true);
+export const unhideModerationPost = (req: Request, res: Response) => setHidden(req, res, true, false);
+export const hideModerationComment = (req: Request, res: Response) => setHidden(req, res, false, true);
+export const unhideModerationComment = (req: Request, res: Response) => setHidden(req, res, false, false);

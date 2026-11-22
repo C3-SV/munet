@@ -296,6 +296,7 @@ const buildPostResponseById = async (params: {
     .select(POST_SELECT)
     .eq('id', params.postId)
     .eq('event_id', params.eventId)
+    .eq('status', 'VISIBLE')
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -342,7 +343,8 @@ const resolvePostContext = async (params: {
     throw new Error(postError.message);
   }
 
-  if (!post || post.event_id !== params.eventId) {
+  // Un post oculto por moderacion no existe para el participante: no se opera sobre el.
+  if (!post || post.event_id !== params.eventId || post.status === 'HIDDEN') {
     // Evita operar posts fuera del evento activo enviado por header.
     return {
       allowed: false as const,
@@ -1002,7 +1004,8 @@ export const deletePostService = async (params: {
     throw new Error(postError.message);
   }
 
-  if (!post || post.event_id !== params.eventId) {
+  // Un post oculto por moderacion no se borra desde la ruta de participante; lo gestiona moderacion.
+  if (!post || post.event_id !== params.eventId || post.status === 'HIDDEN') {
     return {
       status: 404,
       body: { error: 'Post no encontrado en este evento' },
