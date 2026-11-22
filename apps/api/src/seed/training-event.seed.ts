@@ -402,6 +402,19 @@ const seedContent = async (deps: SeedDeps, eventId: string, members: Map<string,
 
 // ---------------------------------------------------------------------------------------------
 
+// Fila del listado de credenciales (.local/usuarios-entrenamiento.json). Lo usan el seed y el
+// script de reducción, para que ambos escriban el mismo formato.
+export const rosterRowOf = (account: SeedAccount, secret: string, delegationCode: string | null): RosterRow => ({
+  code: account.code,
+  password: passwordFor(account, secret),
+  role: account.role,
+  state: account.state,
+  name: `${account.firstName} ${account.lastName}`,
+  committee: account.committeeCode ? TRAINING_COMMITTEES.find((c) => c.code === account.committeeCode)!.name : null,
+  delegation: account.delegation,
+  delegationCode,
+});
+
 export const runTrainingSeed = async (deps: SeedDeps, options: SeedOptions): Promise<SeedReport> => {
   const { db, log } = deps;
   const roster = buildRoster();
@@ -577,16 +590,7 @@ export const runTrainingSeed = async (deps: SeedDeps, options: SeedOptions): Pro
     report.content = 'sembrado';
   }
 
-  report.roster = roster.map((account) => ({
-    code: account.code,
-    password: passwordFor(account, deps.secret),
-    role: account.role,
-    state: account.state,
-    name: `${account.firstName} ${account.lastName}`,
-    committee: account.committeeCode ? TRAINING_COMMITTEES.find((c) => c.code === account.committeeCode)!.name : null,
-    delegation: account.delegation,
-    delegationCode: members.get(account.code)?.delegation_code ?? null,
-  }));
+  report.roster = roster.map((account) => rosterRowOf(account, deps.secret, members.get(account.code)?.delegation_code ?? null));
 
   return report;
 };

@@ -110,6 +110,8 @@ Un límite solo endurece lo oficial: nunca permite más que RN-11.
 
 ### 6. Entrenamiento de organizadores (evento del servidor)
 
+Estado: **entrega 3 implementada, pendiente de aplicar** (retiro con simulación por defecto; `--apply` solo con autorización de la persona dueña).
+
 El evento sembrado se mantiene solo para organizadores, con **12 cuentas** que son un subconjunto de las que ya existen: `CON-ADM` (instructor), `CON-MOD1` y `CON-MOD2` (moderadores), `CON-001` a `CON-006` (participantes activos que dan vida al contenido), `CON-023` y `CON-024` (pendientes) y `CON-033` (suspendida). El contenido de ejemplo se reasigna a esos 6 participantes.
 
 **Retiro de las 28 sobrantes** (`CON-007` a `CON-022`, `CON-025` a `CON-032` y `CON-034` a `CON-037`): es un borrado **lógico** de la membresía (queda `deleted_at`, así la auditoría se conserva y el código queda libre), más borrar su usuario de acceso en Auth. Solo toca membresías con prefijo `CON-` del evento de entrenamiento, nunca personas reales ni otros eventos. Es una operación sobre la base de producción, así que el script **simula primero** y lista exactamente qué retiraría; solo se aplica con `--apply` y con la autorización expresa de la persona dueña en ese momento. El Excel se regenera con las 12. Ya no se inscribe a nadie automáticamente.
@@ -127,6 +129,10 @@ El evento sembrado se mantiene solo para organizadores, con **12 cuentas** que s
 1. **Núcleo:** contexto de práctica, enrutador local detrás de `requestApi` con falla cerrada, almacén en IndexedDB por usuario con versionado, cierre de las fugas (subida a R2 y tiempo real), aviso, acceso en el menú y botón de reiniciar.
 2. **Superficies:** muro (publicaciones, encuestas, comentarios, adjuntos locales con límites), directorio, perfil y mensajes directos con respuestas simuladas.
 3. **Entrenamiento de organizadores:** reducir el evento del servidor a unas 12 cuentas, retirar las sobrantes, regenerar el Excel y actualizar la guía.
+
+### Estado de la entrega 3
+
+Entrega 3 implementada, pendiente de aplicar (rama `feat/entrenamiento-reducir-cuentas`, sin publicar). El script `retire-training-extra-accounts.ts` simula por defecto y regenera el listado de las 12 cuentas; `--apply` no se ha ejecutado y requiere la autorización de la persona dueña. Guía: [evento-de-entrenamiento.md](evento-de-entrenamiento.md).
 
 ### Estado de la entrega 1
 
