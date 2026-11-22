@@ -77,7 +77,7 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /admin/committees/:committeeId` | — | Edición. |
 | `POST /admin/committees` | `event_id`, `name`, `code`, `description?`, `sort_order?` | Alta con creación de muro. |
 | `PATCH /admin/committees/:committeeId` | `name?`, `code?`, `description?`, `sort_order?` | Edición. Actualiza nombre del muro cuando cambia el nombre. |
-| `DELETE /admin/committees/:committeeId` | — | Sin pantalla. Borrado lógico de comité e intento de borrar su muro. |
+| `DELETE /admin/committees/:committeeId` | — | Botón «Eliminar» en la lista de comités, con confirmación. Borrado lógico de comité e intento de borrar su muro; no comprueba participantes (quedan sin comité en el contexto, aunque conservan `committee_id`). |
 | `POST /admin/memberships` | `event_id`, `user_id`, `role`, `participant_code`, campos opcionales de comité/delegación/institución | Sin pantalla. Vincula un usuario existente sin generar contraseña inicial ni perfil. Valida que el comité exista, sea del evento y no esté archivado (404 o 400). 409 si el código ya existe en el evento o si lo usa otra persona en otro evento. |
 | `POST /admin/create-account` | `event_id`, `participant_code`, `role`, `first_name`, `last_name`, campos opcionales de comité y perfil | Alta individual. Devuelve `initial_password`, `delegation_code` y `warnings`. La pantalla muestra la contraseña. 409 si el código ya existe en el evento o lo usa otra persona en otro evento. |
 | `GET /admin/participants` | `event_id`, `page?`, `limit?`, `committee_id?`, `role?`, `status?`, `q?` | Listado y filtros. La API admite búsqueda `q` por nombre, alias o códigos. |

@@ -31,7 +31,7 @@ El alta parte en estado activo e intenta dar permisos de administración a quien
 2. Indica nombre, código y, si aplica, descripción y orden. Al guardar, la API crea el comité y su muro. Por ejemplo, un comité con código `CS` puede tener un muro en `/feed/comite-cs`.
 3. Usa **Editar** en el listado para cambiar sus datos. Al cambiar el nombre del comité, la API intenta cambiar también el nombre de su muro.
 
-El alta de comité se rechaza en eventos cerrados o archivados. La API ofrece borrado lógico de comité y muro. La pantalla de comités solo ofrece alta y edición. [Referencia administrativa](../03-referencia/api.md#administración)
+El alta de comité se rechaza en eventos cerrados o archivados. La pantalla de comités ofrece alta, edición y «Eliminar» (borrado lógico del comité y su muro; los participantes quedan sin comité). Desde la página del evento, «Cerrar evento» y «Reabrir evento» cambian su estado con confirmación. [Referencia administrativa](../03-referencia/api.md#administración)
 
 ### Incorporar participantes individualmente — implementado
 
