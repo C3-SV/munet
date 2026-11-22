@@ -6,7 +6,7 @@ La búsqueda pública devuelve cuentas pendientes por código. La activación va
 
 El cliente conserva el token y la selección en `localStorage`. Cerrar sesión limpia el estado local. No se observó revocación remota en ese recorrido. El cliente común de solicitudes autenticadas también limpia la sesión y redirige a login ante un 401.
 
-En login, el cliente orienta según el estado HTTP de `POST /auth/login`: un 400 con `Membership no encontrado` indica que el código no tiene membresía activa. Ese par también puede aparecer si falla la búsqueda, por lo que la UI ofrece revisar el código o abrir la activación con el código escrito; la consulta de cuentas pendientes solo se hace al pulsar "Continuar". Un 401 muestra credenciales inválidas. Otros 400, el 409 y los fallos de red conservan su mensaje.
+`POST /auth/login` responde 401 `Credenciales invalidas` tanto si la contraseña no coincide como si el código no tiene membresía activa, para no revelar qué códigos existen (Q02-2, resuelto el 21 de noviembre de 2026). El motivo real solo queda en el registro de intentos (`MEMBERSHIP_NOT_FOUND` o `INVALID_CREDENTIALS`). Un fallo al consultar la membresía también responde 401. La UI muestra «Credenciales inválidas» y ofrece «¿Primera vez? Activa tu cuenta», que abre la activación con el código escrito; la consulta de cuentas pendientes solo se hace al pulsar "Continuar". Otros 400, el 409 y los fallos de red conservan su mensaje.
 
 ## Contexto de servidor
 

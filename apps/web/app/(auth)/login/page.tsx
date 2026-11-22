@@ -139,11 +139,10 @@ const Login = () => {
         }
     };
 
-    // Orientación según estado HTTP: 400 "Membership no encontrado" = sin cuenta activa con ese código.
-    const isMembershipNotFound = errorStatus === 400 && error === "Membership no encontrado";
-    const displayedError = isMembershipNotFound
-        ? "No pudimos encontrar una cuenta activa con este código. Revisa el código o intenta de nuevo."
-        : errorStatus === 401
+    // El login responde 401 tanto si la contraseña no coincide como si el código no tiene membresía
+    // activa, para no revelar qué códigos existen. Por eso la UI muestra un único mensaje para ambos.
+    const displayedError =
+        errorStatus === 401
             ? "Credenciales inválidas. Revisa tu código y tu contraseña."
             : error;
 
@@ -364,7 +363,7 @@ const Login = () => {
                                 <p className="text-center">{displayedError}</p>
                             </div>
                         )}
-                        {!showActivationModal && isMembershipNotFound && (
+                        {!showActivationModal && errorStatus === 401 && (
                             <div className="-mt-3 text-center">
                                 <button
                                     type="button"
@@ -372,7 +371,7 @@ const Login = () => {
                                     className="text-sm font-semibold hover:underline"
                                     style={{ color: "var(--text-accent)" }}
                                 >
-                                    Revisar si tengo una cuenta por activar
+                                    ¿Primera vez? Activa tu cuenta
                                 </button>
                             </div>
                         )}

@@ -294,14 +294,15 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         // Login ignora memberships borradas/logicamente desactivadas.
 
         if (membershipsError || !memberships?.length) {
-            // participant_code inexistente o no activo: mismo mensaje de negocio.
+            // participant_code inexistente o no activo: mismo 401 que una contraseña incorrecta,
+            // para no revelar qué códigos existen (Q02-2). El motivo real queda solo en el log.
             await logAuthAttempt({
                 participant_code,
                 attempt_type: "LOGIN",
                 result: "FAILURE",
                 failure_reason: "MEMBERSHIP_NOT_FOUND",
             });
-            return res.status(400).json({ error: "Membership no encontrado" });
+            return res.status(401).json({ error: "Credenciales invalidas" });
         }
 
         const uniqueUserIds = [

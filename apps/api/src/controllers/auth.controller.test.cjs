@@ -116,3 +116,19 @@ test('con last_login_at correcto no se registra ningún error', async () => {
   assert.equal(h.res.statusCode, 200);
   assert.deepEqual(h.logs, []);
 });
+
+test('login sin membresía activa responde 401 igual que una contraseña incorrecta (Q02-2)', async () => {
+  const unknown = setup({ db: () => ({ data: [], error: null }) });
+  await unknown.controller.login({ body: { participant_code: 'NOEXISTE', password: 'Nueva-123' } }, unknown.res);
+  const wrong = setup({
+    db: loginDb(null),
+    signIn: async () => ({ data: { session: null, user: null }, error: { message: 'Invalid login credentials' } }),
+  });
+  await wrong.controller.login({ body: { participant_code: 'COD1', password: 'incorrecta' } }, wrong.res);
+  assert.equal(unknown.res.statusCode, 401);
+  assert.equal(wrong.res.statusCode, 401);
+  assert.equal(unknown.res.body.error, 'Credenciales invalidas');
+  assert.equal(unknown.res.body.error, wrong.res.body.error);
+  assert.equal(unknown.attempts.at(-1).failure_reason, 'MEMBERSHIP_NOT_FOUND');
+  assert.equal(wrong.attempts.at(-1).failure_reason, 'INVALID_CREDENTIALS');
+});
