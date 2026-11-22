@@ -89,16 +89,16 @@ test('las rutas montan los limitadores despues de autenticar y solo en escritura
     return result;
   }
   const posts = routes('posts.routes.ts'), dm = routes('dm.routes.ts'), auth = routes('auth.routes.ts'), admin = routes('admin.routes.ts');
-  assert.deepEqual(posts.get('post /'), ['requireAuth', 'createPostLimiter', 'createPost']);
-  assert.deepEqual(posts.get('post /:postId/comments'), ['requireAuth', 'createCommentLimiter', 'createComment']);
-  assert.deepEqual(posts.get('post /attachments/init'), ['requireAuth', 'attachmentInitLimiter', 'initUpload']);
-  assert.deepEqual(dm.get('post /conversations/:conversationId/messages'), ['requireAuth', 'sendDmLimiter', 'sendMessage']);
+  assert.deepEqual(posts.get('post /'), ['requireAuth', 'requireEventOpenForWrites', 'createPostLimiter', 'createPost']);
+  assert.deepEqual(posts.get('post /:postId/comments'), ['requireAuth', 'requireEventOpenForWrites', 'createCommentLimiter', 'createComment']);
+  assert.deepEqual(posts.get('post /attachments/init'), ['requireAuth', 'requireEventOpenForWrites', 'attachmentInitLimiter', 'initUpload']);
+  assert.deepEqual(dm.get('post /conversations/:conversationId/messages'), ['requireAuth', 'requireEventOpenForWrites', 'sendDmLimiter', 'sendMessage']);
   for (const path of ['login', 'activate']) assert.deepEqual(auth.get(`post /${path}`).slice(0, 2), ['authIpLimiter', 'authParticipantLimiter']);
   const moderationWrites = [...admin].filter(([path]) => path.startsWith('post /moderation/'));
   assert.equal(moderationWrites.length, 5);
   for (const [, handlers] of moderationWrites) {
     assert.equal(handlers[0], 'requireAuth');
-    assert.equal(handlers[2], 'moderationWriteLimiter');
+    assert.deepEqual(handlers.slice(2, 4), ['requireEventOpenForWrites', 'moderationWriteLimiter']);
   }
   for (const [path, handlers] of [...posts, ...dm, ...admin]) if (path.startsWith('get ')) assert.ok(!handlers.some(h => /Limiter$/.test(h)));
   assert.match(fs.readFileSync(__dirname + '/../server.ts', 'utf8'), /app\.set\('trust proxy', 1\)/);

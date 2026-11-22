@@ -45,6 +45,7 @@ import {
   requireEventModerator,
   requireSuperAdmin,
 } from '../middleware/auth.middleware';
+import { requireEventOpenForWrites } from '../middleware/event-status.middleware';
 
 const router = Router();
 
@@ -114,10 +115,10 @@ router.get('/moderation/walls', requireAuth, requireEventModerator(eventIdFromQu
 router.get('/moderation/people', requireAuth, requireEventModerator(eventIdFromQuery), listModerationPeople);
 router.get('/moderation/posts', requireAuth, requireWallModerator, listModerationPosts);
 router.get('/moderation/posts/:postId/comments', requireAuth, requirePostModerator, listModerationComments);
-router.post('/moderation/posts/:postId/delete', requireAuth, requirePostModerator, moderationWriteLimiter, deleteModerationPost);
-router.post('/moderation/posts/:postId/attachment/delete', requireAuth, requirePostModerator, moderationWriteLimiter, deleteModerationAttachment);
-router.post('/moderation/comments/:commentId/delete', requireAuth, requireCommentModerator, moderationWriteLimiter, deleteModerationComment);
-router.post('/moderation/posts/:postId/pin', requireAuth, requirePostModerator, moderationWriteLimiter, pinModerationPost);
-router.post('/moderation/posts/:postId/unpin', requireAuth, requirePostModerator, moderationWriteLimiter, unpinModerationPost);
+router.post('/moderation/posts/:postId/delete', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, deleteModerationPost);
+router.post('/moderation/posts/:postId/attachment/delete', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, deleteModerationAttachment);
+router.post('/moderation/comments/:commentId/delete', requireAuth, requireCommentModerator, requireEventOpenForWrites, moderationWriteLimiter, deleteModerationComment);
+router.post('/moderation/posts/:postId/pin', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, pinModerationPost);
+router.post('/moderation/posts/:postId/unpin', requireAuth, requirePostModerator, requireEventOpenForWrites, moderationWriteLimiter, unpinModerationPost);
 
 export default router;
