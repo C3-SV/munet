@@ -62,7 +62,7 @@ La regla histórica prevé eliminación lógica sin edición posterior y retiro 
 | RN-17 | Solo se reporta contenido visible. Se rechaza provisionalmente un segundo reporte del mismo actor/objetivo. | Documentado, no implementado. |
 | RN-18 | Ocultar/eliminar, retirar adjunto, suspender o expulsar requiere autoridad, motivo y fecha. Advertencia presencial no es sanción digital. | Retiro de post/comentario sin motivo obligatorio. Suspensión y reactivación exigen motivo. Retiro de adjuntos y expulsión operativa pendientes. |
 | RN-19 | CSV valida schema, campos, código, duplicados y comité; muestra previsualización y espera confirmación. Solo importa filas válidas y audita lote/resultado. | Previsualización y confirmación en API, con auditoría best-effort. Pantalla y validación integrada pendientes. |
-| RN-20 | Acción crítica registra actor, evento, objetivo, hora y motivo. Auditoría es restringida y distinta de logs operativos. | Logger best-effort y sin consulta; no cumple la garantía. |
+| RN-20 | Acción crítica registra actor, evento, objetivo, hora y motivo. Auditoría es restringida y distinta de logs operativos. | Logger best-effort (registra el fallo sin cortar la operación). Consulta por rol con `GET /admin/audit-logs` y la página «Auditoría» ([ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)). Sigue sin garantía de escritura: una acción puede completarse sin su registro. |
 | RN-21 | Toda lectura/escritura limita `event_id`; referencias cruzadas son inválidas, incluso solicitudes directas, Storage y Realtime. | Parcial. Las rutas admin de recursos exigen autoridad del evento. La cobertura integrada y las políticas efectivas de Realtime y Storage requieren confirmación. |
 
 ## Matriz normativa de permisos
@@ -81,7 +81,7 @@ La regla histórica prevé eliminación lógica sin edición posterior y retiro 
 | Moderar contenido/reportes | No | Sí* | Sí* | No por defecto |
 | Suspender/rehabilitar/expulsar | No | Pendiente | Sí* | Pendiente |
 | Gestionar evento/rol/comité/CSV | No | Pendiente | Sí* | Alcance global por definir |
-| Consultar auditoría completa | No | No | No por defecto | Sí |
+| Consultar auditoría | No | No | Solo su evento y acciones de cuidado general: moderación, suspender/reactivar, restablecer contraseña y denegaciones ([ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)) | Sí, registro completo del evento |
 
 La fuente alterna entre “equipo coordinador” y permisos exclusivos de Admin MUN. Hasta aprobación se aplica la opción de menor acceso; el código actual no materializa todo este catálogo.
 

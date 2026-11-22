@@ -27,7 +27,7 @@ Se conservan los identificadores históricos. La última columna refleja la [rev
 | REQ-21 | Revisar reportes, incidentes, ocultar/retirar, suspender/expulsar con motivo y actor. | Parcial: retiro y suspensión |
 | REQ-22 | Avisos internos persistentes por DM/anuncios con historial/contador y Realtime. | Documentado, no implementado; postergado |
 | REQ-23 | CSV con validación/previsualización/confirmación, errores por fila y lote auditado. | Parcial: API sin interfaz |
-| REQ-24 | Acciones críticas e intentos indebidos auditados; consulta completa para Admin técnico. | Parcial |
+| REQ-24 | Acciones críticas e intentos indebidos auditados; consulta completa del evento para Admin técnico y, para Admin MUN, vista acotada a su evento de cuidado general (moderación, suspensión y reactivación, restablecimiento de contraseña y denegaciones), según [ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md). | Parcial: consulta por rol desde el 22 de noviembre de 2026; el registro sigue siendo best-effort (NFR-07). |
 
 ## Requerimientos expresamente excluidos
 
