@@ -13,12 +13,12 @@ Evento ficticio, en la misma base que producción, para que la gente aprenda a u
 ## Qué contiene
 
 - **12 cuentas** con código `CON-…` (entrega 3 del diseño de la práctica): 1 administración (`CON-ADM`), 2 moderación (`CON-MOD1`, `CON-MOD2`) y 9 participantes (`CON-001` a `CON-006`, `CON-023`, `CON-024` y `CON-033`) en 4 comités: Asamblea General, Consejo de Seguridad, UNICEF y ECOSOC.
-- Las 28 cuentas sobrantes (`CON-007` a `CON-022`, `CON-025` a `CON-032` y `CON-034` a `CON-037`) se retiran con el script de la sección siguiente. **Estado: entrega 3 implementada, pendiente de aplicar.** Hasta que la persona dueña autorice `--apply`, la base sigue con las 40 cuentas.
+- Las 28 cuentas sobrantes (`CON-007` a `CON-022`, `CON-025` a `CON-032` y `CON-034` a `CON-037`) se retiraron con el script de la sección siguiente. **Estado: entrega 3 aplicada y verificada el 21 de noviembre de 2026** (consulta de solo lectura: 12 membresías `CON-…` vivas más la cuenta propia de la persona dueña, 28 con borrado lógico).
 - Estados para practicar el ciclo de cuentas:
   - **Activas** (staff y `CON-001` a `CON-006`): entran con una contraseña conocida.
   - **Pendientes** (`CON-023` y `CON-024`): nacen sin activar, con contraseña inicial individual, para practicar la activación.
   - **Suspendida** (`CON-033`): para practicar la reactivación.
-- Contenido: 2 avisos fijados, publicaciones en General y en cada comité, una encuesta con 9 votos, 13 comentarios (con respuestas), 2 conversaciones de mensajes directos y dos adjuntos de ejemplo (un PDF y una imagen PNG).
+- Contenido: 2 avisos fijados, publicaciones en General y en cada comité, una encuesta con 6 votos, 13 comentarios (con respuestas), 2 conversaciones de mensajes directos y dos adjuntos de ejemplo (un PDF y una imagen PNG).
 - La cuenta real de administración (`adminMUN` por defecto) se vincula al evento como `ADMIN_MUN`, para verlo en el selector y administrarlo desde el panel.
 
 Las contraseñas **no se pueden deducir del repositorio**: se derivan con HMAC de un secreto local (variable `TRAINING_SEED_SECRET` o el archivo `.local/training-seed-secret`, que git ignora y el script crea la primera vez). Con el mismo secreto salen las mismas contraseñas, así que el reinicio las recalcula sin guardarlas; con otro secreto, `--reset` fija contraseñas nuevas para todas. Solo dan acceso a este evento y están en un Excel local, fuera del repositorio.
@@ -53,7 +53,7 @@ npx ts-node --files src/scripts/seed-training-event.ts --apply --reset
 
 Requiere las variables de `apps/api/.env`. Sin las variables `STORAGE_*` se omiten los adjuntos de ejemplo y el script avisa.
 
-**Advertencia:** la lista de cuentas de `seed-training-event.ts` sigue siendo de 40. Después de retirar las 28, un `--apply` del seed volvería a crear las sobrantes con sus códigos. Antes de volver a sembrar hay que alinear esa lista con las 12 de `retire-training-extra-accounts.ts`. Además, el contenido de ejemplo (publicaciones, comentarios, votos y mensajes) aún cita a `CON-007` a `CON-009` y a otras cuentas que se retiran; la reasignación a las 6 participantes activas queda pendiente.
+**Advertencia:** el seed y el contenido de ejemplo ya están alineados con las 12 cuentas. La lista de `seed-training-event.ts` define solo esas 12, así que un `--apply` ya no recrea las 28 retiradas. El contenido (publicaciones, comentarios, votos y mensajes) solo cita a `CON-ADM`, `CON-MOD1`, `CON-MOD2` y `CON-001` a `CON-006`, y cada comité conserva a sus miembros en su muro. Por eso la encuesta pasa de 9 a 6 votos: cada persona vota una sola vez.
 
 ## Reducir de 40 a 12 cuentas
 

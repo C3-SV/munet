@@ -7,34 +7,37 @@ const SECRET = 'secreto-de-prueba-0123456789';
 const roster = data.buildRoster();
 const codes = roster.map((a) => a.code);
 const byState = (state) => roster.filter((a) => a.state === state);
+// Los arreglos creados dentro del contexto aislado de loadTs no son del mismo realm: se normalizan.
+const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test('son 40 cuentas con códigos únicos y con el prefijo del evento', () => {
-  assert.equal(roster.length, 40);
-  assert.equal(new Set(codes).size, 40);
-  assert.equal(new Set(codes.map((c) => c.toLowerCase())).size, 40);
+test('son 12 cuentas con códigos únicos y con el prefijo del evento', () => {
+  assert.deepEqual(plain(codes), ['CON-ADM','CON-MOD1', 'CON-MOD2', 'CON-001', 'CON-002', 'CON-003', 'CON-004', 'CON-005', 'CON-006', 'CON-023', 'CON-024', 'CON-033']);
+  assert.equal(new Set(codes).size, 12);
+  assert.equal(new Set(codes.map((c) => c.toLowerCase())).size, 12);
   assert.ok(codes.every((c) => c.startsWith('CON-')));
   assert.ok(codes.every((c) => /^[A-Za-z0-9._-]{3,50}$/.test(c)), 'el código admite 3 a 50 caracteres alfanuméricos, punto, guion o guion bajo');
 });
 
-test('roles: 1 administrador, 2 moderadores y 37 participantes', () => {
+test('roles: 1 administrador, 2 moderadores y 9 participantes', () => {
   const count = (role) => roster.filter((a) => a.role === role).length;
-  assert.deepEqual([count('ADMIN_MUN'), count('MODERATOR'), count('PARTICIPANT')], [1, 2, 37]);
+  assert.deepEqual([count('ADMIN_MUN'), count('MODERATOR'), count('PARTICIPANT')], [1, 2, 9]);
 });
 
-test('estados: staff activo; participantes 22 activos, 10 pendientes y 5 suspendidos', () => {
+test('estados: staff activo; participantes 6 activos, 2 pendientes y 1 suspendido', () => {
   const participants = roster.filter((a) => a.role === 'PARTICIPANT');
   assert.ok(roster.filter((a) => a.role !== 'PARTICIPANT').every((a) => a.state === 'ACTIVE'));
   assert.deepEqual(
     ['ACTIVE', 'PENDING', 'SUSPENDED'].map((s) => participants.filter((a) => a.state === s).length),
-    [22, 10, 5],
+    [6, 2, 1],
   );
 });
 
 test('los participantes se reparten en los 4 comités y el staff no pertenece a ninguno', () => {
   const committeeCodes = data.TRAINING_COMMITTEES.map((c) => c.code);
   const participants = roster.filter((a) => a.role === 'PARTICIPANT');
+  assert.equal(committeeCodes.length, 4);
   assert.ok(participants.every((a) => committeeCodes.includes(a.committeeCode)));
-  for (const code of committeeCodes) assert.ok(participants.filter((a) => a.committeeCode === code).length >= 9);
+  for (const code of committeeCodes) assert.ok(participants.filter((a) => a.committeeCode === code).length >= 2, code);
   assert.ok(roster.filter((a) => a.role !== 'PARTICIPANT').every((a) => a.committeeCode === null));
 });
 
@@ -85,6 +88,14 @@ test('el contenido solo referencia cuentas, muros y publicaciones que existen', 
   for (const dm of data.TRAINING_DMS) { assert.ok(known.has(dm.a)); assert.ok(known.has(dm.b)); assert.notEqual(dm.a, dm.b); }
   assert.ok(postKeys.has(data.TRAINING_POLL.postKey));
   for (const att of data.TRAINING_ATTACHMENTS) assert.ok(postKeys.has(att.post));
+});
+
+test('los comentarios de un muro de comité los escriben miembros de ese comité', () => {
+  const committee = Object.fromEntries(roster.map((a) => [a.code, a.committeeCode]));
+  for (const comment of data.TRAINING_COMMENTS) {
+    const post = data.TRAINING_POSTS.find((p) => p.key === comment.post);
+    if (typeof post.wall === 'object') assert.equal(committee[comment.author], post.wall.committee, comment.content);
+  }
 });
 
 test('quien publica en el contenido puede hacerlo: nadie suspendido ni pendiente', () => {

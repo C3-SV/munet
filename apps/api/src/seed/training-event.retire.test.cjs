@@ -19,9 +19,15 @@ const EXPECTED_RETIRE = [
   ...Array.from({ length: 4 }, (_, i) => `CON-${String(i + 34).padStart(3, '0')}`), // 034 a 037
 ];
 
+// Las 40 cuentas que tenía el evento antes de la reducción. El seed ya solo define las 12 que quedan,
+// así que la lista original se escribe aquí para que esta prueba siga comprobando el paso de 40 a 12.
+const ORIGINAL_40 = [
+  'CON-ADM', 'CON-MOD1', 'CON-MOD2',
+  ...Array.from({ length: 37 }, (_, i) => `CON-${String(i + 1).padStart(3, '0')}`),
+];
+
 // Membresías como las devuelve la base: una por cuenta del evento, con su código.
-const eventMemberships = () =>
-  data.buildRoster().map((account, index) => ({ id: `m-${index}`, participant_code: account.code }));
+const eventMemberships = () => ORIGINAL_40.map((code, index) => ({ id: `m-${index}`, participant_code: code }));
 
 const codesOf = (rows) => plain(rows.map((row) => row.participant_code).sort());
 
@@ -39,7 +45,7 @@ test('conservar y retirar son disjuntas y juntas cubren las 40 cuentas del event
   const keep = new Set(retire.KEEP_CODES);
   for (const code of retire.RETIRE_CODES) assert.equal(keep.has(code), false, `${code} aparece en ambas listas`);
   const union = [...retire.KEEP_CODES, ...retire.RETIRE_CODES].sort();
-  assert.deepEqual(plain(union), plain(data.buildRoster().map((a) => a.code).sort()));
+  assert.deepEqual(plain(union), plain([...ORIGINAL_40].sort()));
 });
 
 test('con el evento completo, se conservan las 12 y se retiran las 28 exactas', () => {
