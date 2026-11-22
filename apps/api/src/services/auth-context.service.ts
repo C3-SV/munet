@@ -1,3 +1,4 @@
+import { isAdminRole } from '../utils/rbac.utils';
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
 
@@ -111,6 +112,12 @@ export const getMembershipsByUserId = async (userId: string) => {
       const visibleCommittee = committee?.deleted_at ? null : committee;
 
       if (!event || event.deleted_at) {
+        return null;
+      }
+
+      // Un evento archivado sale del selector de participantes y moderadores;
+      // los administradores lo siguen viendo para consultarlo o reabrirlo.
+      if (event.status === 'ARCHIVED' && !isAdminRole(row.role)) {
         return null;
       }
 
