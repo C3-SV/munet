@@ -6,7 +6,7 @@ import { ModalDialog } from "../../../components/ui/ConfirmDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ActivationEvent } from "../../../lib/api/auth";
-import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
+import { isAdminRole, useAuthStore, userNeedsEventSelection } from "../../../stores/auth.store";
 import { BrandAttribution } from "../../../components/layout/BrandAttribution";
 import { MunEsenLogo } from "../../../components/layout/MunEsenLogo";
 import { Button } from "../../../components/ui/Button";
@@ -68,11 +68,11 @@ const Login = () => {
     }, [clearError, hydrateAuth]);
 
     useEffect(() => {
-        // Guard de sesion en login: delegados van directo a feed, admins a select-event.
+        // Guard de sesion en login: delegados con una sola membresía van directo a feed; admins y
+        // delegados con varias membresías eligen evento en select-event.
         if (!hydrated) return;
         if (!token) return;
 
-        const hasAdminMembership = memberships.some((membership) => isAdminRole(membership.role));
         const firstMembership = memberships[0];
 
         if (activeEventId && activeMembershipId) {
@@ -88,7 +88,7 @@ const Login = () => {
             return;
         }
 
-        if (!hasAdminMembership && firstMembership) {
+        if (!userNeedsEventSelection(memberships) && firstMembership) {
             setActiveMembership(firstMembership.id);
             router.replace("/feed");
             return;
@@ -107,20 +107,17 @@ const Login = () => {
             });
 
             const state = useAuthStore.getState();
-            const hasAdminMembership = state.memberships.some((membership) =>
-                isAdminRole(membership.role),
-            );
             const firstMembership = state.memberships[0];
 
             if (!(state.activeEventId && state.activeMembershipId)) {
-                if (!hasAdminMembership && firstMembership) {
-                    // Delegado: queda fijado su contexto y entra directo al feed.
+                if (!userNeedsEventSelection(state.memberships) && firstMembership) {
+                    // Delegado con una sola membresía: queda fijado su contexto y entra directo al feed.
                     state.setActiveMembership(firstMembership.id);
                     router.replace("/feed");
                     return;
                 }
 
-                // Admin: debe elegir evento explícitamente.
+                // Admin o delegado con varias membresías: debe elegir evento explícitamente.
                 router.replace("/select-event");
                 return;
             }

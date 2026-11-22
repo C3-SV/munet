@@ -11,6 +11,8 @@ export type AuthMembership = {
   committeeCode: string | null;
   participantCode: string;
   accountStatus: string;
+  // Alta de la membresía (timestamptz). Solo sirve para desempatar el orden de selección en la web.
+  createdAt: string | null;
 };
 
 export type AuthContext = {

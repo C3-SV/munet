@@ -15,6 +15,8 @@ export type MembershipSummary = {
   committeeCode: string | null;
   participantCode: string;
   accountStatus: string;
+  // Alta de la membresía (ISO). Solo desempata el orden de selección; falta en datos guardados antes de este campo.
+  createdAt?: string | null;
 };
 
 export type AuthSession = {

@@ -262,6 +262,40 @@ export const activateAccount = async (
     }
 };
 
+// Bloqueo persistente de login (Q02-1). El limitador en memoria cuenta por instancia en Vercel;
+// este limite sale de auth_attempts, compartida por todas las instancias.
+// Con LOGIN_LOCK_MAX_FAILURES fallos LOGIN en los ultimos LOGIN_LOCK_WINDOW_MS se rechaza el intento.
+export const LOGIN_LOCK_MAX_FAILURES = 5;
+export const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCKED_MESSAGE = "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
+
+// Cuenta fallos recientes con el mismo participant_code que se guarda en el log.
+// Si la consulta falla no bloquea: el conteo es telemetria y no debe cerrar el acceso.
+const isLoginLocked = async (participantCode: string) => {
+    try {
+        const since = new Date(Date.now() - LOGIN_LOCK_WINDOW_MS).toISOString();
+        const { count, error } = await supabaseAdmin
+            .from("auth_attempts")
+            .select("id", { count: "exact", head: true })
+            .eq("participant_code", participantCode)
+            .eq("attempt_type", "LOGIN")
+            .eq("result", "FAILURE")
+            // Los bloqueos LOCKED tambien son FAILURE: se excluyen para que no renueven la ventana.
+            .or("failure_reason.is.null,failure_reason.neq.LOCKED")
+            .gte("created_at", since);
+
+        if (error) {
+            console.error("Bloqueo de login: no se pudo contar los intentos fallidos", error.message);
+            return false;
+        }
+
+        return (count ?? 0) >= LOGIN_LOCK_MAX_FAILURES;
+    } catch (error) {
+        console.error("Bloqueo de login: no se pudo contar los intentos fallidos", error);
+        return false;
+    }
+};
+
 type LoginBody = {
     participant_code: string;
     password: string;
@@ -281,6 +315,19 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
             return res
                 .status(400)
                 .json({ error: "participant_code y password son requeridos" });
+        }
+
+        // 0. bloqueo persistente: antes de consultar membresias o Auth. Aplica igual exista o no
+        // el codigo, para no revelar cual existe.
+        if (await isLoginLocked(participant_code)) {
+            await logAuthAttempt({
+                participant_code,
+                attempt_type: "LOGIN",
+                result: "FAILURE",
+                failure_reason: "LOCKED",
+            });
+
+            return res.status(429).json({ error: LOGIN_LOCKED_MESSAGE });
         }
 
         // 1. buscar memberships activas por codigo participante

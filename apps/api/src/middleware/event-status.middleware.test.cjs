@@ -111,7 +111,7 @@ test('sin sesion una escritura responde 401', () => {
 });
 
 // Cada escritura de las rutas de participante y de moderacion debe llevar la guarda.
-// Las de gestion administrativa del evento, el perfil ajeno y auth quedan fuera a proposito.
+// Las de gestion administrativa del evento y auth quedan fuera a proposito.
 function writeRoutes(file) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'routes', file), 'utf8');
   const declared = source.match(/router\.(post|put|patch|delete)\(/g) ?? [];
@@ -132,12 +132,10 @@ test('posts y mensajes directos: toda escritura lleva la guarda', () => {
   }
 });
 
-test('perfil: solo el propio (/me) lleva la guarda', () => {
+test('perfil: el propio (/me) y la edicion administrativa de un participante llevan la guarda', () => {
   const routes = writeRoutes('profiles.routes.ts');
   assert.ok(routes.length > 0);
-  for (const route of routes) {
-    assert.equal(route.guarded, route.path.startsWith('/me'), `profiles ${route.method} ${route.path}`);
-  }
+  for (const route of routes) assert.ok(route.guarded, `profiles ${route.method} ${route.path}`);
 });
 
 test('administracion: solo la moderacion lleva la guarda', () => {

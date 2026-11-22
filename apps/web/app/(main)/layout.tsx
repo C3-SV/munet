@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
 import { PracticeBanner } from "../../components/practice/PracticeBanner";
-import { isAdminRole, useAuthStore } from "../../stores/auth.store";
+import { useAuthStore, userNeedsEventSelection } from "../../stores/auth.store";
 
 export default function MainLayout({
     children,
@@ -48,22 +48,20 @@ export default function MainLayout({
             return;
         }
 
-        // Guard de evento activo: delegados entran a su evento por defecto, admins van a selector.
+        // Guard de evento activo: delegados con una sola membresía entran a su evento; admins y delegados
+        // con varias membresías van al selector.
         if (!activeEventId || !activeMembershipId) {
-            const hasAdminMembership = memberships.some((membership) =>
-                isAdminRole(membership.role),
-            );
             // La store deja las membresías en orden de selección: la primera es la del evento por defecto.
             const defaultMembership = memberships[0];
 
-            if (!hasAdminMembership && defaultMembership) {
-                // Si es delegado y no hay contexto activo, lo resolvemos automáticamente.
+            if (!userNeedsEventSelection(memberships) && defaultMembership) {
+                // Delegado con una sola membresía y sin contexto activo: se resuelve automáticamente.
                 setActiveMembership(defaultMembership.id);
                 router.replace("/feed");
                 return;
             }
 
-            // Solo admins o usuarios sin membresías quedan en selector de evento.
+            // Admins, delegados con varias membresías o usuarios sin membresías quedan en el selector.
             router.replace("/select-event");
         }
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);

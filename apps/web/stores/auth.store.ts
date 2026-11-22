@@ -18,6 +18,7 @@ import {
   orderMembershipsForSelection,
   pickDefaultMembership,
   readLastUsedMembershipId,
+  selectableMemberships,
   writeLastUsedMembershipId,
 } from "../lib/event-selection";
 import type {
@@ -68,8 +69,9 @@ export const isSuperAdminMembership = (
   normalizeRole(membership.role) === "ADMIN_TECH" &&
   normalizeRole(membership.accountStatus) === "ACTIVE";
 
-// Regla central: solo admins pasan por select-event de forma obligatoria.
-const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
+// Regla central: admins, y participantes con varias membresías activas, eligen evento en select-event.
+// Con una sola membresía activa se entra directo a ese evento.
+export const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   if (memberships.length === 0) {
     return true;
   }
@@ -78,12 +80,13 @@ const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
     return true;
   }
 
-  return false;
+  return selectableMemberships(memberships).length > 1;
 };
 
-// Para delegados se elige el evento por defecto: el último usado o, si no hay, el primero del orden.
+// Evento automático solo para quien entra directo: el último usado o, si no hay, el primero del orden.
+// Quien debe elegir no recibe evento por defecto.
 const resolveAutoMembership = (memberships: MembershipSummary[]) => {
-  if (memberships.some((membership) => isAdminRole(membership.role))) {
+  if (userNeedsEventSelection(memberships)) {
     return null;
   }
 
