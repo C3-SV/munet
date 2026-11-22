@@ -14,6 +14,12 @@ import {
   withoutPracticeMembership,
   withPracticeMembership,
 } from "../lib/practice/membership";
+import {
+  orderMembershipsForSelection,
+  pickDefaultMembership,
+  readLastUsedMembershipId,
+  writeLastUsedMembershipId,
+} from "../lib/event-selection";
 import type {
   AuthSession,
   AuthUser,
@@ -27,6 +33,14 @@ const USER_KEY = "munet_user";
 const MEMBERSHIPS_KEY = "munet_memberships";
 const ACTIVE_EVENT_KEY = "munet_active_event";
 const ACTIVE_MEMBERSHIP_KEY = "munet_active_membership";
+
+// La API responde 409 cuando un mismo código de participante está ligado a más de un usuario base.
+const CONFLICT_LOGIN_MESSAGE =
+  "Este código está vinculado a más de una cuenta. Contacta a soporte para corregirlo.";
+
+// Membresías en el orden del selector (último usado primero). La práctica no entra aquí.
+const orderForSelection = (memberships: MembershipSummary[]) =>
+  orderMembershipsForSelection(memberships, readLastUsedMembershipId());
 
 // Normaliza roles para reglas de ruteo y permisos en frontend.
 const normalizeRole = (role: string | null | undefined) =>
@@ -67,17 +81,13 @@ const userNeedsEventSelection = (memberships: MembershipSummary[]) => {
   return false;
 };
 
-// Para delegados se auto-selecciona su unica membership.
+// Para delegados se elige el evento por defecto: el último usado o, si no hay, el primero del orden.
 const resolveAutoMembership = (memberships: MembershipSummary[]) => {
-  if (memberships.length === 0) {
-    return null;
-  }
-
   if (memberships.some((membership) => isAdminRole(membership.role))) {
     return null;
   }
 
-  return memberships[0] ?? null;
+  return pickDefaultMembership(memberships, readLastUsedMembershipId());
 };
 
 // Estado HTTP del ultimo error de auth (null si no es un error de API).
@@ -157,11 +167,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ loading: true, error: null, errorStatus: null });
 
       const data = await loginRequest(payload);
-      // La membresía de práctica nunca se toma del API ni se persiste.
-      const memberships = withoutPracticeMembership(data.memberships);
+      // La práctica nunca se toma del API. El orden deja primero el evento por defecto.
+      const memberships = orderForSelection(data.memberships);
 
       const needsSelection = userNeedsEventSelection(memberships);
-      const fallbackMembership = needsSelection ? null : memberships[0] ?? null;
+      const fallbackMembership = needsSelection ? null : resolveAutoMembership(memberships);
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(data.session));
       localStorage.setItem(TOKEN_KEY, data.session.access_token);
@@ -171,6 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (fallbackMembership) {
         localStorage.setItem(ACTIVE_EVENT_KEY, fallbackMembership.eventId);
         localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, fallbackMembership.id);
+        writeLastUsedMembershipId(fallbackMembership.id);
       } else {
         localStorage.removeItem(ACTIVE_EVENT_KEY);
         localStorage.removeItem(ACTIVE_MEMBERSHIP_KEY);
@@ -189,12 +200,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Error al iniciar sesión";
+      const status = errorStatusOf(err);
+      const message =
+        status === 409
+          ? CONFLICT_LOGIN_MESSAGE
+          : err instanceof Error
+            ? err.message
+            : "Error al iniciar sesión";
 
       set({
         loading: false,
         error: message,
-        errorStatus: errorStatusOf(err),
+        errorStatus: status,
       });
 
       throw err;
@@ -243,9 +260,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const session = sessionRaw ? JSON.parse(sessionRaw) : null;
     const user = userRaw ? JSON.parse(userRaw) : null;
-    // La práctica no se restaura: si localStorage trajera sus ids, se descartan aquí.
+    // La práctica no se restaura: si localStorage trajera sus ids, se descartan aquí (y se ordena el resto).
     const memberships = membershipsRaw
-      ? withoutPracticeMembership(JSON.parse(membershipsRaw) as MembershipSummary[])
+      ? orderForSelection(JSON.parse(membershipsRaw) as MembershipSummary[])
       : [];
     const persistedMembership =
       activeMembershipId && memberships.find((membership) => membership.id === activeMembershipId)
@@ -307,6 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     localStorage.setItem(ACTIVE_EVENT_KEY, membership.eventId);
     localStorage.setItem(ACTIVE_MEMBERSHIP_KEY, membership.id);
+    writeLastUsedMembershipId(membership.id);
 
     // Elegir un evento real estando en práctica la termina: se quita su membresía en memoria.
     // Fuera de la práctica `memberships` no se toca para no cambiar referencias en eventos reales.
@@ -338,8 +356,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const data = await authContextRequest(token);
     // Se lee el modo después de la petición: pudo cambiar mientras se esperaba la respuesta.
     const { practice } = get();
-    // La membresía de práctica nunca se toma del API ni se persiste.
-    const memberships = withoutPracticeMembership(data.memberships);
+    // La práctica nunca se toma del API. El orden deja primero el evento por defecto.
+    const memberships = orderForSelection(data.memberships);
 
     localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(memberships));
 

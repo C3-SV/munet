@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
+import { selectableMemberships } from "../../lib/event-selection";
 import { buildWallNav } from "../../lib/wall-nav";
 import { useTheme } from "../../lib/theme-context";
 import { canAccessAdminPanel, isAdminRole, isModeratorRole, useAuthStore } from "../../stores/auth.store";
@@ -124,6 +125,8 @@ export const Sidebar = () => {
         () => memberships.find((membership) => membership.id === activeMembershipId) ?? null,
         [activeMembershipId, memberships],
     );
+    // Cuántos eventos reales y activos puede elegir la persona (sin contar la práctica).
+    const selectableCount = useMemo(() => selectableMemberships(memberships).length, [memberships]);
 
     // null = automatico (abierto si el muro activo es de un comite del grupo); true/false = eleccion del usuario.
     const [committeesManualOpen, setCommitteesManualOpen] = useState<boolean | null>(null);
@@ -241,7 +244,9 @@ export const Sidebar = () => {
     const hasActiveCommittee = committees.some((wall) => wall.slug === activeSlug);
     const committeesOpen = committeesManualOpen ?? hasActiveCommittee;
 
-    const canSwitchEventFromSidebar = activeMembership ? isAdminRole(activeMembership.role) : false;
+    // Admins siempre pueden cambiar de evento; un participante solo si tiene más de un evento elegible.
+    const canSwitchEventFromSidebar =
+        (activeMembership ? isAdminRole(activeMembership.role) : false) || selectableCount > 1;
     const canOpenAdminPanel = activeMembership ? canAccessAdminPanel(activeMembership.role) : false;
     const isModerator = activeMembership ? isModeratorRole(activeMembership.role) : false;
     const activeEventName = activeMembership?.eventName ?? "Evento no seleccionado";
@@ -415,7 +420,7 @@ export const Sidebar = () => {
                             </button>
                         )
                     )}
-                    {canOpenAdminPanel && (
+                    {(canOpenAdminPanel || canSwitchEventFromSidebar) && (
                         <div className="mt-1 flex flex-col">
                             {canSwitchEventFromSidebar && (
                                 <Link
@@ -426,17 +431,19 @@ export const Sidebar = () => {
                                     Cambiar evento
                                 </Link>
                             )}
-                            <Link
-                                href={
-                                    isModerator && activeMembership
-                                        ? `/admin/events/${activeMembership.eventId}/moderation`
-                                        : "/admin"
-                                }
-                                className="inline-flex min-h-11 items-center text-sm font-semibold font-heading hover:underline"
-                                style={{ color: "var(--text-primary)" }}
-                            >
-                                {isModerator ? "Moderación" : "Panel de administración"}
-                            </Link>
+                            {canOpenAdminPanel && (
+                                <Link
+                                    href={
+                                        isModerator && activeMembership
+                                            ? `/admin/events/${activeMembership.eventId}/moderation`
+                                            : "/admin"
+                                    }
+                                    className="inline-flex min-h-11 items-center text-sm font-semibold font-heading hover:underline"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {isModerator ? "Moderación" : "Panel de administración"}
+                                </Link>
+                            )}
                         </div>
                     )}
                 </div>

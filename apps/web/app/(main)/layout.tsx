@@ -48,21 +48,22 @@ export default function MainLayout({
             return;
         }
 
-        // Guard de evento activo: delegados autoentran, admins van a selector.
+        // Guard de evento activo: delegados entran a su evento por defecto, admins van a selector.
         if (!activeEventId || !activeMembershipId) {
             const hasAdminMembership = memberships.some((membership) =>
                 isAdminRole(membership.role),
             );
-            const firstMembership = memberships[0];
+            // La store deja las membresías en orden de selección: la primera es la del evento por defecto.
+            const defaultMembership = memberships[0];
 
-            if (!hasAdminMembership && firstMembership) {
+            if (!hasAdminMembership && defaultMembership) {
                 // Si es delegado y no hay contexto activo, lo resolvemos automáticamente.
-                setActiveMembership(firstMembership.id);
+                setActiveMembership(defaultMembership.id);
                 router.replace("/feed");
                 return;
             }
 
-            // Solo admins/multi-contexto quedan en selector de evento.
+            // Solo admins o usuarios sin membresías quedan en selector de evento.
             router.replace("/select-event");
         }
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
@@ -80,7 +81,8 @@ export default function MainLayout({
 
     return (
         <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg-base)" }}>
-            <Sidebar />
+            {/* Al cambiar de evento la Sidebar se remonta: no conserva secciones abiertas del evento anterior. */}
+            <Sidebar key={activeEventId} />
 
             <main
                 className={`flex-1 relative flex flex-col md:pl-64 ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}
@@ -89,8 +91,9 @@ export default function MainLayout({
                 {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
                 <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>
                     <PracticeBanner onReset={() => setPracticeEpoch((n) => n + 1)} />
-                    {/* Al reiniciar la práctica solo se remonta el contenido: el banner y la Sidebar no cambian. */}
-                    <React.Fragment key={practiceEpoch}>{children}</React.Fragment>
+                    {/* Al cambiar de evento (o de práctica) o reiniciarla se remonta el contenido: el feed y el chat
+                        del evento anterior no conservan estado ni caché. El banner no cambia. */}
+                    <React.Fragment key={`${activeEventId}:${practiceEpoch}`}>{children}</React.Fragment>
                 </div>
 
                 {!isChatRoom && <Footer />}
