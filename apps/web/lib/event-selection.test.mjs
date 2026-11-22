@@ -59,6 +59,58 @@ test("sin último usado, el orden es por nombre del evento y luego por id", () =
     );
 });
 
+test("sin último usado, la membresía más reciente va primero y el nombre solo desempata", () => {
+    const antigua = membership("antigua", "Alfa", { createdAt: "2026-08-01T10:00:00+00:00" });
+    const reciente = membership("reciente", "Zeta", { createdAt: "2026-11-02T10:00:00+00:00" });
+    const mismaFecha = membership("mismaFecha", "Beta", { createdAt: "2026-08-01T10:00:00+00:00" });
+
+    assert.deepEqual(ids(orderMembershipsForSelection([antigua, reciente, mismaFecha], null)), [
+        "reciente",
+        "antigua",
+        "mismaFecha",
+    ]);
+});
+
+test("el último usado sigue primero aunque su alta sea más antigua", () => {
+    const antigua = membership("antigua", "Zeta", { createdAt: "2026-08-01T10:00:00+00:00" });
+    const reciente = membership("reciente", "Alfa", { createdAt: "2026-11-02T10:00:00+00:00" });
+
+    assert.deepEqual(ids(orderMembershipsForSelection([antigua, reciente], "antigua")), [
+        "antigua",
+        "reciente",
+    ]);
+});
+
+test("las fechas se comparan como instantes, no como texto", () => {
+    // 10:00 en +02:00 es 08:00 UTC; 09:00 en UTC es posterior aunque su texto sea menor.
+    const enOffset = membership("offset", "Alfa", { createdAt: "2026-08-21T10:00:00+02:00" });
+    const enUtc = membership("utc", "Beta", { createdAt: "2026-08-21T09:00:00+00:00" });
+
+    assert.deepEqual(ids(orderMembershipsForSelection([enOffset, enUtc], null)), ["utc", "offset"]);
+});
+
+test("fechas con microsegundos (formato de la base) se ordenan bien", () => {
+    const anterior = membership("anterior", "Alfa", { createdAt: "2026-08-21T10:00:00.123456+00:00" });
+    const posterior = membership("posterior", "Beta", { createdAt: "2026-08-21T10:00:00.654321+00:00" });
+
+    assert.deepEqual(ids(orderMembershipsForSelection([anterior, posterior], null)), [
+        "posterior",
+        "anterior",
+    ]);
+});
+
+test("sin fecha válida la membresía va detrás de las que la tienen, ordenadas entre ellas por nombre", () => {
+    const sinFecha = membership("sin", "Alfa", { createdAt: null });
+    const fechaInvalida = membership("invalida", "Beta", { createdAt: "no es una fecha" });
+    const conFecha = membership("con", "Zeta", { createdAt: "2026-08-01T10:00:00+00:00" });
+
+    assert.deepEqual(ids(orderMembershipsForSelection([sinFecha, fechaInvalida, conFecha], null)), [
+        "con",
+        "sin",
+        "invalida",
+    ]);
+});
+
 test("el orden no depende del orden en que llega la lista", () => {
     const list = [
         membership("m1", "Evento Uno"),

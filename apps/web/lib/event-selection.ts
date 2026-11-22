@@ -11,9 +11,15 @@ export const selectableMemberships = (memberships: MembershipSummary[]): Members
         (membership) => (membership.accountStatus ?? "").trim().toUpperCase() === "ACTIVE",
     );
 
-// Orden determinista: primero el último usado (si sigue vigente), luego por nombre del evento y,
-// en empate, por id. El contrato no trae fecha de membresía ni de evento, así que el criterio
-// "más reciente" no se puede aplicar hasta que la API la exponga. No muta la lista recibida.
+// Instante de alta de la membresía. Sin fecha válida vale -Infinity: en orden descendente queda al final.
+const createdTime = (membership: MembershipSummary): number => {
+    const time = Date.parse(membership.createdAt ?? "");
+
+    return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+};
+
+// Orden determinista: primero el último usado (si sigue vigente), luego la membresía más reciente
+// (alta descendente), después por nombre del evento y, en empate, por id. No muta la lista recibida.
 export const orderMembershipsForSelection = (
     memberships: MembershipSummary[],
     lastUsedMembershipId: string | null | undefined,
@@ -24,6 +30,13 @@ export const orderMembershipsForSelection = (
 
         if (lastA !== lastB) {
             return lastA - lastB;
+        }
+
+        const createdA = createdTime(a);
+        const createdB = createdTime(b);
+
+        if (createdA !== createdB) {
+            return createdA < createdB ? 1 : -1;
         }
 
         const byName = a.eventName.localeCompare(b.eventName, "es");
