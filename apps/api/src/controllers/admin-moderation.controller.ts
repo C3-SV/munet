@@ -3,7 +3,8 @@ import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
 
 const POST_STATE = 'id, event_id, wall_id, author_membership_id, status, deleted_at, deleted_by_membership_id, deleted_by_membership_uuid, is_pinned, pinned_at, pinned_by_membership_id';
-const COMMENT_STATE = 'id, event_id, post_id, author_membership_id, status, deleted_at, deleted_by_actor_type, deleted_by_membership_uuid';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const COMMENT_STATE ='id, event_id, post_id, author_membership_id, status, deleted_at, deleted_by_actor_type, deleted_by_membership_uuid';
 
 type Profile = { first_name: string; last_name: string; display_name?: string | null; alias?: string | null };
 type Author = {
@@ -118,12 +119,29 @@ export const listModerationPosts = async (req: Request, res: Response) => {
   if (!status || !page || !limit || typeof req.query.wall_id !== 'string' || !req.query.wall_id.trim()) {
     return res.status(400).json({ error: 'wall_id, status, page o limit invalidos' });
   }
+  // Filtro opcional por persona (membership) dentro del muro; sin el parametro no cambia nada.
+  const rawAuthor = req.query.author_membership_id;
+  let authorMembershipId: string | undefined;
+  if (rawAuthor !== undefined) {
+    if (typeof rawAuthor !== 'string' || !UUID_PATTERN.test(rawAuthor)) {
+      return res.status(400).json({ error: 'author_membership_id debe ser un UUID' });
+    }
+    authorMembershipId = rawAuthor;
+  }
   const eventId = req.auth!.currentMembership!.eventId;
   try {
+    if (authorMembershipId) {
+      // La membresia debe pertenecer al evento del contexto; si no, no revela si existe en otro evento.
+      const { data: author, error: authorError } = await supabaseAdmin.from('event_memberships')
+        .select('id').eq('id', authorMembershipId).eq('event_id', eventId).maybeSingle();
+      if (authorError) throw authorError;
+      if (!author) return res.status(404).json({ error: 'La persona no pertenece a este evento' });
+    }
     let query = supabaseAdmin.from('posts')
       .select(`${POST_STATE}, post_type, title, content, created_at, updated_at, ${authorSelect('posts')}`, { count: 'exact' })
       .eq('event_id', eventId).eq('wall_id', req.query.wall_id);
     if (status !== 'ALL') query = query.eq('status', status);
+    if (authorMembershipId) query = query.eq('author_membership_id', authorMembershipId);
     const { data, count, error } = await query
       .order('is_pinned', { ascending: false }).order('pinned_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }).order('id', { ascending: false })

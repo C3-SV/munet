@@ -275,3 +275,47 @@ test('fallos al listar o cargar el historial devuelven 500 sin aparentar una lis
     assert.equal(h.res.statusCode, 500);
   }
 });
+
+test('filtro por persona: valida UUID, exige membresia del evento y solo filtra si viene el parametro', async () => {
+  const AUTHOR = '6f1e2c3a-1b2d-4c5e-8f9a-0b1c2d3e4f50';
+  for (const value of ['no-es-uuid', '', ['a', 'b'], { id: AUTHOR }]) {
+    const h = harness();
+    h.req.query = { wall_id: 'wall', status: 'ALL', author_membership_id: value };
+    await h.controller.listModerationPosts(h.req, h.res);
+    assert.equal(h.res.statusCode, 400);
+    assert.equal(h.calls.length, 0);
+  }
+
+  const foreign = harness([{ data: null }]);
+  foreign.req.query = { wall_id: 'wall', status: 'ALL', author_membership_id: AUTHOR };
+  await foreign.controller.listModerationPosts(foreign.req, foreign.res);
+  assert.equal(foreign.res.statusCode, 404);
+  assert.equal(foreign.calls.length, 1);
+  assert.equal(foreign.calls[0].table, 'event_memberships');
+  assert.ok(foreign.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'id' && s[2] === AUTHOR));
+  assert.ok(foreign.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'event_id' && s[2] === 'event'));
+
+  const failing = harness([{ error: { message: 'fallo' } }]);
+  failing.req.query = { wall_id: 'wall', status: 'ALL', author_membership_id: AUTHOR };
+  await failing.controller.listModerationPosts(failing.req, failing.res);
+  assert.equal(failing.res.statusCode, 500);
+  assert.equal(failing.calls.length, 1);
+
+  const filtered = harness([{ data: { id: AUTHOR } }, { data: [], count: 0 }]);
+  filtered.req.query = { wall_id: 'wall', status: 'VISIBLE', author_membership_id: AUTHOR };
+  await filtered.controller.listModerationPosts(filtered.req, filtered.res);
+  assert.equal(filtered.res.statusCode, 200);
+  assert.equal(filtered.calls[1].table, 'posts');
+  assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'author_membership_id' && s[2] === AUTHOR));
+  assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'wall_id' && s[2] === 'wall'));
+  assert.ok(filtered.calls[1].steps.some(s => s[0] === 'eq' && s[1] === 'status' && s[2] === 'VISIBLE'));
+
+  const unfiltered = harness([{ data: [], count: 0 }]);
+  unfiltered.req.query = { wall_id: 'wall', status: 'ALL' };
+  await unfiltered.controller.listModerationPosts(unfiltered.req, unfiltered.res);
+  assert.equal(unfiltered.res.statusCode, 200);
+  assert.equal(unfiltered.calls.length, 1);
+  assert.equal(unfiltered.calls[0].table, 'posts');
+  assert.ok(!unfiltered.calls[0].steps.some(s => s[0] === 'eq' && s[1] === 'author_membership_id'));
+  assert.deepEqual(JSON.parse(JSON.stringify(unfiltered.res.body.pagination)), { page: 1, limit: 20, total: 0, total_pages: 0 });
+});
