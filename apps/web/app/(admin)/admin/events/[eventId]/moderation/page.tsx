@@ -182,6 +182,12 @@ export default function ModerationPage() {
         })
             .then((data) => {
                 if (!cancelled) {
+                    // Página vacía tras eliminar su último post: vuelve a la anterior.
+                    if (data.posts.length === 0 && page > 1) {
+                        setPage(page - 1);
+                        return;
+                    }
+
                     setPosts(data.posts);
                     setPagination(data.pagination);
                 }

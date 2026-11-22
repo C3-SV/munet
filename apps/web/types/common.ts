@@ -25,6 +25,9 @@ export interface Post {
     attachment?: PostAttachment | null;
     // Total de comentarios visibles; lo calcula la API.
     commentCount?: number;
+    // Fijado por moderación; la API lo devuelve en el feed y la tarjeta lo marca.
+    isPinned?: boolean;
+    pinnedAt?: string | null;
     timestamp: number;
 }
 
