@@ -25,6 +25,7 @@ function harness(results = [], overrides = {}) {
   const calls = [];
   const audits = [];
   const serviceCalls = [];
+  const committeeCalls = [];
   const utilsCalls = [];
   const unexpected = [];
   const logs = [];
@@ -59,6 +60,11 @@ function harness(results = [], overrides = {}) {
         assert.equal(typeof overrides.createParticipantAccount, 'function', 'Alta inesperada');
         return overrides.createParticipantAccount(...args);
       } };
+      if (name === '../services/committee-import.service') return { async resolveOrCreateImportCommittee(...args) {
+        committeeCalls.push(args);
+        assert.equal(typeof overrides.resolveOrCreateImportCommittee, 'function', 'Creacion de comite inesperada');
+        return overrides.resolveOrCreateImportCommittee(...args);
+      } };
       throw new Error(`Import inesperado: ${name}`);
     },
   });
@@ -68,7 +74,7 @@ function harness(results = [], overrides = {}) {
     status(code) { this.statusCode = code; return this; },
     json(body) { this.body = body; return this; },
   };
-  return { controller: module.exports, res, calls, audits, serviceCalls, utilsCalls, logs,
+  return { controller: module.exports, res, calls, audits, serviceCalls, committeeCalls, utilsCalls, logs,
     done() { assert.deepEqual(unexpected, []); assert.equal(pending.length, 0, 'Consultas pendientes'); },
   };
 }
@@ -149,6 +155,37 @@ test('previewParticipantImport termina con pagina vacia despues de 1000 codigos'
   assert.equal(h.res.statusCode, 200);
   assert.equal(h.res.body.valid.length, 1);
   assert.equal(h.calls.length, 4);
+  h.done();
+});
+
+test('confirmParticipantImport crea el comite nuevo una sola vez y lo asigna a las filas del lote', async () => {
+  const committee = { id: 'c-new', name: 'Prensa', code: 'PRENSA', status: 'ACTIVE', event_id: 'event' };
+  const h = harness(contextResults(), {
+    async resolveOrCreateImportCommittee() { return { ok: true, created: true, committee }; },
+    createParticipantAccount: async input => success(input),
+  });
+  const rows = [
+    { ...importRow(2), committee_id: null, committee_label: 'Prensa', new_committee_name: 'Prensa' },
+    { ...importRow(3), committee_id: null, committee_label: 'prensa', new_committee_name: 'prensa' },
+  ];
+  await h.controller.confirmParticipantImport(request({ rows }), h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.committeeCalls.length, 1);
+  assert.equal(h.committeeCalls[0][0].name, 'Prensa');
+  assert.deepEqual(h.serviceCalls.map(([input]) => input.committee_id), ['c-new', 'c-new']);
+  assert.deepEqual(h.audits.filter(a => a.actionType === 'CREATE_COMMITTEE').map(a => a.entityId), ['c-new']);
+  assert.equal(h.res.body.summary.created, 2);
+  h.done();
+});
+
+test('confirmParticipantImport marca como fallidas las filas cuyo comite no se pudo crear', async () => {
+  const h = harness(contextResults(), {
+    async resolveOrCreateImportCommittee() { return { ok: false, error: 'No se pudo crear el comite Prensa' }; },
+  });
+  await h.controller.confirmParticipantImport(request({ rows: [{ ...importRow(2), committee_id: null, committee_label: 'Prensa', new_committee_name: 'Prensa' }] }), h.res);
+  assert.equal(h.res.body.failed[0].errors[0], 'No se pudo crear el comite Prensa');
+  assert.equal(h.serviceCalls.length, 0);
+  assert.equal(h.res.body.summary.created, 0);
   h.done();
 });
 

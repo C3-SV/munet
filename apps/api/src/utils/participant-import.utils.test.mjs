@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ project: 'apps/api/tsconfig.json' });
-const { parseCsv, normalizeHeader, buildImportPreview, validateConfirmRows, IMPORT_MAX_ROWS, IMPORT_CONFIRM_BATCH_MAX, IMPORT_TEMPLATE_HEADERS } = require('./participant-import.utils.ts');
+const { parseCsv, normalizeHeader, buildImportPreview, validateConfirmRows, committeeCodeFromName, IMPORT_MAX_ROWS, IMPORT_CONFIRM_BATCH_MAX, IMPORT_TEMPLATE_HEADERS } = require('./participant-import.utils.ts');
 const ctx = { committees: [
   { id: 'c1', code: 'CS', name: 'Consejo de Seguridad' },
   { id: 'c2', code: 'EC', name: 'Comité Económico' },
@@ -56,7 +56,35 @@ test('resuelve comites por codigo o nombre sin acentos, excluye archivados y aje
     assert.equal(value.committee_label, 'Comité Económico');
   }
   assert.equal(preview('Ana,Perez,ABC,,,').valid[0].committee_id, null);
-  for (const label of ['OLD', 'Antiguo', 'ajeno']) assert.match(preview(`Ana,Perez,ABC,${label},,`).invalid[0].errors.join(' '), new RegExp(`${label}.*no existe en el evento`));
+  for (const label of ['OLD', 'Antiguo']) assert.match(preview(`Ana,Perez,ABC,${label},,`).invalid[0].errors.join(' '), new RegExp(`${label}.*no existe en el evento`));
+});
+test('comite inexistente se marca para crear y se agrupa sin distinguir mayusculas ni tildes', () => {
+  const result = preview('Ana,Perez,ABC,Comité Nuevo,,\nLuis,Perez,DEF,comite nuevo,,\nEva,Perez,GHI,Prensa,,');
+  assert.deepEqual(result.valid.map(v => [v.committee_id, v.committee_label, v.new_committee_name]), [[null, 'Comité Nuevo', 'Comité Nuevo'], [null, 'comite nuevo', 'comite nuevo'], [null, 'Prensa', 'Prensa']]);
+  assert.deepEqual(result.new_committees, ['Comité Nuevo', 'Prensa']);
+  assert.deepEqual(preview('Ana,Perez,ABC,CS,,').new_committees, []);
+  assert.equal(preview(`Ana,Perez,ABC,${'x'.repeat(121)},,`).invalid[0].errors[0], 'comite supera 120 caracteres');
+});
+test('codigo de comite derivado del nombre sin tildes ni simbolos', () => {
+  assert.equal(committeeCodeFromName('SGA ONU | Asamblea General 2026'), 'SGA-ONU-ASAMBLEA-GENERAL-2026');
+  assert.equal(committeeCodeFromName('  Comité Económico  '), 'COMITE-ECONOMICO');
+  assert.match(committeeCodeFromName('|||'), /^COMITE-/);
+  assert.notEqual(committeeCodeFromName('委员会'), committeeCodeFromName('理事会'));
+});
+test('preview rechaza un comite nuevo cuyo codigo derivado ya usa otro comite', () => {
+  assert.match(preview('Ana,Perez,ABC,Ec!,,').invalid[0].errors.join(' '), /ya lo usa otro comite/);
+});
+test('preview limita la cantidad de comites nuevos por importacion', () => {
+  const csv = Array.from({ length: 31 }, (_, i) => `Ana,Perez,COD${i},Nuevo ${i},,`).join('\n');
+  assert.match(preview(csv).error, /crea 31 comit.*es 30/);
+});
+test('confirm acepta comite nuevo por nombre y valida su longitud y tipo', () => {
+  const row = { ...confirmRow(), committee_id: null, committee_label: 'Nuevo', new_committee_name: 'Nuevo' };
+  const ok = validateConfirmRows([row], ctx);
+  assert.equal(ok.valid[0].new_committee_name, 'Nuevo');
+  assert.equal(ok.valid[0].committee_label, 'Nuevo');
+  assert.equal(validateConfirmRows([{ ...row, new_committee_name: 'x'.repeat(121) }], ctx).invalid.length, 1);
+  assert.equal(validateConfirmRows([{ ...row, new_committee_name: 3 }], ctx).invalid.length, 1);
 });
 test('duplicados sin distincion de mayusculas y prioridad de validacion', () => {
   const result = preview(' ,Perez,ABC,,,\nAna,Perez,abc,,,\nAna,Perez,ABC,,,\nAna,Perez,existe,,,\n ,Perez,EXISTE,,,');

@@ -568,7 +568,8 @@ export default function ImportParticipantsPage() {
                                 evento.
                             </li>
                             <li>
-                                <strong>comite</strong> acepta código o nombre;
+                                <strong>comite</strong> acepta código o nombre.
+                                Si no existe en el evento se crea al importar;
                                 vacío significa sin comité.
                             </li>
                             <li>
@@ -704,6 +705,13 @@ export default function ImportParticipantsPage() {
                         />
                     )}
 
+                    {preview.new_committees.length > 0 && (
+                        <AdminAlertBanner
+                            type="warning"
+                            message={`Se crearán ${preview.new_committees.length} comité(s) que no existen en el evento: ${preview.new_committees.join(", ")}.`}
+                        />
+                    )}
+
                     <div className="flex flex-wrap gap-2">
                         {reviewTabs.map((tab) => (
                             <button
@@ -809,6 +817,8 @@ export default function ImportParticipantsPage() {
                                                     }}
                                                 >
                                                     {row.committee_label ?? "—"}
+                                                    {row.new_committee_name &&
+                                                        " (nuevo)"}
                                                 </td>
                                                 <td
                                                     className="px-3 py-2 text-xs"

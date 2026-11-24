@@ -123,6 +123,8 @@ export type ParticipantImportRow = {
     institution_name: string | null;
     role: ParticipantImportRole;
     alias: string | null;
+    // Comité que no existe y se creará al confirmar; el servidor lo resuelve por nombre.
+    new_committee_name: string | null;
 };
 
 export type ParticipantImportInvalidRow = {
@@ -143,6 +145,7 @@ export type ParticipantImportPreview = {
     valid: ParticipantImportRow[];
     invalid: ParticipantImportInvalidRow[];
     duplicates: ParticipantImportDuplicateRow[];
+    new_committees: string[];
     template_headers: string[];
     limits: { max_rows: number; confirm_batch_max: number };
 };
