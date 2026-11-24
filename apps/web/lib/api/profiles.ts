@@ -41,6 +41,9 @@ export const createMyProfile = async (
 
 export const updateMyProfile = async (
     context: ProfileContext & {
+        // Solo los administradores pueden cambiar su propio nombre y apellido.
+        firstName?: string;
+        lastName?: string;
         displayName?: string;
         alias?: string | null;
         bio?: string;
@@ -53,6 +56,8 @@ export const updateMyProfile = async (
         token: context.token,
         eventId: context.eventId,
         body: {
+            first_name: context.firstName,
+            last_name: context.lastName,
             display_name: context.displayName,
             alias: context.alias,
             bio: context.bio,

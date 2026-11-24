@@ -528,10 +528,12 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       });
     }
 
-    const { display_name, bio, profile_image_path } = req.body as {
+    const { display_name, bio, profile_image_path, first_name, last_name } = req.body as {
       display_name?: string;
       bio?: string;
       profile_image_path?: string;
+      first_name?: string;
+      last_name?: string;
     };
 
     const existing = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
@@ -559,10 +561,32 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       aliasToSave = parsedAlias.value;
     }
 
+    // Los administradores pueden corregir su propio nombre y apellido; los participantes no.
+    let firstNameToSave = profile.first_name;
+    let lastNameToSave = profile.last_name;
+
+    if (isAdminRole(activeMembership.role)) {
+      const nextFirst = typeof first_name === 'string' ? first_name.trim() : profile.first_name;
+      const nextLast = typeof last_name === 'string' ? last_name.trim() : profile.last_name;
+
+      if (!nextFirst || nextFirst.length > 100) {
+        return res.status(400).json({ error: 'first_name es obligatorio (hasta 100 caracteres)' });
+      }
+
+      if (!nextLast || nextLast.length > 100) {
+        return res.status(400).json({ error: 'last_name es obligatorio (hasta 100 caracteres)' });
+      }
+
+      firstNameToSave = nextFirst;
+      lastNameToSave = nextLast;
+    }
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
         // Solo sobrescribimos campos enviados; lo demás conserva valor previo.
+        first_name: firstNameToSave,
+        last_name: lastNameToSave,
         display_name: display_name ?? profile.display_name,
         alias: aliasToSave,
         bio: bio ?? profile.bio,

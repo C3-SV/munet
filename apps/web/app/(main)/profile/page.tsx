@@ -22,6 +22,8 @@ const ProfilePage = () => {
     const memberships = useAuthStore((state) => state.memberships);
 
     const [profileData, setProfileData] = useState<MyProfile | null>(null);
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [displayName, setDisplayName] = useState("");
     const [alias, setAlias] = useState("");
     const [bio, setBio] = useState("");
@@ -60,6 +62,8 @@ const ProfilePage = () => {
 
                 if (!cancelled) {
                     setProfileData(profile);
+                    setFirstName(profile.profile.firstName);
+                    setLastName(profile.profile.lastName);
                     setDisplayName(profile.profile.displayName);
                     setAlias(profile.profile.alias ?? "");
                     setBio(profile.profile.bio ?? "");
@@ -124,6 +128,8 @@ const ProfilePage = () => {
             const updated = await updateMyProfile({
                 token,
                 eventId,
+                // Solo los administradores envían nombre y apellido; el servidor los ignora en otro caso.
+                ...(canOpenAdminEditor ? { firstName: firstName.trim(), lastName: lastName.trim() } : {}),
                 displayName,
                 // Alias vacío = sin alias (se envía null para borrarlo).
                 alias: alias.trim() ? alias.trim() : null,
@@ -374,6 +380,37 @@ const ProfilePage = () => {
                                     </p>
                                 </div>
                             </div>
+
+                            {canOpenAdminEditor && (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                                            Nombre
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={firstName}
+                                            maxLength={100}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            className="w-full p-3 rounded-xl font-body text-sm outline-none"
+                                            style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                                            Apellido
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={lastName}
+                                            maxLength={100}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            className="w-full p-3 rounded-xl font-body text-sm outline-none"
+                                            style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold font-heading" style={{ color: "var(--text-primary)" }}>
