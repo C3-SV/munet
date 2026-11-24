@@ -47,7 +47,9 @@ test('errores globales dejan listas vacias y nombran encabezados en espanol', ()
 test('roles vacios y sinonimos permitidos; admins y otros roles rechazados', () => {
   for (const role of ['', 'participante', 'DELEGADO', 'delegada', 'PARTICIPANT']) assert.equal(preview(`Ana,Perez,ABC,,${role},`).valid[0].role, 'PARTICIPANT');
   for (const role of ['moderador', 'MODERATOR', 'moderadóra']) assert.equal(preview(`Ana,Perez,ABC,,${role},`).valid[0].role, 'MODERATOR');
-  for (const role of ['ADMIN_MUN', 'ADMIN_TECH', 'observador']) assert.ok(preview(`Ana,Perez,ABC,,${role},`).invalid[0].errors.includes('Rol no permitido en CSV (solo participante o moderador; los admins se crean uno por uno)'));
+  for (const role of ['ADMIN_MUN', 'admin mun', 'Admin', 'ADMINISTRADOR MUN']) assert.equal(preview(`Ana,Perez,ABC,,${role},`).valid[0].role, 'ADMIN_MUN');
+  for (const role of ['ADMIN_TECH', 'admin tecnico', 'ADMIN TECH']) assert.ok(preview(`Ana,Perez,ABC,,${role},`).invalid[0].errors.includes('El administrador tecnico no se importa por CSV; se crea uno por uno'));
+  assert.ok(preview('Ana,Perez,ABC,,observador,').invalid[0].errors.includes('Rol no permitido en CSV (participante, moderador o administrador MUN)'));
 });
 test('resuelve comites por codigo o nombre sin acentos, excluye archivados y ajenos', () => {
   for (const label of ['ec', 'comite economico', 'COMITÉ ECONÓMICO']) {
