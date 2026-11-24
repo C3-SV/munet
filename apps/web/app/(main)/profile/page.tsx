@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutButton from "../../../components/auth/LogOutButton";
 import { Button } from "../../../components/ui/Button";
-import { getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
+import { ApiError } from "../../../lib/api/client";
+import { createMyProfile, getMyProfile, updateMyProfile, uploadMyAvatar } from "../../../lib/api/profiles";
 import { buildPersonLabel } from "../../../lib/person-label";
 import { formatRoleLabel } from "../../../lib/role-label";
 import { isAdminRole, useAuthStore } from "../../../stores/auth.store";
@@ -29,6 +30,10 @@ const ProfilePage = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [avatarError, setAvatarError] = useState<string | null>(null);
+    const [needsProfile, setNeedsProfile] = useState(false);
+    const [newFirstName, setNewFirstName] = useState("");
+    const [newLastName, setNewLastName] = useState("");
+    const [creatingProfile, setCreatingProfile] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const canOpenAdminEditor = useMemo(() => {
@@ -61,7 +66,12 @@ const ProfilePage = () => {
                 }
             } catch (loadError) {
                 if (!cancelled) {
-                    setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el perfil");
+                    // 404: la membresía existe pero no tiene perfil; se pide crearlo.
+                    if (loadError instanceof ApiError && loadError.status === 404) {
+                        setNeedsProfile(true);
+                    } else {
+                        setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el perfil");
+                    }
                 }
             }
         };
@@ -72,6 +82,34 @@ const ProfilePage = () => {
             cancelled = true;
         };
     }, [eventId, token]);
+
+    const createProfile = async () => {
+        if (!token || !eventId) {
+            return;
+        }
+
+        try {
+            setCreatingProfile(true);
+            setError(null);
+
+            const created = await createMyProfile({
+                token,
+                eventId,
+                firstName: newFirstName.trim(),
+                lastName: newLastName.trim(),
+            });
+
+            setProfileData(created);
+            setDisplayName(created.profile.displayName);
+            setAlias(created.profile.alias ?? "");
+            setBio(created.profile.bio ?? "");
+            setNeedsProfile(false);
+        } catch (createError) {
+            setError(createError instanceof Error ? createError.message : "No se pudo crear tu perfil");
+        } finally {
+            setCreatingProfile(false);
+        }
+    };
 
     const saveProfile = async () => {
         // Guarda nombre visible/bio sin tocar campos bloqueados.
@@ -155,6 +193,68 @@ const ProfilePage = () => {
     const profileAlias = profileData
         ? buildPersonLabel({ name: profileData.profile.displayName, alias: profileData.profile.alias }).alias
         : null;
+
+    if (!profileData && needsProfile) {
+        const canCreate = newFirstName.trim() !== "" && newLastName.trim() !== "" && !creatingProfile;
+
+        return (
+            <div className="p-4 sm:p-6 lg:p-12">
+                <form
+                    className="max-w-3xl mx-auto rounded-2xl p-6 sm:p-8 space-y-5"
+                    style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        if (canCreate) void createProfile();
+                    }}
+                >
+                    <div>
+                        <h1 className="text-2xl font-bold font-heading" style={{ color: "var(--text-primary)" }}>
+                            Completa tu perfil
+                        </h1>
+                        <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                            Tu cuenta de administración en este evento aún no tiene perfil. Escribe tu nombre y apellido para crearlo.
+                        </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                            <span className="text-xs font-semibold font-heading" style={{ color: "var(--text-secondary)" }}>Nombre</span>
+                            <input
+                                type="text"
+                                value={newFirstName}
+                                maxLength={100}
+                                onChange={(e) => setNewFirstName(e.target.value)}
+                                required
+                                className="mt-1 w-full rounded-xl px-3 py-2.5 font-body text-sm outline-none"
+                                style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold font-heading" style={{ color: "var(--text-secondary)" }}>Apellido</span>
+                            <input
+                                type="text"
+                                value={newLastName}
+                                maxLength={100}
+                                onChange={(e) => setNewLastName(e.target.value)}
+                                required
+                                className="mt-1 w-full rounded-xl px-3 py-2.5 font-body text-sm outline-none"
+                                style={{ backgroundColor: "var(--bg-input)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                            />
+                        </label>
+                    </div>
+                    {error && (
+                        <p className="text-sm font-body" style={{ color: "var(--danger)" }}>
+                            {error}
+                        </p>
+                    )}
+                    <div className="flex justify-end">
+                        <Button type="submit" disabled={!canCreate} loading={creatingProfile}>
+                            {creatingProfile ? "Creando..." : "Crear perfil"}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        );
+    }
 
     if (!profileData) {
         return (

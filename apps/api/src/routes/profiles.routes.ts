@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  createMyProfile,
   getMyProfile,
   getPublicProfile,
   updatePublicProfileAsAdmin,
@@ -14,6 +15,7 @@ const router = Router();
 
 // Perfil propio y perfiles públicos por membership dentro del evento activo.
 router.get('/me', requireAuth, getMyProfile);
+router.post('/me', requireAuth, requireEventOpenForWrites, createMyProfile);
 router.patch('/me', requireAuth, requireEventOpenForWrites, updateMyProfile);
 router.post('/me/avatar', requireAuth, requireEventOpenForWrites, uploadMyAvatar);
 router.patch('/:membershipId', requireAuth, requireEventOpenForWrites, updatePublicProfileAsAdmin);
