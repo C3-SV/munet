@@ -8,6 +8,7 @@ const sections = [
     { id: "primeros-pasos", label: "Primeros pasos" },
     { id: "participantes", label: "Para participantes" },
     { id: "organizadores", label: "Para organizadores" },
+    { id: "importar", label: "Importar CSV" },
     { id: "preguntas", label: "Preguntas frecuentes" },
 ];
 
@@ -191,7 +192,7 @@ export default function GuidePage() {
                                         { title: "Completa el formulario", text: "Indica código, rol, nombre y apellido. Si corresponde, elige comité y añade delegación, institución o datos del perfil." },
                                         { title: "Entrega sus credenciales", text: "Pulsa Crear participante. Copia la contraseña inicial que aparece y entrégala junto al código de ingreso de forma privada." },
                                     ])}
-                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">La contraseña inicial se muestra una sola vez. Usa códigos de ingreso distintos para cada participante.</p>
+                                    <p className="mt-4 text-xs leading-5 text-[var(--text-secondary)]">La contraseña inicial se muestra una sola vez. Usa códigos de ingreso distintos para cada participante. Para varias cuentas a la vez, usa <strong className="text-[var(--text-primary)]">Importar CSV</strong> (ver la sección siguiente).</p>
                                 </TopicCard>
                                 <TopicCard title="Lista, asigna y edita">
                                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">En Participantes puedes filtrar por comité, rol y estado. Abre una ficha para editar los datos disponibles o cambiar su comité. También puedes quitar la asignación con <strong className="text-[var(--text-primary)]">Sin comité</strong>. Pulsa <strong className="text-[var(--text-primary)]">Guardar cambios</strong> para aplicar la edición.</p>
@@ -208,6 +209,79 @@ export default function GuidePage() {
                                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Abre el muro <strong className="text-[var(--text-primary)]">Avisos</strong> del evento para publicar y comentar como administración. En los muros donde tengas acceso, usa el control del post o comentario para retirar contenido cuando corresponda.</p>
                                 </TopicCard>
                             </div>
+                        </div>
+                    </section>
+
+                    <section id="importar" className="scroll-mt-8 border-t border-[var(--border-color)] pt-16">
+                        <SectionHeading title="Importar participantes por CSV" description="Carga varias cuentas a la vez. MUNET revisa el archivo antes de crear nada: solo se crean las filas válidas, y puedes corregir y volver a subir cuantas veces haga falta." />
+
+                        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                            <TopicCard title="Antes de subir el archivo">
+                                {steps([
+                                    { title: "Descarga la plantilla", text: "En Participantes, pulsa Importar CSV y luego Descargar plantilla. Reemplaza la fila de ejemplo por tus datos." },
+                                    { title: "Guarda en UTF-8", text: "En Excel usa Guardar como → CSV UTF-8 para conservar tildes y eñes. El separador puede ser coma o punto y coma." },
+                                    { title: "Revisa comités y roles", text: "El comité puede ir por nombre o código. Si no existe en el evento, MUNET lo crea al importar con su muro." },
+                                ])}
+                            </TopicCard>
+
+                            <TopicCard title="Columnas del archivo" description="Las tres primeras son obligatorias.">
+                                <div className="mt-4 overflow-x-auto">
+                                    <table className="w-full text-left text-xs leading-5 text-[var(--text-secondary)]">
+                                        <thead>
+                                            <tr className="border-b border-[var(--border-color)] text-[var(--text-primary)]">
+                                                <th className="py-2 pr-3 font-semibold">Columna</th>
+                                                <th className="py-2 font-semibold">Qué escribir</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[var(--border-light)]">
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">nombre</td><td className="py-2">Obligatorio. Hasta 100 caracteres.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">apellido</td><td className="py-2">Obligatorio. Hasta 100 caracteres.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">codigo_participante</td><td className="py-2">Obligatorio. De 3 a 50 caracteres: letras, números, punto, guion o guion bajo. Único en el evento.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">comite</td><td className="py-2">Nombre o código. Vacío significa sin comité.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">delegacion</td><td className="py-2">Opcional. Hasta 120 caracteres.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">rol</td><td className="py-2">Opcional. Vacío es participante. Ver la tabla de roles.</td></tr>
+                                            <tr><td className="py-2 pr-3 font-semibold text-[var(--text-primary)]">alias</td><td className="py-2">Opcional. Hasta 60 caracteres.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </TopicCard>
+
+                            <TopicCard title="Roles que admite el CSV">
+                                <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
+                                    <li><strong className="text-[var(--text-primary)]">Participante</strong> (o vacío, delegado): acceso al evento y a su comité.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Moderador</strong>: modera los muros del evento desde el panel.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Administrador MUN</strong> (escribe <em>ADMIN_MUN</em>, <em>Admin</em> o <em>Administrador MUN</em>): administra el evento.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Administrador técnico</strong>: no se importa por CSV. Créalo uno por uno desde Participantes.</li>
+                                </ul>
+                            </TopicCard>
+
+                            <TopicCard title="Importar paso a paso">
+                                {steps([
+                                    { title: "Sube el archivo", text: "Elige el .csv. MUNET lo revisa y no crea ninguna cuenta todavía." },
+                                    { title: "Revisa las pestañas", text: "Válidas se crearán. Con errores no se importan: corrige el archivo y vuelve a subirlo. Duplicadas ya existen en el evento o aparecen dos veces; tampoco se importan." },
+                                    { title: "Confirma", text: "Pulsa Importar seguido del número de filas válidas. Las cuentas se crean en lotes; no cierres la pestaña mientras avanza." },
+                                    { title: "Descarga las credenciales", text: "Antes de salir, descarga el CSV de credenciales. Las contraseñas iniciales se muestran una sola vez y no se pueden recuperar." },
+                                ])}
+                            </TopicCard>
+
+                            <TopicCard title="Verifica el resultado">
+                                {steps([
+                                    { title: "Compara los números", text: "Creadas debe coincidir con las filas válidas. Fallidas y Sin procesar deben ser 0 o explicarse por las filas con error." },
+                                    { title: "Revisa la lista", text: "En Participantes filtra por comité y rol. Cada comité nuevo debe aparecer con sus participantes." },
+                                    { title: "Prueba una cuenta", text: "Abre la ficha de una persona y confirma comité, rol y código. Para comprobar el acceso, entra con una ventana privada usando el código y la contraseña inicial; la cuenta debe pedir activación." },
+                                ])}
+                            </TopicCard>
+
+                            <TopicCard title="Errores frecuentes y cómo resolverlos">
+                                <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
+                                    <li><strong className="text-[var(--text-primary)]">Faltan encabezados obligatorios:</strong> la primera fila debe tener nombre, apellido y codigo_participante. Si copiaste desde una hoja de cálculo, guarda el archivo como CSV.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Rol no permitido:</strong> usa participante, moderador o administrador MUN.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Comité archivado:</strong> el nombre o código pertenece a un comité archivado. Restáuralo en Comités o usa otro nombre.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Ya existe un comité eliminado:</strong> un comité borrado conserva su nombre y código. Restáuralo o cambia el nombre en el archivo.</li>
+                                    <li><strong className="text-[var(--text-primary)]">codigo_participante ya existe:</strong> el código lo usa otra persona del evento. Cámbialo.</li>
+                                    <li><strong className="text-[var(--text-primary)]">Límites:</strong> hasta 1000 filas por archivo y 30 comités nuevos por importación.</li>
+                                </ul>
+                            </TopicCard>
                         </div>
                     </section>
                 </div>

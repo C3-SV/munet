@@ -128,6 +128,7 @@ const ParticipantRow = ({
 }) => {
     const fullName = getFullName(participant);
     const displayName = participant.profile?.display_name?.trim();
+    const alias = participant.profile?.alias?.trim();
     const isSuspended = participant.account_status === "SUSPENDED";
 
     const isModerator = participant.role.trim().toUpperCase() === "MODERATOR";
@@ -154,13 +155,15 @@ const ParticipantRow = ({
                             {displayName}
                         </p>
                     )}
+                    {alias && (
+                        <p
+                            className="mt-0.5 text-xs truncate"
+                            style={{ color: "var(--text-secondary)" }}
+                        >
+                            Alias: {alias}
+                        </p>
+                    )}
                 </div>
-            </td>
-
-            <td className="px-6 py-4 hidden lg:table-cell">
-                <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {participant.profile?.alias?.trim() || "—"}
-                </span>
             </td>
 
             <td className="px-6 py-4">
@@ -851,34 +854,19 @@ export default function EventParticipantsPage() {
                                     }}
                                 >
                                     {[
-                                        "Nombre completo",
-                                        "Alias",
-                                        "Código #",
-                                        "Código de login",
-                                        "Comité",
-                                        "Rol",
-                                        "Estado",
-                                        "Acciones",
-                                    ].map((column, index) => (
+                                        { label: "Nombre completo", className: "" },
+                                        { label: "Código #", className: "" },
+                                        { label: "Código de login", className: "hidden sm:table-cell" },
+                                        { label: "Comité", className: "hidden lg:table-cell" },
+                                        { label: "Rol", className: "hidden xl:table-cell" },
+                                        { label: "Estado", className: "" },
+                                        { label: "Acciones", className: "text-right" },
+                                    ].map((column) => (
                                         <th
-                                            key={column}
+                                            key={column.label}
                                             className={[
                                                 "px-6 py-3 text-xs font-bold uppercase tracking-wide font-heading",
-                                                index === 1
-                                                    ? "hidden lg:table-cell"
-                                                    : "",
-                                                index === 3
-                                                    ? "hidden sm:table-cell"
-                                                    : "",
-                                                index === 4
-                                                    ? "hidden lg:table-cell"
-                                                    : "",
-                                                index === 5
-                                                    ? "hidden xl:table-cell"
-                                                    : "",
-                                                index === 7
-                                                    ? "text-right"
-                                                    : "",
+                                                column.className,
                                             ].join(" ")}
                                             style={{
                                                 color: "var(--text-muted)",
@@ -886,7 +874,7 @@ export default function EventParticipantsPage() {
                                                     "var(--bg-surface-secondary)",
                                             }}
                                         >
-                                            {column}
+                                            {column.label}
                                         </th>
                                     ))}
                                 </tr>
