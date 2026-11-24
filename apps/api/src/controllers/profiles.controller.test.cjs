@@ -18,6 +18,7 @@ const controllerCode = compile(__dirname + '/profiles.controller.ts');
 function harness(results = []) {
   const pending = [...results];
   const inserts = [];
+  const updates = [];
   const audits = [];
   const unexpected = [];
   const client = { from(table) {
@@ -27,6 +28,7 @@ function harness(results = []) {
     const query = new Proxy({}, { get(_, method) {
       if (method === 'then') return (resolve, reject) => Promise.resolve(result ?? { data: null, error: new Error('sin resultado') }).then(resolve, reject);
       if (method === 'insert') return (values) => { inserts.push({ table, values }); call.steps.push(['insert', values]); return query; };
+      if (method === 'update') return (values) => { updates.push(values); call.steps.push(['update', values]); return query; };
       return (...args) => { call.steps.push([method, ...args]); return query; };
     } });
     return query;
@@ -47,7 +49,7 @@ function harness(results = []) {
     json(body) { this.body = body; return this; },
   };
   return {
-    controller: module.exports, res, inserts, audits,
+    controller: module.exports, res, inserts, updates, audits,
     done() { assert.deepEqual(unexpected, []); assert.equal(pending.length, 0, 'Consultas pendientes'); },
   };
 }
@@ -119,5 +121,46 @@ test('createMyProfile crea el perfil propio, audita y devuelve 201', async () =>
   assert.equal(h.inserts[0].values.alias, 'Anita');
   assert.equal(h.audits.length, 1);
   assert.equal(h.audits[0].reason, 'Perfil propio creado');
+  h.done();
+});
+
+const patchRequest = (body, role) => ({
+  body,
+  header: name => (name === 'x-event-id' ? 'event' : undefined),
+  auth: { userId: 'u1', memberships: [{ id: 'm1', eventId: 'event', role, accountStatus: 'ACTIVE' }] },
+});
+const existingProfile = { id: 'p1', first_name: 'Admin', last_name: 'Temporal', display_name: null, alias: null, bio: null, profile_image_path: null };
+
+test('updateMyProfile permite al administrador cambiar su nombre y apellido', async () => {
+  const h = harness([
+    { data: membership([existingProfile]), error: null },
+    { data: null, error: null },
+    { data: membership([{ ...existingProfile, first_name: 'Ana', last_name: 'Perez' }]), error: null },
+  ]);
+  await h.controller.updateMyProfile(patchRequest({ first_name: ' Ana ', last_name: 'Perez' }, 'ADMIN_TECH'), h.res);
+  assert.equal(h.res.statusCode, 200);
+  const update = h.updates[0];
+  assert.equal(update.first_name, 'Ana');
+  assert.equal(update.last_name, 'Perez');
+  h.done();
+});
+
+test('updateMyProfile ignora nombre y apellido de un participante', async () => {
+  const h = harness([
+    { data: membership([existingProfile]), error: null },
+    { data: null, error: null },
+    { data: membership([existingProfile]), error: null },
+  ]);
+  await h.controller.updateMyProfile(patchRequest({ first_name: 'Ana', last_name: 'Perez' }, 'PARTICIPANT'), h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.updates[0].first_name, 'Admin');
+  h.done();
+});
+
+test('updateMyProfile rechaza nombre vacio para administrador', async () => {
+  const h = harness([{ data: membership([existingProfile]), error: null }]);
+  await h.controller.updateMyProfile(patchRequest({ first_name: '  ' }, 'ADMIN_MUN'), h.res);
+  assert.equal(h.res.statusCode, 400);
+  assert.equal(h.updates.length, 0);
   h.done();
 });
