@@ -7,7 +7,7 @@ export type NormalizedImportRow = {
   row: number; first_name: string; last_name: string; participant_code: string;
   committee_id: string | null; committee_label: string | null;
   delegation_name: string | null; institution_name: string | null;
-  role: 'PARTICIPANT' | 'MODERATOR'; alias: string | null;
+  role: 'PARTICIPANT' | 'MODERATOR' | 'ADMIN_MUN'; alias: string | null;
   // Comit\u00e9 que no existe en el evento y se crear\u00e1 al confirmar (solo cuando committee_id es null).
   new_committee_name: string | null;
 };
@@ -110,11 +110,14 @@ function validateRow(input: Record<string, unknown>, row: number, ctx: Context, 
   for (const [label, value, max] of [ ['alias', alias, 60], ['delegacion', delegation_name, 120], ['institucion', institution_name, 120] ] as const) {
     if (value && value.length > max) errors.push(`${label} supera ${max} caracteres`);
   }
-  const roleValue = fold(read('role', !confirm)).toUpperCase();
+  const roleValue = fold(read('role', !confirm)).toUpperCase().replace(/[\s_-]+/g, ' ').trim();
   let role: NormalizedImportRow['role'] = 'PARTICIPANT';
   if (['MODERATOR', 'MODERADOR', 'MODERADORA'].includes(roleValue)) role = 'MODERATOR';
-  else if (!['', 'PARTICIPANT', 'PARTICIPANTE', 'DELEGADO', 'DELEGADA'].includes(roleValue)) {
-    errors.push('Rol no permitido en CSV (solo participante o moderador; los admins se crean uno por uno)');
+  else if (['ADMIN MUN', 'ADMINISTRADOR MUN', 'ADMIN', 'ADMINISTRADOR'].includes(roleValue)) role = 'ADMIN_MUN';
+  else if (roleValue.includes('TECH') || roleValue.includes('TECNIC')) {
+    errors.push('El administrador tecnico no se importa por CSV; se crea uno por uno');
+  } else if (!['', 'PARTICIPANT', 'PARTICIPANTE', 'DELEGADO', 'DELEGADA'].includes(roleValue)) {
+    errors.push('Rol no permitido en CSV (participante, moderador o administrador MUN)');
   }
   const available = ctx.committees.filter(c => c.status !== 'ARCHIVED');
   let committee: ImportCommittee | undefined;

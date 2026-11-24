@@ -7,7 +7,7 @@ export type ParticipantAccountStatus =
     | "ACTIVE"
     | "SUSPENDED";
 
-export type ParticipantImportRole = "PARTICIPANT" | "MODERATOR";
+export type ParticipantImportRole = "PARTICIPANT" | "MODERATOR" | "ADMIN_MUN";
 
 export type AdminParticipantProfile = {
     first_name: string;

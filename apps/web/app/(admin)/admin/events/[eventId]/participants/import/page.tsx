@@ -53,6 +53,7 @@ const CREDENTIAL_HEADERS = [
 const ROLE_LABELS: Record<string, string> = {
     PARTICIPANT: "Participante",
     MODERATOR: "Moderador",
+    ADMIN_MUN: "Administrador MUN",
 };
 
 type ImportStep = "upload" | "review" | "result";
@@ -573,9 +574,9 @@ export default function ImportParticipantsPage() {
                                 vacío significa sin comité.
                             </li>
                             <li>
-                                <strong>rol</strong> acepta participante o
-                                moderador. Los administradores se crean uno por
-                                uno.
+                                <strong>rol</strong> acepta participante,
+                                moderador o administrador MUN. El administrador
+                                técnico se crea uno por uno.
                             </li>
                             <li>
                                 <strong>alias</strong> es opcional, máximo 60

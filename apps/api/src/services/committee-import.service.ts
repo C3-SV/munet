@@ -60,6 +60,28 @@ export async function resolveOrCreateImportCommittee(params: {
       committees.push(record);
       return { ok: true, created: false, committee: record };
     }
+    // Un comité eliminado (borrado lógico) sigue reservando nombre y código por las
+    // restricciones UNIQUE. Se informa la causa real en vez de un error genérico.
+    const { data: deletedByName } = await supabaseAdmin
+      .from('committees')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('name', name)
+      .not('deleted_at', 'is', null)
+      .limit(1);
+    if (deletedByName && deletedByName.length > 0) {
+      return { ok: false, error: `Ya existe un comite eliminado con el nombre ${name}; restauralo o cambia el nombre en el CSV` };
+    }
+    const { data: deletedByCode } = await supabaseAdmin
+      .from('committees')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('code', code)
+      .not('deleted_at', 'is', null)
+      .limit(1);
+    if (deletedByCode && deletedByCode.length > 0) {
+      return { ok: false, error: `Ya existe un comite eliminado con el codigo ${code}; restauralo o cambia el nombre en el CSV` };
+    }
     console.error('Importacion CSV: no se pudo crear el comite', name, error);
     return { ok: false, error: `No se pudo crear el comite ${name}` };
   }

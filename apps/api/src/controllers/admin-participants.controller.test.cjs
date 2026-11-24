@@ -215,7 +215,7 @@ test('confirmParticipantImport crea solo filas validas, continua tras ok:false y
     return success(input);
   } });
   const rows = [importRow(8), { ...importRow(7), first_name: '' }, importRow(4), importRow(2),
-    { ...importRow(3), role: 'ADMIN' }, importRow(6), importRow(9), importRow(10)];
+    { ...importRow(3), role: 'ADMIN_TECH' }, importRow(6), importRow(9), importRow(10)];
   await h.controller.confirmParticipantImport(request({ rows }), h.res);
   assert.equal(h.res.statusCode, 200);
   assert.equal(h.res.headers['cache-control'], 'no-store');
