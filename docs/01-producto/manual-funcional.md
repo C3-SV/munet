@@ -44,7 +44,7 @@ La contraseña inicial solo se muestra al emitirla. El código de ingreso figura
 
 ### Incorporar participantes por CSV — parcial
 
-1. Prepara un CSV con `nombre,apellido,codigo_participante,comite,delegacion,rol,alias`. Los primeros tres encabezados son obligatorios. Usa el nombre o código de un comité vigente del evento. Un rol vacío se interpreta como participante.
+1. Prepara un CSV con `nombre,apellido,codigo_participante,comite,delegacion,rol,alias`. Los primeros tres encabezados son obligatorios. Usa el nombre o código de un comité vigente del evento; si no existe, se crea al importar. Un rol vacío se interpreta como participante.
 2. Pide a desarrollo que ejecute la previsualización por API con una sesión administrativa del evento. Revisa filas válidas, errores y duplicados antes de autorizar el alta.
 3. Desarrollo confirma solo las filas válidas por API, hasta 50 por solicitud. Revisa altas y fallos y guarda las contraseñas devueltas para distribuirlas en privado. Si se interrumpe el proceso, comprueba qué cuentas quedaron creadas antes de reintentar.
 

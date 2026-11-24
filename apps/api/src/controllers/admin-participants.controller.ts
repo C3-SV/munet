@@ -9,9 +9,11 @@ import {
   ImportCommittee,
   NormalizedImportRow,
   buildImportPreview,
+  foldText,
   validateConfirmRows,
 } from '../utils/participant-import.utils';
 import { createParticipantAccount } from '../services/participant-account.service';
+import { resolveOrCreateImportCommittee, ResolvedImportCommittee } from '../services/committee-import.service';
 
 // Sprint 2 del sitio admin: importacion CSV (S2-05, S2-07) y cambio de
 // comite (S2-08). La autorizacion por evento ya la resolvio
@@ -126,7 +128,7 @@ const loadImportContext = async (eventId: string) => {
   const { codes, error: codesError } = await loadExistingCodes(eventId);
   if (codesError) return { fail: { status: 500, error: 'No se pudieron consultar los participantes' } };
 
-  return { committees, codes };
+  return { committees, codes, eventStatus: (event.status as string | null) ?? null };
 };
 
 // POST /admin/participants/import/preview  { event_id, csv }
@@ -196,13 +198,62 @@ export const confirmParticipantImport = async (req: Request, res: Response) => {
     const checked = validateConfirmRows(req.body?.rows, { committees, existingParticipantCodes: ctx.codes! });
     if (checked.error) return res.status(400).json({ error: checked.error });
 
-    const committeeById = new Map(committees.map((c) => [c.id, c]));
     const created: CreatedCredential[] = [];
     const failed: FailedRow[] = checked.invalid.map((item) => ({
       row: item.row,
       participant_code: item.participant_code,
       errors: item.errors,
     }));
+
+    // Comites que no existen en el evento: se resuelven una vez por nombre antes de
+    // crear cuentas. Si el comite ya existe (p. ej. lo creo un lote anterior), se reutiliza.
+    const pendingNames = new Map<string, string>();
+    checked.valid.forEach((row) => {
+      if (!row.committee_id && row.new_committee_name && !pendingNames.has(foldText(row.new_committee_name))) {
+        pendingNames.set(foldText(row.new_committee_name), row.new_committee_name);
+      }
+    });
+    const resolvedCommittees = new Map<string, ResolvedImportCommittee>();
+    for (const [key, name] of pendingNames) {
+      resolvedCommittees.set(key, await resolveOrCreateImportCommittee({
+        eventId,
+        name,
+        committees,
+        actorUserId,
+        eventStatus: ctx.eventStatus ?? null,
+      }));
+    }
+    for (const result of resolvedCommittees.values()) {
+      if (!result.ok || !result.created) continue;
+      await logAudit({
+        eventId,
+        membership: actor,
+        actorUserId: actorUserId ?? undefined,
+        actionType: 'CREATE_COMMITTEE',
+        entityType: 'COMMITTEE',
+        entityId: result.committee.id,
+        outcome: 'SUCCESS',
+        reason: `Comite creado por importacion CSV: ${result.committee.name}`,
+      });
+    }
+
+    const rowsToCreate = checked.valid.filter((row) => {
+      if (row.committee_id || !row.new_committee_name) return true;
+      const result = resolvedCommittees.get(foldText(row.new_committee_name));
+      if (result?.ok) {
+        row.committee_id = result.committee.id;
+        row.committee_label = result.committee.name;
+        return true;
+      }
+      failed.push({
+        row: row.row,
+        participant_code: row.participant_code,
+        errors: [result && !result.ok ? result.error : 'No se pudo crear el comite'],
+      });
+      return false;
+    });
+
+    const committeeById = new Map(committees.map((c) => [c.id, c]));
 
     const createRow = async (row: NormalizedImportRow) => {
       const result = await createParticipantAccount(
@@ -259,7 +310,7 @@ export const confirmParticipantImport = async (req: Request, res: Response) => {
 
     // Pocas altas en paralelo: rapido sin saturar la base ni el limite de
     // tiempo de la funcion serverless.
-    const queue = [...checked.valid];
+    const queue = [...rowsToCreate];
     const workers = Array.from({ length: Math.min(IMPORT_CONCURRENCY, queue.length) }, async () => {
       for (let row = queue.shift(); row; row = queue.shift()) {
         try {
