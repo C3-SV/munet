@@ -98,6 +98,13 @@ Trabajo pendiente, por fases del [plan](04-desarrollo/plan-adjuntos-r2.md):
 - Discrepancias D1–D9 del inventario, incluida la RPC `assign_delegation_code` sin guarda de versión (D1) y el valor de estado que el código escribe y el enum no declara (D5).
 - ~~`ALLOW_DEMO_POSTS=true` aparece en `apps/api/.env.example` (versionado) y en `apps/api/.env` local, pero no se lee en `apps/api/src`; retirarlo del ejemplo o documentarlo.~~ Resuelto el 22 de noviembre de 2026: se retiró de `apps/api/.env.example` (confirmado con Grep: no se lee en `apps/api/src`). `apps/api/.env` local no se tocó. `DEFAULT_POST_AUTHOR_MEMBERSHIP_ID` sigue en el ejemplo, también sin uso.
 
+### Q05 · Administrador técnico sin perfil propio
+
+- **Síntoma:** el administrador técnico que creó un evento no podía crear ni editar su perfil en «Mi perfil»; la pantalla mostraba error.
+- **Causa:** al crear un evento, `createEvent` ([admin.controller.ts](../apps/api/src/controllers/admin.controller.ts)) inserta solo la membresía `ADMIN_TECH` con código `ADM-xxxxxxxx`, sin fila en `profiles`. `GET /profiles/me` respondía 404 y `PATCH /profiles/me` 404 «No hay registro de perfil para editar».
+- **Corrección:** `POST /profiles/me` crea el perfil propio con nombre y apellido (y opcionalmente nombre visible, alias y biografía). Responde 409 si ya existe. «Mi perfil» muestra un formulario de «Completa tu perfil» cuando falta el perfil.
+- **Pendiente de verificar:** crear un evento nuevo con un administrador técnico, completar el perfil y guardar cambios.
+
 ### Trabajo técnico posterior
 
 Completitud del DDL, políticas RLS y Storage, transacciones e idempotencia, auditoría y logging, paginación, contratos compartidos, cobertura de CI, accesibilidad, rendimiento, observabilidad, respaldos y preparación de producción. Q04: limpieza técnica y reportes o notificaciones solo después de la demo y con el producto estable. Los objetivos históricos están en [requerimientos](01-producto/requerimientos.md).
