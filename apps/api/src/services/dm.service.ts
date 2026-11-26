@@ -91,6 +91,39 @@ const findConversationForMembership = async (params: {
   };
 };
 
+// Mensajes recibidos sin leer por conversación (de la contraparte, visibles, aún sin read_at).
+// Si la consulta falla, la lista de conversaciones sigue funcionando sin contadores.
+export const loadUnreadCountsByConversation = async (
+  conversationIds: string[],
+  membershipId: string
+) => {
+  const counts = new Map<string, number>();
+
+  if (conversationIds.length === 0) {
+    return counts;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('dm_messages')
+    .select('conversation_id')
+    .in('conversation_id', conversationIds)
+    .neq('author_membership_id', membershipId)
+    .eq('status', 'VISIBLE')
+    .is('read_at', null)
+    .is('deleted_at', null);
+
+  if (error) {
+    console.error('No se pudo contar los mensajes sin leer:', error.message);
+    return counts;
+  }
+
+  ((data ?? []) as { conversation_id: string }[]).forEach((row) => {
+    counts.set(row.conversation_id, (counts.get(row.conversation_id) ?? 0) + 1);
+  });
+
+  return counts;
+};
+
 // Obtiene el ultimo mensaje visible por conversacion para armar previews.
 const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
   if (conversationIds.length === 0) {
@@ -141,9 +174,9 @@ export const listDmConversations = async (params: {
   }
 
   const conversations = (data ?? []) as DmConversationRow[];
-  const latestMessages = await loadLatestMessagesByConversation(
-    conversations.map((conversation) => conversation.id)
-  );
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  const latestMessages = await loadLatestMessagesByConversation(conversationIds);
+  const unreadCounts = await loadUnreadCountsByConversation(conversationIds, params.membership.id);
 
   return {
     status: 200,
@@ -152,7 +185,8 @@ export const listDmConversations = async (params: {
         mapDmConversation(
           conversation,
           params.membership.id,
-          latestMessages.get(conversation.id)
+          latestMessages.get(conversation.id),
+          unreadCounts.get(conversation.id) ?? 0
         )
       ),
     },

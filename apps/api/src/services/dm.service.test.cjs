@@ -134,3 +134,34 @@ test('un mensaje recién enviado aún no está leído', async () => {
   assert.equal(result.status, 201);
   assert.equal(result.body.message.readAt, null);
 });
+
+test('contadores: suma los mensajes sin leer por conversación, solo de la otra persona', async () => {
+  const { service, operations } = setup({ messages: [{ conversation_id: 'c1' }, { conversation_id: 'c1' }, { conversation_id: 'c2' }] });
+  const counts = await service.loadUnreadCountsByConversation(['c1', 'c2', 'c3'], 'ana');
+
+  assert.equal(counts.get('c1'), 2);
+  assert.equal(counts.get('c2'), 1);
+  assert.equal(counts.get('c3'), undefined);
+
+  const ops = operations[0];
+  assert.ok(has(ops, 'neq', 'author_membership_id', 'ana'));
+  assert.ok(has(ops, 'is', 'read_at', null));
+  assert.ok(has(ops, 'eq', 'status', 'VISIBLE'));
+  assert.ok(has(ops, 'is', 'deleted_at', null));
+});
+
+test('contadores: sin conversaciones no consulta y devuelve vacío', async () => {
+  const { service, operations } = setup();
+  const counts = await service.loadUnreadCountsByConversation([], 'ana');
+
+  assert.equal(counts.size, 0);
+  assert.equal(operations.length, 0);
+});
+
+test('la conversación incluye unreadCount (0 por defecto)', async () => {
+  const { dmUtils } = setup();
+  const conversation = { id: 'c1', event_id: EVENT, participant_a_membership_id: 'ana', participant_b_membership_id: 'beto', created_at: '2026-11-25T00:00:00Z', last_message_at: null, status: 'ACTIVE', participant_a: null, participant_b: null };
+
+  assert.equal(dmUtils.mapDmConversation(conversation, 'ana').unreadCount, 0);
+  assert.equal(dmUtils.mapDmConversation(conversation, 'ana', undefined, 4).unreadCount, 4);
+});

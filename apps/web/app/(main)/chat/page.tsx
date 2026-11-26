@@ -438,6 +438,7 @@ const Chats = () => {
                                     }}
                                     href={`/chat/${conversation.id}`}
                                     lastMessage={conversation.lastMessage}
+                                    unreadCount={conversation.unreadCount}
                                     lastMessageIsMine={
                                         Boolean(activeMembershipId) &&
                                         conversation.lastMessageAuthorId === activeMembershipId

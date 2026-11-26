@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
+import { NotificationsSync } from "../../components/notifications/NotificationsSync";
 import { PracticeBanner } from "../../components/practice/PracticeBanner";
 import { useAuthStore, userNeedsEventSelection } from "../../stores/auth.store";
 
@@ -81,6 +82,8 @@ export default function MainLayout({
         <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg-base)" }}>
             {/* Al cambiar de evento la Sidebar se remonta: no conserva secciones abiertas del evento anterior. */}
             <Sidebar key={activeEventId} />
+            {/* Mantiene al día los avisos y mensajes sin leer (indicadores del menú y la campana). */}
+            <NotificationsSync />
 
             <main
                 className={`flex-1 relative flex flex-col md:pl-64 ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}

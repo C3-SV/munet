@@ -8,6 +8,7 @@ import adminRoutes from './routes/admin.routes';
 import eventsRoutes from './routes/events.routes';
 import profilesRoutes from './routes/profiles.routes';
 import dmRoutes from './routes/dm.routes';
+import notificationsRoutes from './routes/notifications.routes';
 import { normalizeAllowedOrigin } from './lib/cors';
 
 // Punto de entrada principal de la API REST.
@@ -43,6 +44,7 @@ app.use('/events', eventsRoutes);
 app.use('/profiles', profilesRoutes);
 app.use('/posts', postsRoutes);
 app.use('/dm', dmRoutes);
+app.use('/notifications', notificationsRoutes);
 
 // Boot final del servidor.
 app.listen(PORT, () => {

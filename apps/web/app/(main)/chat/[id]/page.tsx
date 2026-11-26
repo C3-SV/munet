@@ -20,6 +20,7 @@ import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { hasUnreadIncoming, markIncomingReadLocally, shouldMarkRead } from "../../../../lib/read-receipts";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { useNotificationsStore } from "../../../../stores/notifications.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
 import type { Delegate } from "../../../../types/common";
 
@@ -292,6 +293,8 @@ const ChatRoomPage = () => {
             if (result.readCount > 0) {
                 const readAt = result.readAt ?? new Date().toISOString();
                 setMessages((current) => markIncomingReadLocally(current, activeMembershipId, readAt));
+                // El indicador de pendientes baja al instante, sin esperar al siguiente ciclo.
+                useNotificationsStore.getState().conversationRead(conversationId);
             }
         } catch {
             // Es solo una confirmación: si falla (por ejemplo, evento cerrado) no se interrumpe el chat.

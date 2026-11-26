@@ -30,3 +30,5 @@ export const createCommentLimiter = limiter(20, userKey);
 export const attachmentInitLimiter = limiter(10, userKey);
 export const sendDmLimiter = limiter(30, userKey);
 export const moderationWriteLimiter = limiter(60, userKey);
+// Estado de lectura y resumen de pendientes: la pantalla los consulta con frecuencia moderada.
+export const readStateLimiter = limiter(120, userKey);

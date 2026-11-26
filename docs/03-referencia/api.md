@@ -62,7 +62,10 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. Cada mensaje incluye `readAt` (cuándo la otra persona lo leyó; `null` si no). |
 | `POST /dm/conversations/:conversationId/messages` | `content` | Solo integrante activo. |
 | `POST /dm/conversations/:conversationId/read` | — | Solo integrante. Marca como leídos los mensajes que envió la otra persona y siguen sin leer; nunca los propios. Responde `{ readCount, readAt }`. Lo pide la pantalla solo cuando la conversación está abierta, visible y al final. Se rechaza en evento cerrado. Requiere la migración 004. |
+| `GET /dm/conversations` (campo `unreadCount`) | — | Cada conversación incluye `unreadCount`: mensajes de la otra persona sin leer. Requiere la migración 004. |
 | `DELETE /dm/conversations/:conversationId/messages/:messageId` | — | Solo autor. Borrado lógico. |
+| `GET /notifications/summary` | — (`x-event-id`) | Pendientes de lectura: `{ unread: { total, dms, announcements }, announcements, dms, conversationIds }`. `announcements` trae el muro de avisos, `lastReadAt`, `unreadCount` y los últimos 5 avisos nuevos (de otras personas, visibles, posteriores a la última lectura); `dms`, las conversaciones con mensajes sin leer. Requiere las migraciones 004 y 005. |
+| `POST /notifications/announcements/read` | — (`x-event-id`) | Marca el muro de avisos como leído hasta ahora (`{ readAt }`). 404 si el evento no tiene muro de avisos. Se rechaza en evento cerrado. |
 
 ## Administración
 

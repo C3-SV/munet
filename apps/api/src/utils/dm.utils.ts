@@ -86,7 +86,8 @@ export const mapDmMessage = (message: DmMessageRow) => ({
 export const mapDmConversation = (
   conversation: DmConversationRow,
   currentMembershipId: string,
-  latestMessage?: DmConversationLatestMessage
+  latestMessage?: DmConversationLatestMessage,
+  unreadCount = 0
 ) => {
   const participantA = firstItem(conversation.participant_a);
   const participantB = firstItem(conversation.participant_b);
@@ -104,5 +105,7 @@ export const mapDmConversation = (
     otherParticipant: mapDmParticipant(otherParticipant),
     lastMessage: latestMessage?.content ?? null,
     lastMessageAuthorId: latestMessage?.author_membership_id ?? null,
+    // Mensajes de la otra persona que esta membresía todavía no ha leído.
+    unreadCount,
   };
 };

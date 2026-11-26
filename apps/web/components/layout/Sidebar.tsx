@@ -7,10 +7,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
 import { selectableMemberships } from "../../lib/event-selection";
+import { formatBadge } from "../../lib/notifications";
 import { buildWallNav } from "../../lib/wall-nav";
 import { useTheme } from "../../lib/theme-context";
 import { canAccessAdminPanel, isAdminRole, isModeratorRole, useAuthStore } from "../../stores/auth.store";
+import { useNotificationsStore } from "../../stores/notifications.store";
 import type { EventWall } from "../../types/common";
+import { NotificationBell } from "../notifications/NotificationBell";
 import LogoutButton from "../auth/LogOutButton";
 import {
     IconAnnouncements,
@@ -31,6 +34,8 @@ type NavItem = {
     href: string;
     icon: ReactNode;
     current: boolean;
+    // Cantidad sin leer: se muestra un indicador y el nombre se resalta.
+    badge?: number;
 };
 
 // Color del icono: activo usa el token de sidebar activo; inactivo, texto secundario.
@@ -65,7 +70,17 @@ const MenuItem = ({ item }: { item: NavItem }) => (
             >
                 {item.icon}
             </span>
-            <span className="flex-1 truncate">{item.name}</span>
+            <span className={`flex-1 truncate ${item.badge ? "font-extrabold" : ""}`}>{item.name}</span>
+            {formatBadge(item.badge) && (
+                <span
+                    data-nav-badge
+                    aria-label={`${item.badge} sin leer`}
+                    className="min-w-5 shrink-0 rounded-full px-1.5 text-center text-[11px] font-bold leading-5"
+                    style={{ backgroundColor: "var(--danger)", color: "#fff" }}
+                >
+                    {formatBadge(item.badge)}
+                </span>
+            )}
         </Link>
     </li>
 );
@@ -238,6 +253,7 @@ export const Sidebar = () => {
         };
     }, [activeEventId, token]);
 
+    const unread = useNotificationsStore((state) => state.summary?.unread);
     const nav = useMemo(() => buildWallNav(walls, activeSlug), [walls, activeSlug]);
     const { announcements, general, mine, committees, showCommitteeGroup } = nav;
 
@@ -267,6 +283,7 @@ export const Sidebar = () => {
                       href: `/feed/${announcements.slug}`,
                       icon: <IconAnnouncements size={20} />,
                       current: pathname === `/feed/${announcements.slug}`,
+                      badge: unread?.announcements,
                   },
               ]
             : []),
@@ -328,20 +345,23 @@ export const Sidebar = () => {
                             />
                         </Link>
                     </div>
-                    <button
-                        type="button"
-                        onClick={toggleTheme}
-                        aria-label={isDark ? "Activar modo claro" : "Activar modo oscuro"}
-                        title={isDark ? "Modo claro" : "Modo oscuro"}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg"
-                        style={{
-                            backgroundColor: "var(--bg-surface-secondary)",
-                            border: "1px solid var(--border-color)",
-                            color: "var(--text-secondary)",
-                        }}
-                    >
-                        <IconTheme size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <NotificationBell align="right" />
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            aria-label={isDark ? "Activar modo claro" : "Activar modo oscuro"}
+                            title={isDark ? "Modo claro" : "Modo oscuro"}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg"
+                            style={{
+                                backgroundColor: "var(--bg-surface-secondary)",
+                                border: "1px solid var(--border-color)",
+                                color: "var(--text-secondary)",
+                            }}
+                        >
+                            <IconTheme size={20} />
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -375,6 +395,9 @@ export const Sidebar = () => {
                                 width={954} height={299} unoptimized
                             />
                         </Link>
+                        <div className="hidden md:block">
+                            <NotificationBell align="left" />
+                        </div>
                         <button
                             ref={closeButtonRef}
                             type="button"
@@ -526,6 +549,7 @@ export const Sidebar = () => {
                                 href: "/chat",
                                 icon: <IconChat size={20} />,
                                 current: !!pathname?.startsWith("/chat"),
+                                badge: unread?.dms,
                             }}
                         />
                         <MenuItem

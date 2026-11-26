@@ -24,6 +24,8 @@ interface PostCardProps {
     eventId: string;
     canComment?: boolean;
     commentsDisabledReason?: string;
+    // Aviso publicado desde la última vez que la persona abrió los avisos.
+    isNew?: boolean;
     // En el muro de un comité el comité no se repite en cada publicación.
     showAuthorCommittee?: boolean;
     // "official" en el muro de avisos; "flat" en el resto del foro.
@@ -50,6 +52,7 @@ export const PostCard = ({
     eventId,
     canComment = true,
     commentsDisabledReason,
+    isNew = false,
     showAuthorCommittee = true,
     variant = "flat",
     onPostUpdated,
@@ -244,6 +247,15 @@ export const PostCard = ({
                 </UserHoverCard>
 
                 <div className="flex flex-col items-end gap-2">
+                    {isNew && !post.isDeleted && (
+                        <span
+                            data-new-post
+                            className="px-2.5 py-1 text-xs font-bold rounded-full font-heading"
+                            style={{ backgroundColor: "var(--danger)", color: "#fff" }}
+                        >
+                            Nuevo
+                        </span>
+                    )}
                     {post.isPinned && !post.isDeleted && (
                         <span
                             className="px-2.5 py-1 text-xs font-semibold rounded-full font-heading"

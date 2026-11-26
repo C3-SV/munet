@@ -10,12 +10,15 @@ import { Button } from "../../../../components/ui/Button";
 import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
+import { markAnnouncementsRead } from "../../../../lib/api/notifications";
+import { isNewAnnouncement } from "../../../../lib/notifications";
 import { AttachmentUploadError } from "../../../../lib/attachment-upload";
 import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { useNotificationsStore } from "../../../../stores/notifications.store";
 import type { EventWall, Post } from "../../../../types/common";
 
 // Mensajes humanos: el detalle técnico no llega al participante.
@@ -397,6 +400,47 @@ const Feed = () => {
             ? "En avisos solo pueden comentar administradores y moderadores."
             : undefined;
 
+    // Avisos: se recuerda cuál era la última lectura al entrar (para marcar lo «Nuevo» durante la
+    // visita) y, cuando hay pendientes, se marcan como leídos tras un instante en pantalla.
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const lastReadAt = useNotificationsStore((state) => state.summary?.announcements?.lastReadAt ?? null);
+    const unreadAnnouncements = useNotificationsStore((state) => state.summary?.announcements?.unreadCount ?? 0);
+    const announcementsRead = useNotificationsStore((state) => state.announcementsRead);
+    const [announcementsSnapshot, setAnnouncementsSnapshot] = useState<string | null>(null);
+    const onAnnouncements = activeWall?.kind === "announcements";
+
+    useEffect(() => {
+        if (!onAnnouncements) {
+            setAnnouncementsSnapshot(null);
+        } else if (announcementsSnapshot === null && lastReadAt) {
+            setAnnouncementsSnapshot(lastReadAt);
+        }
+    }, [announcementsSnapshot, lastReadAt, onAnnouncements]);
+
+    useEffect(() => {
+        if (!onAnnouncements || announcementsSnapshot === null || unreadAnnouncements === 0) {
+            return;
+        }
+
+        if (!token || !eventId || isPracticeEvent(eventId)) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            if (document.visibilityState !== "visible") {
+                return;
+            }
+
+            markAnnouncementsRead({ token, eventId })
+                .then(() => announcementsRead())
+                .catch(() => {
+                    // Solo es una marca de lectura: si falla, el indicador se corrige en el siguiente ciclo.
+                });
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    }, [announcementsRead, announcementsSnapshot, eventId, onAnnouncements, token, unreadAnnouncements]);
+
     // Selector rapido de muros para movil: mismos muros que el menu lateral, en orden.
     const wallNav = useMemo(() => buildWallNav(walls, muroParam), [walls, muroParam]);
     const quickWalls = [
@@ -601,6 +645,10 @@ const Feed = () => {
                                         eventId={eventId}
                                         canComment={canCommentInWall}
                                         commentsDisabledReason={commentsDisabledReason}
+                                        isNew={
+                                            activeWall?.kind === "announcements" &&
+                                            isNewAnnouncement(post, announcementsSnapshot, activeMembershipId)
+                                        }
                                         showAuthorCommittee={activeWall?.kind !== "committee"}
                                         variant={cardVariant}
                                         onPostUpdated={handlePostUpdated}

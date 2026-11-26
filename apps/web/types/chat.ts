@@ -14,6 +14,8 @@ export type ConversationSummary = {
     otherParticipant: ChatParticipant;
     lastMessage: string | null;
     lastMessageAuthorId: string | null;
+    // Mensajes de la otra persona que todavía no se han leído.
+    unreadCount?: number;
 };
 
 // El horario se formatea en el navegador a partir de createdAt (ISO).
