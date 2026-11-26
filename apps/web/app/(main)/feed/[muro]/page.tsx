@@ -391,6 +391,11 @@ const Feed = () => {
             ? activeWall.canPublish
             : activeWall.canAccess
         : false;
+    // En avisos solo administradores y moderadores comentan; se explica a los demás.
+    const commentsDisabledReason =
+        activeWall?.kind === "announcements" && !canCommentInWall
+            ? "En avisos solo pueden comentar administradores y moderadores."
+            : undefined;
 
     // Selector rapido de muros para movil: mismos muros que el menu lateral, en orden.
     const wallNav = useMemo(() => buildWallNav(walls, muroParam), [walls, muroParam]);
@@ -595,6 +600,7 @@ const Feed = () => {
                                         token={token}
                                         eventId={eventId}
                                         canComment={canCommentInWall}
+                                        commentsDisabledReason={commentsDisabledReason}
                                         showAuthorCommittee={activeWall?.kind !== "committee"}
                                         variant={cardVariant}
                                         onPostUpdated={handlePostUpdated}

@@ -18,6 +18,8 @@ type PostCommentsProps = {
     token: string;
     eventId: string;
     disabled?: boolean;
+    // Explica por qué no se puede comentar (por ejemplo, avisos para participantes).
+    disabledReason?: string;
     showAuthorCommittee?: boolean;
     defaultOpen?: boolean;
     // Total inicial que entrega la API; el panel abierto lo mantiene al día.
@@ -35,6 +37,7 @@ export const PostComments = ({
     token,
     eventId,
     disabled = false,
+    disabledReason,
     showAuthorCommittee = true,
     defaultOpen = false,
     initialCount,
@@ -77,6 +80,7 @@ export const PostComments = ({
                     token={token}
                     eventId={eventId}
                     disabled={disabled}
+                    disabledReason={disabledReason}
                     showAuthorCommittee={showAuthorCommittee}
                     onCountChange={setCount}
                 />
@@ -96,6 +100,7 @@ const CommentsPanel = ({
     token,
     eventId,
     disabled = false,
+    disabledReason,
     showAuthorCommittee = true,
     onCountChange,
 }: CommentsPanelProps) => {
@@ -525,6 +530,15 @@ const CommentsPanel = ({
                     </div>
                 )}
 
+                {disabled && disabledReason && (
+                    <p
+                        className="mb-2 text-xs font-body"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        {disabledReason}
+                    </p>
+                )}
+
                 <div className="flex items-end gap-2">
                     <textarea
                         ref={textareaRef}
@@ -535,7 +549,7 @@ const CommentsPanel = ({
                         disabled={disabled}
                         readOnly={isSubmitting}
                         aria-label="Escribe un comentario"
-                        placeholder="Escribe un comentario..."
+                        placeholder={disabled && disabledReason ? disabledReason : "Escribe un comentario..."}
                         className="max-h-40 min-h-11 flex-1 resize-none overflow-y-auto whitespace-pre-wrap rounded-lg px-3 py-2.5 text-sm font-body"
                         style={{
                             backgroundColor: "var(--bg-input)",

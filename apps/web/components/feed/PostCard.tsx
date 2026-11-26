@@ -23,6 +23,7 @@ interface PostCardProps {
     token: string;
     eventId: string;
     canComment?: boolean;
+    commentsDisabledReason?: string;
     // En el muro de un comité el comité no se repite en cada publicación.
     showAuthorCommittee?: boolean;
     // "official" en el muro de avisos; "flat" en el resto del foro.
@@ -48,6 +49,7 @@ export const PostCard = ({
     token,
     eventId,
     canComment = true,
+    commentsDisabledReason,
     showAuthorCommittee = true,
     variant = "flat",
     onPostUpdated,
@@ -456,6 +458,7 @@ export const PostCard = ({
                 token={token}
                 eventId={eventId}
                 disabled={!canComment || Boolean(post.isDeleted)}
+                disabledReason={!canComment ? commentsDisabledReason : undefined}
                 showAuthorCommittee={showAuthorCommittee}
                 initialCount={post.commentCount}
             />
