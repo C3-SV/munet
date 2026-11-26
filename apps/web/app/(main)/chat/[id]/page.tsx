@@ -12,10 +12,12 @@ import {
     deleteConversationMessage,
     getConversationMessages,
     getConversations,
+    markConversationRead,
     sendConversationMessage,
 } from "../../../../lib/api/chat";
 import { formatDayLabel, formatTime } from "../../../../lib/format-datetime";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
+import { hasUnreadIncoming, markIncomingReadLocally, shouldMarkRead } from "../../../../lib/read-receipts";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
@@ -48,6 +50,7 @@ const ChatRoomPage = () => {
     const initialScrollDoneRef = useRef(false);
     const knownMessageIdsRef = useRef<Set<string>>(new Set());
     const practiceRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const markingReadRef = useRef(false);
     const [showNewMessagesChip, setShowNewMessagesChip] = useState(false);
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
@@ -262,6 +265,59 @@ const ChatRoomPage = () => {
         };
     }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
+    // Confirma la lectura de los mensajes recibidos, pero solo si la persona los está viendo:
+    // pestaña visible, ventana activa y conversación al final. Recibir un mensaje no basta.
+    const markReadIfViewing = useCallback(async () => {
+        if (!token || !eventId || !conversationId || isPracticeEvent(eventId) || markingReadRef.current) {
+            return;
+        }
+
+        const ready = shouldMarkRead({
+            hasUnread: hasUnreadIncoming(messages, activeMembershipId),
+            tabVisible: document.visibilityState === "visible",
+            windowFocused: document.hasFocus(),
+            nearBottom: nearBottomRef.current,
+            loaded: !isLoading,
+        });
+
+        if (!ready) {
+            return;
+        }
+
+        markingReadRef.current = true;
+
+        try {
+            const result = await markConversationRead(conversationId, { token, eventId });
+
+            if (result.readCount > 0) {
+                const readAt = result.readAt ?? new Date().toISOString();
+                setMessages((current) => markIncomingReadLocally(current, activeMembershipId, readAt));
+            }
+        } catch {
+            // Es solo una confirmación: si falla (por ejemplo, evento cerrado) no se interrumpe el chat.
+        } finally {
+            markingReadRef.current = false;
+        }
+    }, [activeMembershipId, conversationId, eventId, isLoading, messages, token]);
+
+    useEffect(() => {
+        // Al cargar la conversación y cada vez que llegan mensajes, confirma lo que ya se ve.
+        void markReadIfViewing();
+    }, [markReadIfViewing]);
+
+    useEffect(() => {
+        // Al volver a la pestaña o a la ventana se confirma lo recibido mientras estaba en segundo plano.
+        const confirm = () => void markReadIfViewing();
+
+        document.addEventListener("visibilitychange", confirm);
+        window.addEventListener("focus", confirm);
+
+        return () => {
+            document.removeEventListener("visibilitychange", confirm);
+            window.removeEventListener("focus", confirm);
+        };
+    }, [markReadIfViewing]);
+
     const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
         const element = scrollRef.current;
         if (!element) {
@@ -283,6 +339,8 @@ const ChatRoomPage = () => {
         nearBottomRef.current = distance < NEAR_BOTTOM_PX;
         if (nearBottomRef.current) {
             setShowNewMessagesChip(false);
+            // Al desplazarse hasta el final se leen los mensajes que habían quedado más arriba.
+            void markReadIfViewing();
         }
     };
 

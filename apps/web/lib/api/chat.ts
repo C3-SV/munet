@@ -88,6 +88,20 @@ export const getConversationMessages = async (
     return payload.messages;
 };
 
+// Marca como leídos los mensajes recibidos en la conversación (la persona la tiene abierta).
+export const markConversationRead = async (
+    conversationId: string,
+    context: ChatContext,
+): Promise<{ readCount: number; readAt: string | null }> =>
+    requestApi<{ readCount: number; readAt: string | null }>(
+        `/dm/conversations/${conversationId}/read`,
+        {
+            method: "POST",
+            token: context.token,
+            eventId: context.eventId,
+        },
+    );
+
 export const sendConversationMessage = async (
     conversationId: string,
     content: string,

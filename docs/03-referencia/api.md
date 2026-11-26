@@ -59,8 +59,9 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /dm/conversations` | — | Conversaciones de la membresía activa. |
 | `GET /dm/participants?search=` | Búsqueda | Participantes activos del mismo evento. Cada participante, y `otherParticipant` en las conversaciones, incluye `alias` (o `null`). |
 | `POST /dm/conversations` | `targetMembershipId` | Crea o reutiliza conversación 1:1. |
-| `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. |
+| `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. Cada mensaje incluye `readAt` (cuándo la otra persona lo leyó; `null` si no). |
 | `POST /dm/conversations/:conversationId/messages` | `content` | Solo integrante activo. |
+| `POST /dm/conversations/:conversationId/read` | — | Solo integrante. Marca como leídos los mensajes que envió la otra persona y siguen sin leer; nunca los propios. Responde `{ readCount, readAt }`. Lo pide la pantalla solo cuando la conversación está abierta, visible y al final. Se rechaza en evento cerrado. Requiere la migración 004. |
 | `DELETE /dm/conversations/:conversationId/messages/:messageId` | — | Solo autor. Borrado lógico. |
 
 ## Administración

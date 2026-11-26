@@ -336,7 +336,7 @@ export const listDmMessages = async (params: {
 
   const { data, error } = await supabaseAdmin
     .from('dm_messages')
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at')
     .eq('conversation_id', params.conversationId)
     .eq('event_id', params.eventId)
     .eq('status', 'VISIBLE')
@@ -396,7 +396,7 @@ export const createDmMessage = async (params: {
       updated_at: new Date().toISOString(),
       updated_by_membership_id: params.membership.id,
     })
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at')
     .single();
 
   if (error || !inserted) {
@@ -533,5 +533,52 @@ export const deleteDmMessage = async (params: {
   return {
     status: 200,
     body: { success: true },
+  };
+};
+
+// Marca como leídos los mensajes que la otra persona envió en esta conversación.
+// Solo cambia los mensajes de la contraparte que siguen sin leer; nunca los propios. La pantalla
+// lo pide cuando la persona tiene la conversación abierta y visible, para no marcar como leído
+// un mensaje solo por haberlo recibido.
+export const markDmConversationRead = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  conversationId: string;
+}) => {
+  const access = await findConversationForMembership({
+    conversationId: params.conversationId,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
+  if (!access.allowed) {
+    return {
+      status: access.status,
+      body: { error: access.error },
+    };
+  }
+
+  const readAt = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('dm_messages')
+    .update({ read_at: readAt })
+    .eq('conversation_id', params.conversationId)
+    .eq('event_id', params.eventId)
+    .neq('author_membership_id', params.membership.id)
+    .eq('status', 'VISIBLE')
+    .is('read_at', null)
+    .is('deleted_at', null)
+    .select('id');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    status: 200,
+    body: {
+      readCount: (data ?? []).length,
+      readAt: (data ?? []).length > 0 ? readAt : null,
+    },
   };
 };

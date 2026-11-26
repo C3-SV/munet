@@ -5,6 +5,7 @@ import {
   deleteDmMessage,
   listDmConversations,
   listDmMessages,
+  markDmConversationRead,
   searchDmParticipants,
 } from '../services/dm.service';
 
@@ -183,6 +184,34 @@ export const deleteMessage = async (req: Request, res: Response) => {
       conversationId: String(req.params.conversationId),
       // Borrado lógico de mensaje puntual dentro de la conversación.
       messageId: String(req.params.messageId),
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// POST /dm/conversations/:id/read -> marca como leídos los mensajes recibidos en la conversación.
+export const markConversationRead = async (req: Request, res: Response) => {
+  try {
+    const eventId = readEventId(req);
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'x-event-id es requerido' });
+    }
+
+    const membership = resolveMembership(req, eventId);
+
+    if (!membership) {
+      return res.status(403).json({ error: 'No perteneces a este evento' });
+    }
+
+    const result = await markDmConversationRead({
+      eventId,
+      membership,
+      conversationId: String(req.params.conversationId),
     });
 
     return res.status(result.status).json(result.body);

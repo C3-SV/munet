@@ -5,6 +5,7 @@ import {
   listConversations,
   listMessages,
   listParticipants,
+  markConversationRead,
   sendMessage,
 } from '../controllers/dm.controller';
 import { requireAuth } from '../middleware/auth.middleware';
@@ -19,6 +20,8 @@ router.post('/conversations', requireAuth, requireEventOpenForWrites, createConv
 router.get('/participants', requireAuth, listParticipants);
 router.get('/conversations/:conversationId/messages', requireAuth, listMessages);
 router.post('/conversations/:conversationId/messages', requireAuth, requireEventOpenForWrites, sendDmLimiter, sendMessage);
+// Marcar como leído es una escritura: en un evento cerrado se rechaza como el resto de DM.
+router.post('/conversations/:conversationId/read', requireAuth, requireEventOpenForWrites, markConversationRead);
 router.delete('/conversations/:conversationId/messages/:messageId', requireAuth, requireEventOpenForWrites, deleteMessage);
 
 export default router;

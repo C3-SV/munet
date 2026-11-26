@@ -75,6 +75,7 @@ export const mapDmMessage = (message: DmMessageRow) => ({
   text: message.content,
   senderId: message.author_membership_id,
   createdAt: message.created_at,
+  readAt: message.read_at ?? null,
   timestamp: new Date(message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',

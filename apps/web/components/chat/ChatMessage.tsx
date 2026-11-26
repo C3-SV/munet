@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { formatDateTime, formatTime } from "../../lib/format-datetime";
+import { messageReadState } from "../../lib/read-receipts";
 import type { DirectMessage } from "../../types/chat";
 
 interface ChatMessageProps {
@@ -26,6 +27,7 @@ export const ChatMessage = ({
     const triggerRef = useRef<HTMLButtonElement>(null);
     const firstItemRef = useRef<HTMLButtonElement>(null);
     const canDelete = isMe && Boolean(onDelete);
+    const readState = messageReadState(message);
 
     // Cierra el menú al pulsar fuera de la burbuja.
     useEffect(() => {
@@ -153,16 +155,35 @@ export const ChatMessage = ({
                 </div>
 
                 {isLastInRun && (
-                    <time
-                        dateTime={message.createdAt}
-                        title={formatDateTime(message.createdAt)}
-                        className="text-xs mt-1.5 font-medium px-1"
-                        style={{
-                            color: isMe ? "var(--text-muted)" : "var(--bubble-other-time)",
-                        }}
-                    >
-                        {formatTime(message.createdAt)}
-                    </time>
+                    <div className="mt-1.5 flex items-center gap-2 px-1">
+                        <time
+                            dateTime={message.createdAt}
+                            title={formatDateTime(message.createdAt)}
+                            className="text-xs font-medium"
+                            style={{
+                                color: isMe ? "var(--text-muted)" : "var(--bubble-other-time)",
+                            }}
+                        >
+                            {formatTime(message.createdAt)}
+                        </time>
+                        {isMe && (
+                            <span
+                                className="text-xs font-semibold"
+                                data-read-state={readState}
+                                title={
+                                    readState === "read" && message.readAt
+                                        ? `Leído ${formatDateTime(message.readAt)}`
+                                        : "Enviado, aún sin leer"
+                                }
+                                style={{
+                                    color: readState === "read" ? "var(--text-accent)" : "var(--text-muted)",
+                                }}
+                            >
+                                <span aria-hidden="true">{readState === "read" ? "✓✓" : "✓"}</span>{" "}
+                                {readState === "read" ? "Leído" : "Enviado"}
+                            </span>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

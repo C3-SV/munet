@@ -20,4 +20,6 @@ export type ConversationSummary = {
 export type DirectMessage = Omit<Message, "timestamp"> & {
     conversationId: string;
     createdAt: string;
+    // Cuándo la otra persona lo leyó; null o ausente mientras no lo haya leído.
+    readAt?: string | null;
 };
