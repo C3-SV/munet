@@ -1,17 +1,34 @@
 export type CsvValue = string | number | null | undefined;
 
 // Escapa una celda CSV y neutraliza fórmulas de Excel.
-export const escapeCsvCell = (value: CsvValue): string => {
+// `literal` desactiva la neutralización: solo para valores que genera o valida el sistema
+// (por ejemplo credenciales), donde un apóstrofe inicial haría que la persona no pueda entrar.
+export const escapeCsvCell = (
+    value: CsvValue,
+    { literal = false }: { literal?: boolean } = {},
+): string => {
     const text = value === null || value === undefined ? "" : String(value);
-    const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+    const safeText = !literal && /^[=+\-@]/.test(text) ? `'${text}` : text;
 
     return `"${safeText.replace(/"/g, '""')}"`;
 };
 
 // Construye un CSV con BOM para que Excel respete las tildes.
-export const buildCsv = (headers: string[], rows: CsvValue[][]): string => {
-    const lines = [headers, ...rows].map((row) =>
-        row.map(escapeCsvCell).join(","),
+// `literalColumns` son los índices de columna que se escriben sin neutralizar fórmulas.
+export const buildCsv = (
+    headers: string[],
+    rows: CsvValue[][],
+    { literalColumns = [] }: { literalColumns?: number[] } = {},
+): string => {
+    const lines = [headers, ...rows].map((row, rowIndex) =>
+        row
+            .map((value, column) =>
+                escapeCsvCell(value, {
+                    // Los encabezados nunca son literales.
+                    literal: rowIndex > 0 && literalColumns.includes(column),
+                }),
+            )
+            .join(","),
     );
 
     return `\uFEFF${lines.join("\r\n")}\r\n`;
