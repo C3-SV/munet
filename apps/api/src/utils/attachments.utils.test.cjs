@@ -10,15 +10,44 @@ const UPLOAD = '22222222-2222-4222-8222-222222222222';
 const meta = (overrides = {}) => ({ fileName: 'acta.pdf', mimeType: 'application/pdf', size: 1000, ...overrides });
 
 test('acepta JPG, PNG y PDF dentro de sus límites', () => {
-  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/jpeg', size: 5 * MB })).ok, true);
+  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/jpeg', size: 15 * MB })).ok, true);
   assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/png', size: 1 })).ok, true);
-  assert.equal(utils.validateAttachmentMeta(meta({ size: 20 * MB })).ok, true);
+  assert.equal(utils.validateAttachmentMeta(meta({ size: 30 * MB })).ok, true);
 });
 
 test('rechaza lo que excede el límite de su tipo', () => {
-  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/jpeg', size: 5 * MB + 1 })).ok, false);
-  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/png', size: 5 * MB + 1 })).ok, false);
-  assert.equal(utils.validateAttachmentMeta(meta({ size: 20 * MB + 1 })).ok, false);
+  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/jpeg', size: 15 * MB + 1 })).ok, false);
+  assert.equal(utils.validateAttachmentMeta(meta({ mimeType: 'image/png', size: 15 * MB + 1 })).ok, false);
+  assert.equal(utils.validateAttachmentMeta(meta({ size: 30 * MB + 1 })).ok, false);
+});
+
+const file = (mimeType, size = 1000) => ({ mimeType, size });
+const many = (count, mimeType, size) => Array.from({ length: count }, () => file(mimeType, size));
+
+test('conjunto: hasta 10 imágenes y 2 PDF por publicación, combinables', () => {
+  assert.equal(utils.validateAttachmentSet([]).ok, true);
+  assert.equal(utils.validateAttachmentSet(many(10, 'image/jpeg')).ok, true);
+  assert.equal(utils.validateAttachmentSet(many(2, 'application/pdf')).ok, true);
+  assert.equal(utils.validateAttachmentSet([...many(10, 'image/png'), ...many(2, 'application/pdf')]).ok, true);
+  assert.equal(utils.MAX_ATTACHMENTS_PER_POST, 12);
+});
+
+test('conjunto: rechaza la imagen 11, el PDF 3 y un total excesivo', () => {
+  const images = utils.validateAttachmentSet(many(11, 'image/jpeg'));
+  assert.equal(images.ok, false);
+  assert.match(images.error, /10 imágenes/);
+
+  const pdfs = utils.validateAttachmentSet(many(3, 'application/pdf'));
+  assert.equal(pdfs.ok, false);
+  assert.match(pdfs.error, /2 archivos PDF/);
+
+  const huge = utils.validateAttachmentSet([file('application/pdf', utils.MAX_POST_ATTACHMENT_BYTES + 1)]);
+  assert.equal(huge.ok, false);
+  assert.match(huge.error, /en total/);
+});
+
+test('conjunto: el máximo teórico por publicación es 210 MB', () => {
+  assert.equal(utils.MAX_POST_ATTACHMENT_BYTES, 210 * MB);
 });
 
 test('rechaza WebP y otros tipos', () => {

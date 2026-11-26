@@ -70,6 +70,9 @@ export type ModerationPost = ModerationPostState &
     ModerationDetail & {
         post_type: "TEXT" | "LINK" | "POLL";
         title: string | null;
+        // Todos los adjuntos de la publicación, en orden (hasta 10 imágenes y 2 PDF).
+        attachments?: ModerationAttachment[];
+        // El primero; se conserva por compatibilidad.
         attachment: ModerationAttachment | null;
     };
 
@@ -252,10 +255,12 @@ export const removeModerationAttachment = async (
     token: string,
     postId: string,
     reason: string,
+    // Obligatorio si la publicación tiene varios adjuntos.
+    attachmentId?: string,
 ): Promise<void> => {
     await requestApi<{ removed: boolean }>(
         `/admin/moderation/posts/${postId}/attachment/delete`,
-        { method: "POST", token, body: { reason } },
+        { method: "POST", token, body: { reason, ...(attachmentId ? { attachment_id: attachmentId } : {}) } },
     );
 };
 

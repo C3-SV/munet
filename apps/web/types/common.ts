@@ -23,7 +23,9 @@ export interface Post {
     deletedByActorType?: "AUTHOR" | "ADMIN" | null;
     canDelete?: boolean;
     poll?: PollData | null;
-    // Cero o un adjunto por publicación. Sin URL: se pide a demanda al abrirlo.
+    // Hasta 10 imágenes y 2 PDF por publicación, en orden. Sin URL: se pide a demanda al abrirlos.
+    attachments?: PostAttachment[];
+    // El primer adjunto (publicaciones anteriores a los adjuntos múltiples).
     attachment?: PostAttachment | null;
     // Total de comentarios visibles; lo calcula la API.
     commentCount?: number;
