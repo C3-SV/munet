@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
 import { logAudit } from '../utils/audit.logger';
+import { avatarFor } from '../utils/avatar.utils';
 import { firstItem, getCommitteeLabel, getProfileName } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
@@ -143,9 +144,7 @@ const mapComment = (row: CommentRow, membership: AuthMembership) => {
       name: getProfileName(profile),
       alias: profile?.alias?.trim() || null,
       committeeName: authorCommittee,
-      avatar:
-        profile?.profile_image_path ??
-        'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
+      avatar: avatarFor(profile?.profile_image_path, getProfileName(profile)),
       role: commentAuthorMembership?.role ?? 'PARTICIPANT',
     },
   };

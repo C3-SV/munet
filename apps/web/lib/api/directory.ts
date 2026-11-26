@@ -20,6 +20,8 @@ export type ParticipantDirectoryEntry = {
     firstName: string;
     lastName: string;
     alias: string | null;
+    // Foto de perfil o, si no tiene, un avatar predeterminado con su nombre (siempre una URL).
+    avatar: string;
     committee: { id: string; name: string } | null;
     delegationCode: string | null;
 };

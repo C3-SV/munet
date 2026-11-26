@@ -1,4 +1,5 @@
 import type { PostRow, WallRecord } from '../types/posts.types';
+import { avatarFor } from './avatar.utils';
 import { buildWallSlug } from './walls.utils';
 
 // Normaliza texto para comparaciones insensibles a tildes/case.
@@ -92,9 +93,7 @@ export const mapPost = (post: PostRow) => {
       name: getProfileName(profile),
       alias: profile?.alias?.trim() || null,
       committeeName: authorCommittee,
-      avatar:
-        profile?.profile_image_path ??
-        'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
+      avatar: avatarFor(profile?.profile_image_path, getProfileName(profile)),
       role: membership?.role ?? 'PARTICIPANT',
     },
   };

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
+import { avatarFor } from '../utils/avatar.utils';
 import { findProtectedFields, parseAlias } from '../utils/profile.utils';
 import { isAdminRole } from '../utils/rbac.utils';
 
@@ -201,9 +202,7 @@ const formatProfileResponse = (row: MembershipProfileRow) => {
       displayName,
       alias: profile?.alias?.trim() || null,
       bio: profile?.bio ?? '',
-      avatar:
-        profile?.profile_image_path ??
-        'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
+      avatar: avatarFor(profile?.profile_image_path, `${firstName} ${lastName}`),
     },
     email: user?.email ?? null,
   };

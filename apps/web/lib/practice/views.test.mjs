@@ -444,11 +444,16 @@ test("toConversationSummary muestra Sin comite para el personal, igual que la AP
 test("toDirectoryEntry expone solo campos públicos y el comité de la cohorte", () => {
     const state = baseState();
     const other = participantOf(state);
-    assert.deepEqual(toDirectoryEntry(state, other), {
+    const entry = toDirectoryEntry(state, other);
+    // Todos los lugares muestran la misma foto o avatar predeterminado: el directorio lo incluye.
+    assert.equal(typeof entry.avatar, "string");
+    assert.ok(entry.avatar.length > 0);
+    assert.deepEqual(entry, {
         membershipId: other.membershipId,
         firstName: other.firstName,
         lastName: other.lastName,
         alias: null,
+        avatar: entry.avatar,
         committee: { id: other.committeeId, name: committeeById(other.committeeId).name },
         delegationCode: other.delegationCode,
     });

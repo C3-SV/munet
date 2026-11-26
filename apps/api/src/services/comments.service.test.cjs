@@ -51,11 +51,13 @@ function setup({ wall, comments = [] }) {
   };
   const rbac = load(__dirname + '/../utils/rbac.utils.ts', {});
   const wallsUtils = load(__dirname + '/../utils/walls.utils.ts', {});
-  const postsUtils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': wallsUtils });
+  const avatarUtils = load(__dirname + '/../utils/avatar.utils.ts', {});
+  const postsUtils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': wallsUtils, './avatar.utils': avatarUtils });
   const wallsService = load(__dirname + '/walls.service.ts', { '../lib/supabase': { supabaseAdmin }, '../utils/rbac.utils': rbac, '../utils/walls.utils': wallsUtils });
   const service = load(__dirname + '/comments.service.ts', {
     '../lib/supabase': { supabaseAdmin },
     '../utils/audit.logger': { logAudit: async () => {} },
+    '../utils/avatar.utils': avatarUtils,
     '../utils/posts.utils': postsUtils,
     '../utils/rbac.utils': rbac,
     './walls.service': wallsService,

@@ -1,5 +1,6 @@
 import React, { type ReactNode } from "react";
 import { buildPersonLabel, type PersonLabelInput } from "../../lib/person-label";
+import { AvatarImage } from "./AvatarImage";
 
 export type PersonLabelPerson = PersonLabelInput & {
     avatar?: string | null;
@@ -37,29 +38,26 @@ export const PersonLabel = ({
 
     return (
         <div className="flex items-center gap-3 min-w-0">
-            {showAvatar &&
-                (avatar ? (
-                    // Avatares externos de la API: sin next/image porque el host no está en remotePatterns.
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
-                    <img
-                        src={avatar}
-                        alt=""
-                        className={`${AVATAR_CLASS[size]} shrink-0 rounded-full object-cover`}
-                        style={{ border: "2px solid var(--border-color)" }}
-                    />
-                ) : (
-                    <div
-                        aria-hidden="true"
-                        className={`${AVATAR_CLASS[size]} shrink-0 rounded-full flex items-center justify-center font-heading font-semibold`}
-                        style={{
-                            backgroundColor: "var(--bg-surface-secondary)",
-                            border: "2px solid var(--border-color)",
-                            color: "var(--text-primary)",
-                        }}
-                    >
-                        {initials}
-                    </div>
-                ))}
+            {showAvatar && (
+                <AvatarImage
+                    src={avatar}
+                    className={`${AVATAR_CLASS[size]} shrink-0 rounded-full object-cover`}
+                    style={{ border: "2px solid var(--border-color)" }}
+                    fallback={
+                        <div
+                            aria-hidden="true"
+                            className={`${AVATAR_CLASS[size]} shrink-0 rounded-full flex items-center justify-center font-heading font-semibold`}
+                            style={{
+                                backgroundColor: "var(--bg-surface-secondary)",
+                                border: "2px solid var(--border-color)",
+                                color: "var(--text-primary)",
+                            }}
+                        >
+                            {initials}
+                        </div>
+                    }
+                />
+            )}
 
             <div className="min-w-0 flex-1">
                 <p className={`flex items-baseline gap-1.5 min-w-0 font-body ${NAME_CLASS[size]}`}>

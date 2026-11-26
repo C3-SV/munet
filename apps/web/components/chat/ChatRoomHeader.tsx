@@ -1,3 +1,4 @@
+import { AvatarImage } from "../ui/AvatarImage";
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
@@ -38,28 +39,25 @@ export const ChatRoomHeader = ({ delegate }: ChatRoomHeaderProps) => {
 
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="relative shrink-0">
-                    {delegate.avatar?.trim() ? (
-                        // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
-                        // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
-                        <img
-                            src={delegate.avatar}
-                            alt={delegate.name}
-                            className="size-10 rounded-full object-cover"
-                            style={{ border: "2px solid var(--border-color)" }}
-                        />
-                    ) : (
-                        <div
-                            aria-hidden="true"
-                            className="size-10 rounded-full flex items-center justify-center font-heading font-semibold"
-                            style={{
-                                backgroundColor: "var(--bg-surface-secondary)",
-                                border: "2px solid var(--border-color)",
-                                color: "var(--text-primary)",
-                            }}
-                        >
-                            {label.initials}
-                        </div>
-                    )}
+                    <AvatarImage
+                        src={delegate.avatar}
+                        alt={delegate.name}
+                        className="size-10 rounded-full object-cover"
+                        style={{ border: "2px solid var(--border-color)" }}
+                        fallback={
+                            <div
+                                aria-hidden="true"
+                                className="size-10 rounded-full flex items-center justify-center font-heading font-semibold"
+                                style={{
+                                    backgroundColor: "var(--bg-surface-secondary)",
+                                    border: "2px solid var(--border-color)",
+                                    color: "var(--text-primary)",
+                                }}
+                            >
+                                {label.initials}
+                            </div>
+                        }
+                    />
                 </div>
 
                 <div className="flex-1 min-w-0">

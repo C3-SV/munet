@@ -169,6 +169,7 @@ test("directorio: forma de la entrada y comité de la propia persona", () => {
     const own = participants.find((entry) => entry.membershipId === PRACTICE_MEMBERSHIP_ID);
     assert.deepEqual(Object.keys(own).sort(), [
         "alias",
+        "avatar",
         "committee",
         "delegationCode",
         "firstName",
