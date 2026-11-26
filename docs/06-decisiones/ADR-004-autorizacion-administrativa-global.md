@@ -29,7 +29,7 @@ Los documentos disponibles no registran aprobación del negocio para una de esta
 
 ## Resolución
 
-Resuelto el 2026-10-29 por [ADR-005](ADR-005-autorizacion-administrativa-por-evento.md): se descarta el acceso global y se acota la autorización al evento objetivo, salvo la creación de un evento nuevo. Véase también [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa).
+Resuelto el 2026-10-29 por [ADR-005](ADR-005-autorizacion-administrativa-por-evento.md): se descarta el acceso global y se acota la autorización al evento objetivo, salvo la creación de un evento nuevo. Véase también [P-01](../PENDIENTES.md#p-01-modelo-de-autorización-administrativa).
 
 ## Evidencia
 

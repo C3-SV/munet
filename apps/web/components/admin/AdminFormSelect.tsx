@@ -7,6 +7,7 @@ import { type SelectHTMLAttributes, forwardRef } from "react";
 type AdminFormSelectOption = {
     value: string;
     label: string;
+    disabled?: boolean;
 };
 
 type AdminFormSelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
@@ -46,39 +47,43 @@ export const AdminFormSelect = forwardRef<
                 id={selectId}
                 {...props}
                 className={[
-                    "w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all",
+                    "w-full rounded-xl px-4 py-2.5 text-sm outline-none",
                     props.className ?? "",
                 ].join(" ")}
                 style={{
                     backgroundColor: "var(--input-bg)",
-                    border: `1px solid ${error ? "#ef4444" : "var(--input-border)"}`,
+                    border: `1px solid ${error ? "var(--danger)" : "var(--input-border)"}`,
                     color: "var(--text-primary)",
                     boxShadow: error
-                        ? "0 0 0 3px rgba(239,68,68,0.12)"
+                        ? "0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent)"
                         : undefined,
                     ...props.style,
                 }}
                 onFocus={(e) => {
                     e.currentTarget.style.borderColor = error
-                        ? "#ef4444"
+                        ? "var(--danger)"
                         : "var(--input-focus)";
                     e.currentTarget.style.boxShadow = error
-                        ? "0 0 0 3px rgba(239,68,68,0.12)"
+                        ? "0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent)"
                         : "0 0 0 3px color-mix(in srgb, var(--input-focus) 15%, transparent)";
                     props.onFocus?.(e);
                 }}
                 onBlur={(e) => {
                     e.currentTarget.style.borderColor = error
-                        ? "#ef4444"
+                        ? "var(--danger)"
                         : "var(--input-border)";
                     e.currentTarget.style.boxShadow = error
-                        ? "0 0 0 3px rgba(239,68,68,0.12)"
+                        ? "0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent)"
                         : "none";
                     props.onBlur?.(e);
                 }}
             >
                 {options.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.disabled}
+                    >
                         {option.label}
                     </option>
                 ))}
@@ -90,7 +95,7 @@ export const AdminFormSelect = forwardRef<
                 </p>
             )}
             {error && (
-                <p className="text-xs font-medium" style={{ color: "#ef4444" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--danger)" }}>
                     {error}
                 </p>
             )}

@@ -1,39 +1,27 @@
 # Roles y permisos
 
-## Modelo conceptual
+La membresía vincula a una persona con un evento, su rol y, cuando corresponde, su comité. El [snapshot](../../supabase/schema.sql) enumera `PARTICIPANT`, `MODERATOR`, `ADMIN_MUN` y `ADMIN_TECH`. La base del entorno usa esos cuatro valores (confirmado el 20 de noviembre de 2026). El código reconoce como administrativos solo `ADMIN_MUN` y `ADMIN_TECH` (`isAdminRole`). La API rechaza con 400 cualquier otro valor al crear cuentas o membresías y al filtrar. En pantalla se muestran como Delegado, Moderador, Administrador MUN y Administrador técnico, y los formularios usan un select.
 
-Los permisos pertenecen a la membresía en un evento. Los documentos históricos hablan de participante/delegado, moderación/mesa y administración. No existe en el repositorio un catálogo canónico versionado de roles.
+| Capacidad | Participante o moderador activo | Administración activa |
+|---|---|---|
+| Acceder al evento y a general/anuncios | Con membresía del evento | Con membresía del evento |
+| Leer y publicar en comité | En su comité | En los comités del evento |
+| Publicar o comentar en anuncios | Sin permiso | En su evento |
+| Retirar publicaciones o comentarios | Contenido propio, según permisos del muro | Contenido de su evento donde tiene acceso |
+| Moderar desde el panel (ver todos los muros del evento, eliminar con motivo, fijar y desfijar) | Solo `MODERATOR` | Sí |
+| Editar perfiles | Propio, con campos protegidos | Propio y ajenos con restricciones sobre otros administradores |
+| Chat individual | En conversaciones propias del evento | En conversaciones propias del evento |
+| Gestionar comités, participantes, asignaciones e importación | Sin permiso, también para `MODERATOR` | En el evento objetivo |
+| Dar o quitar `MODERATOR` | Sin permiso | En el evento objetivo, solo sobre cuentas no administrativas |
+| Listar eventos administrados | Sin permiso | Con alguna membresía administrativa activa |
+| Crear eventos | Sin permiso | Solo `ADMIN_TECH` activo. `ADMIN_MUN` recibe 403 |
+| Revisar reportes o supervisar DM | Pendiente | Pendiente |
 
-## Comportamiento implementado
+`MODERATOR` puede asignarse en la importación y con `PATCH /admin/participants/:membershipId/role`. En el panel solo ve Moderación; no crea cuentas, no cambia comités, no edita el evento ni publica en anuncios. Su acceso transversal a muros de comité está en `canAccessCommitteeWall`, cuya prueba unitaria (`rbac.utils.test.mjs`) sigue esperando lo contrario: véase [pendientes](../PENDIENTES.md). Para el comportamiento normativo histórico, consulta [reglas de negocio](reglas-de-negocio.md).
 
-`apps/api/src/utils/rbac.utils.ts` y el frontend consideran administrativo cualquier rol cuyo texto normalizado contenga `ADMIN`, `COORDINADOR` u `ORGANIZADOR`. Esta heurística puede aceptar nombres no previstos y debe tratarse como deuda, no como definición normativa.
+## Aplicación del contexto
 
-| Capacidad | Participante activo | Rol administrativo detectado | Estado |
-|---|---:|---:|---|
-| Acceder al evento | Sí, con membresía | Sí | Implementado parcialmente |
-| Leer muros autorizados | Sí | Sí | Implementado parcialmente |
-| Publicar en muro general/comité | Según banderas y contexto | Sí | Implementado parcialmente |
-| Publicar/comentar anuncios | No | Sí | Implementado |
-| Eliminar contenido propio | Sí | Sí | Implementado |
-| Eliminar contenido ajeno | No | Sí | Implementado |
-| Editar perfil propio | Sí | Sí | Implementado |
-| Editar perfil ajeno | No | Sí, salvo objetivo admin ajeno | Implementado parcialmente |
-| Mensaje directo | Sí, mismo evento | Sí, mismo evento | Implementado |
-| Crear eventos/comités/membresías/cuentas | No | Sí, con rol admin en cualquier evento | Divergente |
-| Supervisar mensajes, sancionar, gestionar reportes | No | No módulo completo | No implementado |
-
-## Dos controles administrativos distintos
-
-- **Frontend:** `apps/web/app/(admin)/layout.tsx` exige que la membresía actualmente seleccionada sea administrativa.
-- **Backend:** `requireAdmin` en `apps/api/src/middleware/auth.middleware.ts` acepta cualquier membresía administrativa activa del usuario.
-
-Por ello la UI puede negar una vista que la API aceptaría, y un administrador de un evento podría enviar altas dirigidas a otro evento. El backend debe considerarse la evidencia de autorización efectiva.
-
-## Controles que no deben asumirse
-
-- No hay prueba local de políticas RLS.
-- `requireEventMembership` y `requireRole` existen, pero las rutas no los montan directamente; la autorización fina está dispersa en controladores/servicios.
-- El estado `ACTIVE` de una membresía sí se filtra durante la construcción del contexto, pero no sustituye comprobaciones del evento objetivo.
-- No se verificó un rol exclusivo de superadministrador global.
-
-Antes de añadir o cambiar permisos, resolver [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa) y actualizar esta matriz.
+- El layout web exige una membresía seleccionada con rol administrativo o `MODERATOR` para entrar al panel. Con `MODERATOR` redirige a Moderación cualquier otra ruta del panel; la API responde 403 de todos modos.
+- En la API, `requireEventAdmin` resuelve el evento de la ruta, el cuerpo, la consulta o el recurso. Comprueba allí la membresía administrativa activa y la guarda como `req.auth.currentMembership`.
+- `GET /admin/events` y `POST /admin/events` usan `requireAdmin` porque no tienen evento objetivo. El listado filtra los eventos administrados en el controlador. El alta intenta otorgar al creador membresía en el nuevo evento.
+- `ADMIN_TECH` es el único rol que crea eventos (`requireSuperAdmin`). Las rutas `/admin/moderation/*` usan `requireEventModerator`, que acepta `ADMIN_MUN`, `ADMIN_TECH` y `MODERATOR` activos del evento del recurso. La autorización de otros módulos se describe en [autenticación](../03-referencia/autenticacion.md). Véase [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md).

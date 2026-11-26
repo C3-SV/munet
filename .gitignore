@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Command Code (local state and taste)
 .commandcode/
+
+# Archivos locales con credenciales (no se suben)
+.local/

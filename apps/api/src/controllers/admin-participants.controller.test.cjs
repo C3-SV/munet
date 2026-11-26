@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
+require('ts-node').register({ project: 'apps/api/tsconfig.json' });
 
 function compile(file) {
   return ts.transpileModule(fs.readFileSync(file, 'utf8'), {
@@ -24,6 +25,7 @@ function harness(results = [], overrides = {}) {
   const calls = [];
   const audits = [];
   const serviceCalls = [];
+  const committeeCalls = [];
   const utilsCalls = [];
   const unexpected = [];
   const logs = [];
@@ -51,11 +53,17 @@ function harness(results = [], overrides = {}) {
     console: { error: (...args) => logs.push(args) }, require(name) {
       if (name === '../lib/supabase') return { supabaseAdmin: client };
       if (name === '../utils/audit.logger') return { logAudit: async value => audits.push(value) };
+      if (name === '../utils/rbac.utils') return require('../utils/rbac.utils.ts');
       if (name === '../utils/participant-import.utils') return utilsStub;
       if (name === '../services/participant-account.service') return { async createParticipantAccount(...args) {
         serviceCalls.push(args);
         assert.equal(typeof overrides.createParticipantAccount, 'function', 'Alta inesperada');
         return overrides.createParticipantAccount(...args);
+      } };
+      if (name === '../services/committee-import.service') return { async resolveOrCreateImportCommittee(...args) {
+        committeeCalls.push(args);
+        assert.equal(typeof overrides.resolveOrCreateImportCommittee, 'function', 'Creacion de comite inesperada');
+        return overrides.resolveOrCreateImportCommittee(...args);
       } };
       throw new Error(`Import inesperado: ${name}`);
     },
@@ -66,12 +74,12 @@ function harness(results = [], overrides = {}) {
     status(code) { this.statusCode = code; return this; },
     json(body) { this.body = body; return this; },
   };
-  return { controller: module.exports, res, calls, audits, serviceCalls, utilsCalls, logs,
+  return { controller: module.exports, res, calls, audits, serviceCalls, committeeCalls, utilsCalls, logs,
     done() { assert.deepEqual(unexpected, []); assert.equal(pending.length, 0, 'Consultas pendientes'); },
   };
 }
 
-const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN' };
+const actor = { id: 'admin-membership', eventId: 'event', role: 'ADMIN_MUN' };
 const request = body => ({ body: { event_id: 'event', ...body }, auth: { userId: 'admin-user', currentMembership: actor } });
 const contextResults = () => [{ data: { id: 'event', status: 'ACTIVE' } }, { data: [] }, { data: [] }];
 const importRow = row => ({
@@ -150,6 +158,37 @@ test('previewParticipantImport termina con pagina vacia despues de 1000 codigos'
   h.done();
 });
 
+test('confirmParticipantImport crea el comite nuevo una sola vez y lo asigna a las filas del lote', async () => {
+  const committee = { id: 'c-new', name: 'Prensa', code: 'PRENSA', status: 'ACTIVE', event_id: 'event' };
+  const h = harness(contextResults(), {
+    async resolveOrCreateImportCommittee() { return { ok: true, created: true, committee }; },
+    createParticipantAccount: async input => success(input),
+  });
+  const rows = [
+    { ...importRow(2), committee_id: null, committee_label: 'Prensa', new_committee_name: 'Prensa' },
+    { ...importRow(3), committee_id: null, committee_label: 'prensa', new_committee_name: 'prensa' },
+  ];
+  await h.controller.confirmParticipantImport(request({ rows }), h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.committeeCalls.length, 1);
+  assert.equal(h.committeeCalls[0][0].name, 'Prensa');
+  assert.deepEqual(h.serviceCalls.map(([input]) => input.committee_id), ['c-new', 'c-new']);
+  assert.deepEqual(h.audits.filter(a => a.actionType === 'CREATE_COMMITTEE').map(a => a.entityId), ['c-new']);
+  assert.equal(h.res.body.summary.created, 2);
+  h.done();
+});
+
+test('confirmParticipantImport marca como fallidas las filas cuyo comite no se pudo crear', async () => {
+  const h = harness(contextResults(), {
+    async resolveOrCreateImportCommittee() { return { ok: false, error: 'No se pudo crear el comite Prensa' }; },
+  });
+  await h.controller.confirmParticipantImport(request({ rows: [{ ...importRow(2), committee_id: null, committee_label: 'Prensa', new_committee_name: 'Prensa' }] }), h.res);
+  assert.equal(h.res.body.failed[0].errors[0], 'No se pudo crear el comite Prensa');
+  assert.equal(h.serviceCalls.length, 0);
+  assert.equal(h.res.body.summary.created, 0);
+  h.done();
+});
+
 test('confirmParticipantImport rechaza mas de 50 filas sin crear cuentas', async () => {
   const h = harness(contextResults());
   await h.controller.confirmParticipantImport(request({ rows: Array.from({ length: 51 }, (_, i) => importRow(i + 2)) }), h.res);
@@ -176,7 +215,7 @@ test('confirmParticipantImport crea solo filas validas, continua tras ok:false y
     return success(input);
   } });
   const rows = [importRow(8), { ...importRow(7), first_name: '' }, importRow(4), importRow(2),
-    { ...importRow(3), role: 'ADMIN' }, importRow(6), importRow(9), importRow(10)];
+    { ...importRow(3), role: 'ADMIN_TECH' }, importRow(6), importRow(9), importRow(10)];
   await h.controller.confirmParticipantImport(request({ rows }), h.res);
   assert.equal(h.res.statusCode, 200);
   assert.equal(h.res.headers['cache-control'], 'no-store');
@@ -309,3 +348,76 @@ for (const committeeId of [null, 'new']) {
     h.done();
   });
 }
+
+
+test('changeParticipantRole cambia solo PARTICIPANT y MODERATOR con actor y afectado', async () => {
+  for (const [before, role] of [['PARTICIPANT', 'MODERATOR'], ['MODERATOR', 'PARTICIPANT']]) {
+    const h = harness([{ data: { id: 'm1', user_id: 'u1', event_id: 'event', role: before } }, { data: { id: 'm1', role } }]);
+    const req = { ...request({ role, reason: '  Reasignacion  ' }), params: { membershipId: 'm1' } };
+    await h.controller.changeParticipantRole(req, h.res);
+    assert.equal(h.res.statusCode, 200);
+    assert.equal(h.res.body.membership.role, role);
+    const update = h.calls[1].steps.find(s => s[0] === 'update')[1];
+    assert.equal(update.role, role);
+    assert.equal(update.updated_by_user_id, 'admin-user');
+    assert.equal(h.audits.length, 1);
+    assert.equal(h.audits[0].actionType, 'CHANGE_ROLE');
+    assert.equal(h.audits[0].membership, actor);
+    assert.equal(h.audits[0].targetMembershipId, 'm1');
+    assert.equal(h.audits[0].targetUserId, 'u1');
+    assert.ok(h.audits[0].reason.includes(`${before} -> ${role}`));
+    assert.match(h.audits[0].reason, /Motivo: Reasignacion$/);
+    h.done();
+  }
+});
+
+test('changeParticipantRole rechaza roles fuera de contrato y motivos invalidos sin consultas', async () => {
+  for (const body of [{}, { role: null }, { role: 1 }, { role: 'moderator' }, { role: 'ADMIN_MUN' }, { role: 'ADMIN_TECH' }, { role: 'MODERATOR', reason: {} }]) {
+    const h = harness();
+    await h.controller.changeParticipantRole({ ...request(body), params: { membershipId: 'm1' } }, h.res);
+    assert.ok([400, 403].includes(h.res.statusCode));
+    assert.equal(h.audits.length, 0);
+    h.done();
+  }
+});
+
+test('changeParticipantRole impide tocar administradores y maneja ausencias y errores sin auditoria', async () => {
+  for (const [results, status] of [
+    [[{ data: null }], 404],
+    [[{ error: { message: 'lookup' } }], 500],
+    ...['ADMIN_TECH', 'ADMIN_MUN'].map(role => [[{ data: { id: 'm1', role } }], 403]),
+    [[{ data: { id: 'm1', role: 'MODERATOR' } }], 400],
+    [[{ data: { id: 'm1', role: 'PARTICIPANT' } }, { error: { message: 'update' } }], 400],
+  ]) {
+    const h = harness(results);
+    await h.controller.changeParticipantRole({ ...request({ role: 'MODERATOR' }), params: { membershipId: 'm1' } }, h.res);
+    assert.equal(h.res.statusCode, status);
+    assert.equal(h.audits.length, 0);
+    h.done();
+  }
+});
+
+
+test('importacion audita cada afectado y el resumen conserva solo actor y evento', async () => {
+  const h = harness(contextResults(), { createParticipantAccount: async input => success(input) });
+  await h.controller.confirmParticipantImport(request({ rows: [importRow(2)] }), h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].targetMembershipId, 'm-COD2');
+  assert.equal(h.audits[0].targetUserId, 'u-COD2');
+  assert.equal(h.audits[1].actionType, 'IMPORT_PARTICIPANTS');
+  assert.equal(h.audits[1].membership, actor);
+  assert.equal(h.audits[1].targetMembershipId, undefined);
+  h.done();
+});
+
+test('cambio de comite audita el usuario y membership afectados', async () => {
+  const h = harness([{ data: { id: 'm1', event_id: 'event', user_id: 'u1', committee_id: 'old' } }, { data: { id: 'm1', committee_id: null } }]);
+  await h.controller.changeParticipantCommittee({ ...request({ committee_id: null }), params: { membershipId: 'm1' } }, h.res);
+  assert.equal(h.res.statusCode, 200);
+  assert.equal(h.audits[0].membership, actor);
+  assert.equal(h.audits[0].targetMembershipId, 'm1');
+  assert.equal(h.audits[0].targetUserId, 'u1');
+  assert.match(h.calls[0].steps.find(s => s[0] === 'select')[1], /user_id/);
+  h.done();
+});

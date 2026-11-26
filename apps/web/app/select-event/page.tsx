@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { isAdminRole, useAuthStore } from "../../stores/auth.store";
+import { BrandAttribution } from "../../components/layout/BrandAttribution";
+import { formatRoleLabel } from "../../lib/role-label";
+import { readLastUsedMembershipId, selectableMemberships } from "../../lib/event-selection";
 
 const SelectEventPage = () => {
     const router = useRouter();
@@ -15,11 +18,26 @@ const SelectEventPage = () => {
     const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
     const memberships = useAuthStore((state) => state.memberships);
     const setActiveMembership = useAuthStore((state) => state.setActiveMembership);
+    const enterPractice = useAuthStore((state) => state.enterPractice);
+    const refreshContext = useAuthStore((state) => state.refreshContext);
+    // Eventos elegibles (sin práctica, activos), en orden de selección: el último usado va primero.
+    // La práctica tiene su propia tarjeta: no se lista también como un evento más.
+    const choices = useMemo(() => selectableMemberships(memberships), [memberships]);
+    const lastUsedMembershipId = readLastUsedMembershipId();
 
     useEffect(() => {
         // Hidrata sesion guardada antes de aplicar reglas de redireccion.
         hydrateAuth();
     }, [hydrateAuth]);
+
+    useEffect(() => {
+        if (!hydrated || !token) {
+            return;
+        }
+
+        // Trae las membresías vigentes antes de elegir. Si la petición falla, queda la copia guardada.
+        void refreshContext().catch(() => undefined);
+    }, [hydrated, refreshContext, token]);
 
     useEffect(() => {
         if (!hydrated) {
@@ -31,30 +49,33 @@ const SelectEventPage = () => {
             return;
         }
 
+        // Administradores: siempre eligen evento en esta pantalla.
         const hasAdminMembership = memberships.some((membership) =>
             isAdminRole(membership.role),
         );
-        const firstMembership = memberships[0];
 
-        // Si ya existe contexto activo:
-        // - Admin puede quedarse en selector para cambiar de evento manualmente.
-        // - Participante debe volver al feed.
-        if (activeEventId && activeMembershipId) {
-            if (hasAdminMembership) {
-                return;
-            }
-
-            router.replace("/feed");
+        if (hasAdminMembership) {
             return;
         }
 
-        // Participantes sin rol admin entran directo al primer evento.
-        if (!hasAdminMembership && firstMembership) {
-            // Aunque esté en /select-event, el delegado no debe quedarse aquí.
-            setActiveMembership(firstMembership.id);
-            router.replace("/feed");
+        // Participante con varias membresías: elige aquí, también cuando cambia de evento desde el menú.
+        if (choices.length > 1) {
+            return;
         }
-    }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
+
+        // Participante con una sola membresía: entra directo. Si ya hay contexto activo, no se cambia.
+        const onlyChoice = choices[0];
+
+        if (!onlyChoice) {
+            return;
+        }
+
+        if (!(activeEventId && activeMembershipId)) {
+            setActiveMembership(onlyChoice.id);
+        }
+
+        router.replace("/feed");
+    }, [activeEventId, activeMembershipId, choices, hydrated, memberships, router, setActiveMembership, token]);
 
     const handleChooseEvent = (membershipId: string) => {
         // Seleccion explicita de contexto para admins (o multi-evento).
@@ -65,65 +86,94 @@ const SelectEventPage = () => {
         );
     };
 
+    const handleEnterPractice = () => {
+        // La práctica vive solo en memoria; el layout (main) ya está hidratado y no la descarta.
+        enterPractice();
+        router.push("/feed");
+    };
+
     return (
         <div
-            className="min-h-screen px-4 sm:px-6 py-10"
+            className="min-h-screen flex flex-col px-4 sm:px-6 py-10"
             style={{ backgroundColor: "var(--bg-base)" }}
         >
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto w-full flex-1">
                 <header className="mb-8">
                     <h1
-                        className="text-3xl sm:text-4xl font-black font-heading uppercase tracking-tight"
+                        className="text-3xl sm:text-4xl font-bold font-heading tracking-tight"
                         style={{ color: "var(--text-accent)" }}
                     >
                         Selecciona tu evento
                     </h1>
-                    <p className="mt-2 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                        Elige el evento con el que quieres trabajar en esta sesion.
-                    </p>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {memberships.map((membership) => (
+                    {choices.map((membership) => (
                         <button
                             key={membership.id}
                             type="button"
                             onClick={() => handleChooseEvent(membership.id)}
-                            className="text-left rounded-2xl p-5 transition-all hover:scale-[1.01] active:scale-95"
+                            className="text-left p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
                             style={{
                                 backgroundColor: "var(--bg-surface)",
-                                border: "1px solid var(--border-color)",
-                                boxShadow: "var(--shadow-sm)",
+                                borderRadius: "var(--radius-lg)",
                             }}
                         >
-                            <p
-                                className="text-[11px] font-extrabold uppercase tracking-widest font-heading"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                {membership.eventStatus}
-                            </p>
                             <h2
-                                className="mt-1 text-xl font-bold font-heading"
+                                className="text-xl font-bold font-heading"
                                 style={{ color: "var(--text-primary)" }}
                             >
                                 {membership.eventName}
                             </h2>
-                            <p className="mt-3 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                Rol: {membership.role}
-                            </p>
-                            <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                                {membership.committeeName
-                                    ? `Comité: ${membership.committeeName}`
-                                    : "Comité: No asignado"}
-                            </p>
-                            <p className="mt-4 text-xs font-semibold font-heading uppercase tracking-wider" style={{ color: "var(--text-accent)" }}>
-                                Entrar al evento
+                            {choices.length > 1 && membership.id === lastUsedMembershipId && (
+                                <span
+                                    className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                                    style={{
+                                        backgroundColor: "var(--sidebar-active-bg)",
+                                        color: "var(--sidebar-active-text)",
+                                    }}
+                                >
+                                    Último usado
+                                </span>
+                            )}
+                            <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                                {formatRoleLabel(membership.role)}
                             </p>
                         </button>
                     ))}
+                    {token && (
+                        <button
+                            type="button"
+                            onClick={handleEnterPractice}
+                            className="text-left p-5 border border-[var(--border-color)] hover:border-[var(--text-accent)]"
+                            style={{
+                                backgroundColor: "var(--bg-surface)",
+                                borderRadius: "var(--radius-lg)",
+                            }}
+                        >
+                            <h2
+                                className="text-xl font-bold font-heading"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                Modo práctica
+                            </h2>
+                            <span
+                                className="mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-heading"
+                                style={{
+                                    backgroundColor: "var(--sidebar-active-bg)",
+                                    color: "var(--sidebar-active-text)",
+                                }}
+                            >
+                                Práctica
+                            </span>
+                            <p className="mt-1 text-sm font-body" style={{ color: "var(--text-secondary)" }}>
+                                Prueba la plataforma sin publicar nada de verdad: todo se guarda solo en tu navegador.
+                            </p>
+                        </button>
+                    )}
                 </div>
 
-                {memberships.length === 0 && (
+                {choices.length === 0 && (
                     <div
                         className="rounded-2xl p-6 mt-4"
                         style={{
@@ -132,7 +182,7 @@ const SelectEventPage = () => {
                         }}
                     >
                         <p className="text-sm font-body" style={{ color: "var(--text-secondary)" }}>
-                            No hay membresias activas para este usuario.
+                            No hay membresías activas para este usuario.
                         </p>
                     </div>
                 )}
@@ -144,18 +194,15 @@ const SelectEventPage = () => {
                             logout();
                             router.replace("/login");
                         }}
-                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-all"
-                        style={{ color: "#ef4444" }}
+                        className="rounded-xl px-4 py-2 text-sm font-semibold font-heading transition-[opacity,transform,background-color,border-color,color]"
+                        style={{ color: "var(--danger)" }}
                     >
-                        Cerrar sesion
+                        Cerrar sesión
                     </button>
                 </div>
-
-                {memberships.some((membership) => isAdminRole(membership.role)) && (
-                    <p className="mt-3 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                        Como administrador debes seleccionar explicitamente el evento al iniciar sesion.
-                    </p>
-                )}
+            </div>
+            <div className="mt-10 flex justify-center">
+                <BrandAttribution />
             </div>
         </div>
     );

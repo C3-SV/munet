@@ -7,11 +7,24 @@ export type NormalizedImportRow = {
   row: number; first_name: string; last_name: string; participant_code: string;
   committee_id: string | null; committee_label: string | null;
   delegation_name: string | null; institution_name: string | null;
-  role: 'PARTICIPANT' | 'MODERATOR'; alias: string | null;
+  role: 'PARTICIPANT' | 'MODERATOR' | 'ADMIN_MUN'; alias: string | null;
+  // Comit\u00e9 que no existe en el evento y se crear\u00e1 al confirmar (solo cuando committee_id es null).
+  new_committee_name: string | null;
 };
 type Context = { committees: ImportCommittee[]; existingParticipantCodes: Iterable<string> };
 type Values = Record<string, string>;
-const fold = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export const MAX_COMMITTEE_NAME_LENGTH = 120;
+export const MAX_NEW_COMMITTEES = 30;
+export const foldText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const fold = foldText;
+
+// C\u00f3digo del comit\u00e9 derivado del nombre: may\u00fasculas sin tildes, separado por guiones.
+export function committeeCodeFromName(name: string): string {
+  const code = fold(name).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+  // Nombres sin letras latinas (p. ej. chino) necesitan un sufijo para no colapsar en el mismo código.
+  const hash = [...name].reduce((h, ch) => (h * 31 + (ch.codePointAt(0) ?? 0)) >>> 0, 7).toString(36).toUpperCase();
+  return code || `COMITE-${hash}`;
+}
 
 export function normalizeHeader(h: string): string {
   const key = fold(h.trim()).replace(/[\s-]+/g, '_');
@@ -97,31 +110,48 @@ function validateRow(input: Record<string, unknown>, row: number, ctx: Context, 
   for (const [label, value, max] of [ ['alias', alias, 60], ['delegacion', delegation_name, 120], ['institucion', institution_name, 120] ] as const) {
     if (value && value.length > max) errors.push(`${label} supera ${max} caracteres`);
   }
-  const roleValue = fold(read('role', !confirm)).toUpperCase();
+  const roleValue = fold(read('role', !confirm)).toUpperCase().replace(/[\s_-]+/g, ' ').trim();
   let role: NormalizedImportRow['role'] = 'PARTICIPANT';
   if (['MODERATOR', 'MODERADOR', 'MODERADORA'].includes(roleValue)) role = 'MODERATOR';
-  else if (!['', 'PARTICIPANT', 'PARTICIPANTE', 'DELEGADO', 'DELEGADA'].includes(roleValue)) {
-    errors.push('Rol no permitido en CSV (solo participante o moderador; los admins se crean uno por uno)');
+  else if (['ADMIN MUN', 'ADMINISTRADOR MUN', 'ADMIN', 'ADMINISTRADOR'].includes(roleValue)) role = 'ADMIN_MUN';
+  else if (roleValue.includes('TECH') || roleValue.includes('TECNIC')) {
+    errors.push('El administrador tecnico no se importa por CSV; se crea uno por uno');
+  } else if (!['', 'PARTICIPANT', 'PARTICIPANTE', 'DELEGADO', 'DELEGADA'].includes(roleValue)) {
+    errors.push('Rol no permitido en CSV (participante, moderador o administrador MUN)');
   }
   const available = ctx.committees.filter(c => c.status !== 'ARCHIVED');
   let committee: ImportCommittee | undefined;
+  let newCommitteeName: string | null = null;
   if (confirm) {
     if (input.committee_id !== null && input.committee_id !== undefined) {
       const id = read('committee_id');
       committee = available.find(c => c.id === id);
       if (!committee) errors.push(`Comite ${id} no existe en el evento o esta archivado`);
+    } else {
+      newCommitteeName = read('new_committee_name', true) || null;
+      if (newCommitteeName && newCommitteeName.length > MAX_COMMITTEE_NAME_LENGTH) errors.push(`comite supera ${MAX_COMMITTEE_NAME_LENGTH} caracteres`);
     }
     if (!Number.isInteger(input.row) || (input.row as number) < 2) errors.push('row debe ser un entero mayor o igual a 2');
     if (input.committee_label !== null && typeof input.committee_label !== 'string') errors.push('committee_label debe ser texto o null');
   } else {
     const label = read('committee', true);
     if (label) {
-      committee = available.find(c => c.code.toLowerCase() === label.toLowerCase() || fold(c.name) === fold(label));
-      if (!committee) errors.push(`Comite ${label} no existe en el evento o esta archivado`);
+      const matches = (c: ImportCommittee) => c.code.toLowerCase() === label.toLowerCase() || fold(c.name) === fold(label);
+      committee = available.find(matches);
+      if (!committee) {
+        // Un comité archivado con ese nombre o código bloquea la creación: no se puede reutilizar ni duplicar.
+        if (ctx.committees.some(c => c.status === 'ARCHIVED' && matches(c))) errors.push(`Comite ${label} no existe en el evento o esta archivado`);
+        else if (label.length > MAX_COMMITTEE_NAME_LENGTH) errors.push(`comite supera ${MAX_COMMITTEE_NAME_LENGTH} caracteres`);
+        else if (ctx.committees.some(c => c.code.toLowerCase() === committeeCodeFromName(label).toLowerCase())) {
+          errors.push(`El codigo ${committeeCodeFromName(label)} ya lo usa otro comite del evento`);
+        }
+        else newCommitteeName = label;
+      }
     }
   }
   const value: NormalizedImportRow = { row, first_name, last_name, participant_code, committee_id: committee?.id ?? null,
-    committee_label: committee?.name ?? null, delegation_name, institution_name, role, alias };
+    committee_label: committee?.name ?? newCommitteeName, delegation_name, institution_name, role, alias,
+    new_committee_name: committee ? null : newCommitteeName };
   return { value, errors };
 }
 
@@ -129,7 +159,8 @@ export function buildImportPreview(text: string, ctx: Context) {
   const result: { error?: string; total_rows: number; valid: NormalizedImportRow[];
     invalid: { row: number; values: Values; errors: string[] }[];
     duplicates: { row: number; values: Values; participant_code: string; reason: 'IN_FILE' | 'IN_EVENT' }[];
-  } = { total_rows: 0, valid: [], invalid: [], duplicates: [] };
+    new_committees: string[];
+  } = { total_rows: 0, valid: [], invalid: [], duplicates: [], new_committees: [] };
   let records: string[][];
   try { records = parseCsvRecords(text); } catch (error) { return { ...result, error: (error as Error).message }; }
   if (!records.some(cells => cells.some(cell => cell.trim()))) return { ...result, error: 'El CSV esta vacio' };
@@ -151,6 +182,12 @@ export function buildImportPreview(text: string, ctx: Context) {
     else if (existing.has(key) || seen.has(key)) result.duplicates.push({ row, values, participant_code: value.participant_code, reason: existing.has(key) ? 'IN_EVENT' : 'IN_FILE' });
     else { seen.add(key); result.valid.push(value); }
   });
+  const newNames = new Map<string, string>();
+  result.valid.forEach(row => { if (row.new_committee_name && !newNames.has(fold(row.new_committee_name))) newNames.set(fold(row.new_committee_name), row.new_committee_name); });
+  result.new_committees = Array.from(newNames.values());
+  if (result.new_committees.length > MAX_NEW_COMMITTEES) {
+    return { ...result, error: `El CSV crea ${result.new_committees.length} comités nuevos; el máximo por importación es ${MAX_NEW_COMMITTEES}` };
+  }
   return result;
 }
 

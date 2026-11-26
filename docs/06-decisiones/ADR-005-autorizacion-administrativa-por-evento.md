@@ -3,7 +3,7 @@
 - **Estado:** aceptada; implementada
 - **Fecha de la decisión:** 2026-10-29
 - **Reemplaza a:** [ADR-004](ADR-004-autorizacion-administrativa-global.md), que queda superada
-- **Resuelve:** [P-01](../07-auditoria/pendientes.md#p-01-modelo-de-autorización-administrativa)
+- **Resuelve:** [P-01](../PENDIENTES.md#p-01-modelo-de-autorización-administrativa)
 
 ## Contexto
 
@@ -49,7 +49,7 @@ modelo acotado por evento (alternativa B registrada en ADR-004):
 ## Consecuencias
 
 - Cierra el acceso cruzado entre eventos descrito en
-  [D-01](../07-auditoria/discrepancias.md#d-01-autorizaciÃ³n-administrativa-no-acotada-al-evento).
+  [D-01](../07-auditoria/discrepancias.md#d-01--autorización-administrativa-por-evento).
 - Quien dependa hoy del acceso global (si lo hay) necesita una membership
   admin propia por cada evento que deba administrar; no hay migración de
   datos automática para esto.

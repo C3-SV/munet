@@ -3,7 +3,7 @@
 // Estado vacío reutilizable para tablas y listas del panel admin.
 
 type AdminEmptyStateProps = {
-    icon?: string; // URL de ícono Tabler
+    icon?: React.ReactNode; // Icono inline de components/ui/icons (size 32)
     title: string;
     description?: string;
     action?: React.ReactNode;
@@ -23,14 +23,10 @@ export const AdminEmptyState = ({
                     style={{
                         backgroundColor: "var(--bg-surface-secondary)",
                         border: "1px solid var(--border-color)",
+                        color: "var(--text-muted)",
                     }}
                 >
-                    <img
-                        src={icon}
-                        className="size-8 opacity-40"
-                        style={{ filter: "var(--theme-icon-filter)" }}
-                        alt=""
-                    />
+                    {icon}
                 </div>
             )}
             <p

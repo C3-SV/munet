@@ -8,7 +8,7 @@
 
 - `routes/`: método y middleware base.
 - `controllers/`: validación manual, autorización contextual y orquestación.
-- `services/`: consultas de posts, comentarios, muros, autenticación y DM.
+- `services/`: consultas de posts, comentarios, muros, autenticación y DM, además de alta y búsqueda de participantes.
 - `middleware/auth.middleware.ts`: token, contexto y helpers de autorización.
 - `utils/`: RBAC, reglas de muro, auditoría y utilidades de dominio.
 - `lib/supabase.ts`: clientes de Supabase.
@@ -19,11 +19,11 @@
 
 ## Autorización
 
-La autorización fina está mayormente dentro de controladores y servicios. Los helpers `requireEventMembership` y `requireRole` existen, pero no están montados en las rutas revisadas. `requireAdmin` comprueba una membresía administrativa activa en cualquier evento y protege los cuatro endpoints administrativos.
+La autorización fina está mayormente dentro de controladores y servicios. El helper `requireRole` existe, pero no está montado en las rutas revisadas (`requireEventMembership` se eliminó el 21 de noviembre de 2026 por no tener consumidores). `requireEventAdmin` exige una membresía administrativa activa del evento objetivo. La colección de eventos usa `requireAdmin` y el controlador del listado acota los resultados. Véase [autenticación](../03-referencia/autenticacion.md).
 
 ## Persistencia
 
-La API opera con service role y, para autenticación, con cliente anon. Esto hace que la seguridad dependa del código del servidor además de cualquier política de base no disponible. No se observaron transacciones; varios flujos aplican escrituras secuenciales y compensaciones manuales.
+La API opera con service role y, para autenticación, con cliente anon. Los controladores y servicios comprueban permisos de aplicación. Varias altas compuestas usan escrituras secuenciales y compensaciones manuales. La asignación de código de delegación tiene una RPC de base definida en la migración 002.
 
 ## Validación y errores
 
@@ -35,4 +35,4 @@ Las validaciones son manuales; no hay biblioteca de schemas ni contrato OpenAPI.
 
 ## Cobertura del pipeline
 
-`apps/api/package.json` solo define `dev`. Por tanto, `npm run build`, `lint` y `check-types` del root no validan la API a través de Turbo. Existe una prueba Node de CORS, pero no un script `test` de paquete.
+La API ofrece `dev`, `build`, `check-types` y `test`. Build y tipos ejecutan `tsc --noEmit`. Las pruebas se ejecutan desde el workspace. Falta un script de lint para la API. Véase [pruebas y validación](../04-desarrollo/pruebas-y-validacion.md).

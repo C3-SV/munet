@@ -1,3 +1,4 @@
+import { isAdminRole } from '../utils/rbac.utils';
 import { supabaseAdmin } from '../lib/supabase';
 import type { AuthMembership } from '../types/auth-context';
 
@@ -10,6 +11,7 @@ type MembershipRow = {
   committee_id: string | null;
   participant_code: string;
   account_status: string;
+  created_at: string | null;
   events:
     | {
         id: string;
@@ -79,6 +81,7 @@ export const getMembershipsByUserId = async (userId: string) => {
         committee_id,
         participant_code,
         account_status,
+        created_at,
         events (
           id,
           name,
@@ -112,6 +115,12 @@ export const getMembershipsByUserId = async (userId: string) => {
         return null;
       }
 
+      // Un evento archivado sale del selector de participantes y moderadores;
+      // los administradores lo siguen viendo para consultarlo o reabrirlo.
+      if (event.status === 'ARCHIVED' && !isAdminRole(row.role)) {
+        return null;
+      }
+
       return {
         id: row.id,
         userId: row.user_id,
@@ -125,6 +134,7 @@ export const getMembershipsByUserId = async (userId: string) => {
         committeeCode: visibleCommittee?.code ?? null,
         participantCode: row.participant_code,
         accountStatus: row.account_status,
+        createdAt: row.created_at ?? null,
       } satisfies AuthMembership;
     })
     .filter((membership): membership is AuthMembership => Boolean(membership));

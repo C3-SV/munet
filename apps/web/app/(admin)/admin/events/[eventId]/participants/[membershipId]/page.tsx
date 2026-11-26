@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AdminReasonDialog } from "../../../../../../../components/admin/AdminReasonDialog";
 import { AdminAlertBanner } from "../../../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../../../components/admin/AdminButton";
-import { AdminConfirmDialog } from "../../../../../../../components/admin/AdminConfirmDialog";
-import { AdminCredentialBanner } from "../../../../../../../components/admin/AdminCredentialBanner";
+import { AdminChangeCommitteeDialog } from "../../../../../../../components/admin/AdminChangeCommitteeDialog";
+import { AdminCredentialsDialog } from "../../../../../../../components/admin/AdminCredentialsDialog";
 import { AdminEmptyState } from "../../../../../../../components/admin/AdminEmptyState";
 import { AdminFormInput } from "../../../../../../../components/admin/AdminFormInput";
-import { AdminFormSelect } from "../../../../../../../components/admin/AdminFormSelect";
 import { AdminFormTextarea } from "../../../../../../../components/admin/AdminFormTextarea";
 import { AdminPageHeader } from "../../../../../../../components/admin/AdminPageHeader";
 import { AdminStatusBadge } from "../../../../../../../components/admin/AdminStatusBadge";
@@ -20,6 +19,8 @@ import {
 } from "../../../../../../../lib/api/admin";
 import { ApiError } from "../../../../../../../lib/api/client";
 import {
+    changeParticipantCommittee,
+    changeParticipantRole,
     getParticipant,
     reactivateParticipant,
     resetParticipantPassword,
@@ -28,24 +29,18 @@ import {
     type AdminParticipant,
     type UpdateParticipantBody,
 } from "../../../../../../../lib/api/participants";
-import { useAuthStore } from "../../../../../../../stores/auth.store";
-
-const ROLE_SUGGESTIONS = [
-    "DELEGADO",
-    "MODERADOR",
-    "ORGANIZADOR",
-    "COORDINADOR",
-    "ADMIN",
-];
+import { formatRoleLabel } from "../../../../../../../lib/role-label";
+import { isAdminRole, useAuthStore } from "../../../../../../../stores/auth.store";
+import { ConfirmDialog } from "../../../../../../../components/ui/ConfirmDialog";
+import { IconAlertTriangle, IconBuilding, IconCheck, IconKey, IconRefresh, IconUserCheck, IconUserOff } from "../../../../../../../components/ui/icons";
 
 type FormState = {
-    role: string;
-    committee_id: string;
     delegation_name: string;
     institution_name: string;
     first_name: string;
     last_name: string;
     display_name: string;
+    alias: string;
     bio: string;
 };
 
@@ -54,40 +49,43 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 type LifecycleAction = "suspend" | "reactivate" | "reset-password";
 
 const EMPTY_FORM: FormState = {
-    role: "",
-    committee_id: "",
     delegation_name: "",
     institution_name: "",
     first_name: "",
     last_name: "",
     display_name: "",
+    alias: "",
     bio: "",
 };
 
 const toFormState = (participant: AdminParticipant): FormState => ({
-    role: participant.role,
-    committee_id: participant.committee_id ?? "",
     delegation_name: participant.delegation_name ?? "",
     institution_name: participant.institution_name ?? "",
     first_name: participant.profile?.first_name ?? "",
     last_name: participant.profile?.last_name ?? "",
     display_name: participant.profile?.display_name ?? "",
+    alias: participant.profile?.alias ?? "",
     bio: participant.profile?.bio ?? "",
 });
 
 const getParticipantName = (participant: AdminParticipant) => {
     const profile = participant.profile;
-
-    if (profile?.display_name?.trim()) {
-        return profile.display_name.trim();
-    }
-
     const fullName = [profile?.first_name, profile?.last_name]
         .filter(Boolean)
         .join(" ")
         .trim();
 
-    return fullName || "Sin perfil";
+    return fullName || profile?.display_name?.trim() || "Sin perfil";
+};
+
+const getActionErrorMessage = (failure: unknown) => {
+    if (failure instanceof ApiError) {
+        return failure.status === 403
+            ? "No tienes permisos para administrar este evento."
+            : failure.message;
+    }
+
+    return "No se pudo completar la acción. Intenta de nuevo.";
 };
 
 const formatDate = (value?: string | null) => {
@@ -111,7 +109,7 @@ const formatDate = (value?: string | null) => {
 const LoadingState = () => (
     <div className="flex items-center justify-center py-20">
         <span
-            className="animate-spin rounded-full border-2 border-t-transparent"
+            className="animate-spin rounded-full border-2 border-t-transparent motion-reduce:animate-none"
             style={{
                 width: 32,
                 height: 32,
@@ -137,6 +135,7 @@ export default function ParticipantDetailPage() {
 
     const [eventName, setEventName] = useState(membershipEventName ?? "Evento");
     const [committees, setCommittees] = useState<AdminCommittee[]>([]);
+    const [committeesLoading, setCommitteesLoading] = useState(true);
     const [participant, setParticipant] = useState<AdminParticipant | null>(null);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
     const [errors, setErrors] = useState<FormErrors>({});
@@ -155,6 +154,14 @@ export default function ParticipantDetailPage() {
     const [temporaryPassword, setTemporaryPassword] = useState<string | null>(
         null,
     );
+
+    const [committeeDialogOpen, setCommitteeDialogOpen] = useState(false);
+    const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+    const [roleLoading, setRoleLoading] = useState(false);
+    const [roleError, setRoleError] = useState<string | null>(null);
+    const [roleBlocked, setRoleBlocked] = useState(false);
+    const [committeeLoading, setCommitteeLoading] = useState(false);
+    const [committeeError, setCommitteeError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -185,6 +192,8 @@ export default function ParticipantDetailPage() {
 
         let cancelled = false;
 
+        setCommitteesLoading(true);
+
         listCommittees(token, eventId)
             .then((data) => {
                 if (!cancelled) {
@@ -193,6 +202,11 @@ export default function ParticipantDetailPage() {
             })
             .catch(() => {
                 // El comité es opcional; el formulario sigue disponible.
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setCommitteesLoading(false);
+                }
             });
 
         return () => {
@@ -230,7 +244,7 @@ export default function ParticipantDetailPage() {
                 if (!cancelled) {
                     setLoadError(
                         loadFailure instanceof ApiError
-                            ? loadFailure.message
+                            ? getActionErrorMessage(loadFailure)
                             : "No se pudo cargar el participante.",
                     );
                 }
@@ -246,13 +260,44 @@ export default function ParticipantDetailPage() {
         };
     }, [eventId, membershipId, reloadKey, token]);
 
-    const committeeOptions = [
-        { value: "", label: "Sin comité" },
-        ...committees.map((committee) => ({
-            value: committee.id,
-            label: `${committee.code} — ${committee.name}`,
-        })),
-    ];
+    const isModerator = participant?.role.trim().toUpperCase() === "MODERATOR";
+    const canChangeModerator = Boolean(participant) && !isAdminRole(participant?.role);
+
+    const handleChangeRole = async (reason: string) => {
+        if (!token || !participant) {
+            return;
+        }
+
+        setRoleLoading(true);
+        setRoleError(null);
+
+        try {
+            const response = await changeParticipantRole(
+                token,
+                participant.id,
+                isModerator ? "PARTICIPANT" : "MODERATOR",
+                reason || undefined,
+            );
+
+            setParticipant((previous) =>
+                previous
+                    ? { ...previous, role: response.membership.role }
+                    : previous,
+            );
+            setRoleDialogOpen(false);
+            setSuccess(response.message);
+        } catch (roleFailure) {
+            setRoleError(getActionErrorMessage(roleFailure));
+
+            // Ante un 429 se bloquea el botón unos segundos; no se reintenta solo.
+            if (roleFailure instanceof ApiError && roleFailure.status === 429) {
+                setRoleBlocked(true);
+                window.setTimeout(() => setRoleBlocked(false), 5000);
+            }
+        } finally {
+            setRoleLoading(false);
+        }
+    };
 
     const handleChange = (field: keyof FormState, value: string) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -273,10 +318,6 @@ export default function ParticipantDetailPage() {
     const validate = (): FormErrors => {
         const validationErrors: FormErrors = {};
 
-        if (!form.role.trim()) {
-            validationErrors.role = "El rol es requerido.";
-        }
-
         if (!form.first_name.trim()) {
             validationErrors.first_name = "El nombre es requerido.";
         }
@@ -288,18 +329,7 @@ export default function ParticipantDetailPage() {
         return validationErrors;
     };
 
-    const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setApiError(null);
-        setSuccess(null);
-
-        const validationErrors = validate();
-
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
+    const saveParticipant = async () => {
         if (!token || !participant) {
             setApiError("Sesión o participante no válido. Recarga la página.");
             return;
@@ -309,13 +339,12 @@ export default function ParticipantDetailPage() {
 
         try {
             const body: UpdateParticipantBody = {
-                role: form.role.trim().toUpperCase(),
-                committee_id: form.committee_id || null,
                 delegation_name: form.delegation_name.trim() || null,
                 institution_name: form.institution_name.trim() || null,
                 first_name: form.first_name.trim(),
                 last_name: form.last_name.trim(),
                 display_name: form.display_name.trim() || null,
+                alias: form.alias.trim() || null,
                 bio: form.bio.trim() || null,
             };
 
@@ -328,14 +357,13 @@ export default function ParticipantDetailPage() {
 
                 return {
                     ...previous,
-                    role: body.role ?? previous.role,
-                    committee_id: body.committee_id ?? null,
                     delegation_name: body.delegation_name ?? null,
                     institution_name: body.institution_name ?? null,
                     profile: {
                         first_name: form.first_name.trim(),
                         last_name: form.last_name.trim(),
                         display_name: form.display_name.trim() || null,
+                        alias: form.alias.trim() || null,
                         bio: form.bio.trim() || null,
                         profile_image_path:
                             previous.profile?.profile_image_path ?? null,
@@ -345,14 +373,25 @@ export default function ParticipantDetailPage() {
 
             setSuccess("Cambios guardados correctamente.");
         } catch (saveError) {
-            setApiError(
-                saveError instanceof ApiError
-                    ? saveError.message
-                    : "No se pudo actualizar el participante. Intenta de nuevo.",
-            );
+            setApiError(getActionErrorMessage(saveError));
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        setApiError(null);
+        setSuccess(null);
+
+        const validationErrors = validate();
+
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        void saveParticipant();
     };
 
     const openLifecycleAction = (action: LifecycleAction) => {
@@ -432,13 +471,60 @@ export default function ParticipantDetailPage() {
             setLifecycleAction(null);
             setActionError(null);
         } catch (actionFailure) {
-            setActionError(
-                actionFailure instanceof ApiError
-                    ? actionFailure.message
-                    : "No se pudo completar la acción. Intenta de nuevo.",
-            );
+            setActionError(getActionErrorMessage(actionFailure));
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const openCommitteeDialog = () => {
+        setCommitteeError(null);
+        setApiError(null);
+        setCommitteeDialogOpen(true);
+    };
+
+    const closeCommitteeDialog = () => {
+        if (committeeLoading) {
+            return;
+        }
+
+        setCommitteeDialogOpen(false);
+        setCommitteeError(null);
+    };
+
+    const handleChangeCommittee = async (
+        committeeId: string | null,
+        reason: string,
+    ) => {
+        if (!token || !participant) {
+            return;
+        }
+
+        setCommitteeLoading(true);
+        setCommitteeError(null);
+
+        try {
+            const response = await changeParticipantCommittee(
+                token,
+                participant.id,
+                committeeId,
+                reason || undefined,
+            );
+
+            setParticipant((previous) =>
+                previous
+                    ? {
+                          ...previous,
+                          committee_id: response.membership.committee_id,
+                      }
+                    : previous,
+            );
+            setCommitteeDialogOpen(false);
+            setSuccess(response.message);
+        } catch (actionFailure) {
+            setCommitteeError(getActionErrorMessage(actionFailure));
+        } finally {
+            setCommitteeLoading(false);
         }
     };
 
@@ -446,16 +532,20 @@ export default function ParticipantDetailPage() {
         ? getParticipantName(participant)
         : "este participante";
     const isSuspended = participant?.account_status === "SUSPENDED";
+    const currentCommittee = participant?.committee_id
+        ? committees.find((committee) => committee.id === participant.committee_id)
+        : undefined;
 
     const lifecycleDialog = lifecycleAction ? (
-        <AdminConfirmDialog
+        <ConfirmDialog
+            open
             key={lifecycleAction}
             title={
                 lifecycleAction === "suspend"
-                    ? "Suspender cuenta"
+                    ? "¿Suspender esta cuenta?"
                     : lifecycleAction === "reactivate"
-                      ? "Reactivar cuenta"
-                      : "Restablecer contraseña"
+                      ? "¿Reactivar esta cuenta?"
+                      : "¿Restablecer la contraseña?"
             }
             description={
                 lifecycleAction === "suspend"
@@ -471,7 +561,7 @@ export default function ParticipantDetailPage() {
                       ? "Reactivar cuenta"
                       : "Restablecer contraseña"
             }
-            variant={lifecycleAction === "suspend" ? "danger" : "primary"}
+            tone={lifecycleAction === "reactivate" ? "default" : "danger"}
             requireReason={lifecycleAction !== "reset-password"}
             reasonLabel={
                 lifecycleAction === "suspend"
@@ -481,7 +571,7 @@ export default function ParticipantDetailPage() {
             loading={actionLoading}
             error={actionError}
             onCancel={closeLifecycleAction}
-            onConfirm={handleConfirmLifecycleAction}
+            onConfirm={(reason) => handleConfirmLifecycleAction(reason ?? "")}
         />
     ) : null;
 
@@ -489,11 +579,6 @@ export default function ParticipantDetailPage() {
         <div className="max-w-2xl mx-auto space-y-6">
             <AdminPageHeader
                 title={participant ? participantName : "Participante"}
-                description={
-                    participant
-                        ? `Código ${participant.participant_code} en ${eventName}.`
-                        : "Detalle del participante."
-                }
                 breadcrumb={[
                     { label: "Panel", href: "/admin" },
                     { label: "Eventos", href: "/admin/events" },
@@ -505,11 +590,12 @@ export default function ParticipantDetailPage() {
                     { label: participant ? participantName : "Participante" },
                 ]}
                 action={
-                    <Link href={`/admin/events/${eventId}/participants`}>
-                        <AdminButton variant="secondary">
-                            Volver a participantes
-                        </AdminButton>
-                    </Link>
+                    <AdminButton
+                        href={`/admin/events/${eventId}/participants`}
+                        variant="secondary"
+                    >
+                        Volver a participantes
+                    </AdminButton>
                 }
             />
 
@@ -530,12 +616,18 @@ export default function ParticipantDetailPage() {
             )}
 
             {temporaryPassword && (
-                <AdminCredentialBanner
+                <AdminCredentialsDialog
                     title="Contraseña temporal generada"
-                    participantCode={participant?.participant_code}
-                    password={temporaryPassword}
-                    note="Compártela con el participante. No se volverá a mostrar."
-                    onDismiss={() => setTemporaryPassword(null)}
+                    description={`Comparte esta contraseña con ${participantName}.`}
+                    fields={[
+                        {
+                            key: "password",
+                            label: "Contraseña temporal",
+                            value: temporaryPassword,
+                        },
+                    ]}
+                    note="Guárdala ahora. No se volverá a mostrar."
+                    onClose={() => setTemporaryPassword(null)}
                 />
             )}
 
@@ -562,7 +654,7 @@ export default function ParticipantDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el participante"
                         description={loadError}
                         action={
@@ -571,7 +663,7 @@ export default function ParticipantDetailPage() {
                                 onClick={() =>
                                     setReloadKey((value) => value + 1)
                                 }
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
@@ -590,19 +682,33 @@ export default function ParticipantDetailPage() {
                             boxShadow: "var(--shadow-sm)",
                         }}
                     >
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
-                                    Código
+                                    Código de login
                                 </p>
                                 <p
                                     className="mt-1 text-sm font-semibold font-heading"
                                     style={{ color: "var(--text-primary)" }}
                                 >
                                     {participant.participant_code}
+                                </p>
+                            </div>
+                            <div>
+                                <p
+                                    className="text-xs font-bold font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Código #
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {participant.delegation_code ?? "Sin código"}
                                 </p>
                             </div>
                             <div>
@@ -620,7 +726,7 @@ export default function ParticipantDetailPage() {
                             </div>
                             <div>
                                 <p
-                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    className="text-xs font-bold font-heading"
                                     style={{ color: "var(--text-muted)" }}
                                 >
                                     Creado
@@ -633,12 +739,48 @@ export default function ParticipantDetailPage() {
                                 </p>
                             </div>
                         </div>
+
+                        <div
+                            className="mt-4 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                            style={{
+                                borderTop: "1px solid var(--border-light)",
+                            }}
+                        >
+                            <div>
+                                <p
+                                    className="text-[10px] font-extrabold uppercase tracking-widest font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Comité actual
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {currentCommittee
+                                        ? `${currentCommittee.code} — ${currentCommittee.name}`
+                                        : participant.committee_id
+                                          ? "Comité no disponible"
+                                          : "Sin comité"}
+                                </p>
+                            </div>
+                            <AdminButton
+                                type="button"
+                                variant="secondary"
+                                icon={<IconBuilding size={16} />}
+                                onClick={openCommitteeDialog}
+                                disabled={committeesLoading || committeeLoading}
+                            >
+                                Cambiar comité
+                            </AdminButton>
+                        </div>
+
                         <p
                             className="mt-4 text-xs"
                             style={{ color: "var(--text-muted)" }}
                         >
-                            El código, el evento y el usuario no se pueden
-                            modificar.
+                            El código de login, el código #, el evento y el
+                            usuario no se pueden modificar.
                         </p>
                     </div>
 
@@ -660,51 +802,44 @@ export default function ParticipantDetailPage() {
                             />
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <AdminFormInput
-                                id="participant-role"
-                                label="Rol"
-                                placeholder="Ej: DELEGADO"
-                                required
-                                list="participant-role-options"
-                                value={form.role}
-                                onChange={(event) =>
-                                    handleChange(
-                                        "role",
-                                        event.target.value.toUpperCase(),
-                                    )
-                                }
-                                error={errors.role}
-                                hint="Los roles administrativos se detectan por ADMIN, COORDINADOR u ORGANIZADOR."
-                                disabled={saving}
-                            />
-
-                            <AdminFormSelect
-                                id="participant-committee"
-                                label="Comité"
-                                value={form.committee_id}
-                                onChange={(event) =>
-                                    handleChange(
-                                        "committee_id",
-                                        event.target.value,
-                                    )
-                                }
-                                options={committeeOptions}
-                                disabled={saving}
-                            />
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p
+                                    className="text-xs font-bold font-heading"
+                                    style={{ color: "var(--text-muted)" }}
+                                >
+                                    Rol
+                                </p>
+                                <p
+                                    className="mt-1 text-sm font-semibold font-heading"
+                                    style={{ color: "var(--text-primary)" }}
+                                >
+                                    {formatRoleLabel(participant.role)}
+                                </p>
+                            </div>
+                            {canChangeModerator && (
+                                <AdminButton
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setRoleError(null);
+                                        setRoleDialogOpen(true);
+                                    }}
+                                    disabled={saving}
+                                >
+                                    {isModerator
+                                        ? "Quitar moderador"
+                                        : "Hacer moderador"}
+                                </AdminButton>
+                            )}
                         </div>
-
-                        <datalist id="participant-role-options">
-                            {ROLE_SUGGESTIONS.map((role) => (
-                                <option key={role} value={role} />
-                            ))}
-                        </datalist>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <AdminFormInput
                                 id="participant-delegation"
                                 label="Delegación"
                                 placeholder="Ej: Francia"
+                                maxLength={120}
                                 value={form.delegation_name}
                                 onChange={(event) =>
                                     handleChange(
@@ -718,6 +853,7 @@ export default function ParticipantDetailPage() {
                                 id="participant-institution"
                                 label="Institución"
                                 placeholder="Ej: Universidad ESEN"
+                                maxLength={120}
                                 value={form.institution_name}
                                 onChange={(event) =>
                                     handleChange(
@@ -735,6 +871,7 @@ export default function ParticipantDetailPage() {
                                 label="Nombre"
                                 placeholder="Ej: María"
                                 required
+                                maxLength={100}
                                 value={form.first_name}
                                 onChange={(event) =>
                                     handleChange(
@@ -750,6 +887,7 @@ export default function ParticipantDetailPage() {
                                 label="Apellido"
                                 placeholder="Ej: López"
                                 required
+                                maxLength={100}
                                 value={form.last_name}
                                 onChange={(event) =>
                                     handleChange(
@@ -762,20 +900,34 @@ export default function ParticipantDetailPage() {
                             />
                         </div>
 
-                        <AdminFormInput
-                            id="participant-display-name"
-                            label="Nombre para mostrar"
-                            placeholder="Ej: María López (opcional)"
-                            value={form.display_name}
-                            onChange={(event) =>
-                                handleChange(
-                                    "display_name",
-                                    event.target.value,
-                                )
-                            }
-                            hint="Si lo dejas vacío, se mostrará el nombre y apellido."
-                            disabled={saving}
-                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <AdminFormInput
+                                id="participant-display-name"
+                                label="Nombre para mostrar"
+                                placeholder="Ej: María López (opcional)"
+                                value={form.display_name}
+                                onChange={(event) =>
+                                    handleChange(
+                                        "display_name",
+                                        event.target.value,
+                                    )
+                                }
+                                hint="Si lo dejas vacío, se mostrará el nombre y apellido."
+                                disabled={saving}
+                            />
+                            <AdminFormInput
+                                id="participant-alias"
+                                label="Alias"
+                                placeholder="Ej: Anita (opcional)"
+                                maxLength={60}
+                                value={form.alias}
+                                onChange={(event) =>
+                                    handleChange("alias", event.target.value)
+                                }
+                                hint="Máximo 60 caracteres."
+                                disabled={saving}
+                            />
+                        </div>
 
                         <AdminFormTextarea
                             id="participant-bio"
@@ -811,7 +963,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="submit"
                                 loading={saving}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                                icon={<IconCheck size={16} />}
                             >
                                 {saving
                                     ? "Guardando..."
@@ -848,7 +1000,7 @@ export default function ParticipantDetailPage() {
                             <AdminButton
                                 type="button"
                                 variant="secondary"
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/key.svg"
+                                icon={<IconKey size={16} />}
                                 onClick={() =>
                                     openLifecycleAction("reset-password")
                                 }
@@ -860,7 +1012,7 @@ export default function ParticipantDetailPage() {
                             {isSuspended ? (
                                 <AdminButton
                                     type="button"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-check.svg"
+                                    icon={<IconUserCheck size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("reactivate")
                                     }
@@ -872,7 +1024,7 @@ export default function ParticipantDetailPage() {
                                 <AdminButton
                                     type="button"
                                     variant="danger"
-                                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/user-off.svg"
+                                    icon={<IconUserOff size={16} />}
                                     onClick={() =>
                                         openLifecycleAction("suspend")
                                     }
@@ -894,6 +1046,41 @@ export default function ParticipantDetailPage() {
                         )}
                     </div>
                 </>
+            )}
+
+            {committeeDialogOpen && participant && (
+                <AdminChangeCommitteeDialog
+                    participantName={participantName}
+                    currentCommitteeId={participant.committee_id}
+                    committees={committees}
+                    loading={committeeLoading}
+                    error={committeeError}
+                    onCancel={closeCommitteeDialog}
+                    onConfirm={handleChangeCommittee}
+                />
+            )}
+
+            {roleDialogOpen && participant && (
+                <AdminReasonDialog
+                    title={
+                        isModerator
+                            ? "¿Quitar el rol de moderador?"
+                            : "¿Hacer moderador a este participante?"
+                    }
+                    description={
+                        isModerator
+                            ? `${participantName} volverá a ser participante y perderá el acceso a Moderación.`
+                            : `${participantName} podrá ver y moderar todos los muros del evento, eliminar y fijar publicaciones. No podrá crear cuentas ni editar el evento.`
+                    }
+                    confirmLabel={isModerator ? "Quitar moderador" : "Hacer moderador"}
+                    required={false}
+                    reasonLabel="Motivo (opcional)"
+                    loading={roleLoading}
+                    error={roleError}
+                    confirmDisabled={roleBlocked}
+                    onCancel={() => setRoleDialogOpen(false)}
+                    onConfirm={handleChangeRole}
+                />
             )}
 
             {lifecycleDialog}

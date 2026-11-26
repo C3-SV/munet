@@ -1,10 +1,17 @@
 # Base de datos
 
-## Alcance de esta referencia
+## Qué está versionado
 
-No hay migraciones, DDL, seeds ni políticas RLS versionadas. Este documento es un modelo **inferido de las consultas del código**, no una descripción certificada del esquema desplegado.
+| Fuente | Contenido y alcance |
+|---|---|
+| [Snapshot de public](../../supabase/schema.sql) | Columnas y resumen de enums y constraints. Extraído el 26 de octubre de 2026 y actualizado con la 001. Es una referencia, sin DDL base reproducible, políticas ni volcado completo de índices y funciones. |
+| [Migración 001](../../supabase/migrations/001_alias_codigo_fijados_archivos.sql) | Alias, código de delegación, fijado, atribución de borrado, adjuntos e índices únicos parciales para muros y código de delegación. Su encabezado registra aplicación el 5 de noviembre de 2026. |
+| [Migración 002](../../supabase/migrations/002_codigo_delegacion.sql) | Contador, RPC, trigger de inmutabilidad y asignación a registros existentes. Requiere la 001. Aplicada el 21 de noviembre de 2026 desde el SQL Editor y verificada con consultas de solo lectura: contadores por evento, RLS que niega al rol anónimo, todas las membresías vigentes con código, sin duplicados ni formatos inesperados. |
+| [Migración 003](../../supabase/migrations/003_adjuntos_un_por_post.sql) | Un adjunto por post, intentos de subida (`attachment_uploads`) y retención de adjuntos. Requiere la 001, no la 002. Aplicada el 20 de noviembre de 2026 desde el SQL Editor y verificada con consultas de solo lectura (tabla, `retention_hold`, restricción de tipo y RLS que niega al rol anónimo). El snapshot no la refleja. |
 
-## Entidades observadas
+Esas notas de aplicación son históricas. Esta revisión no consultó Supabase. Las migraciones son incrementales y requieren una base previa. El SQL de adjuntos, contador e intentos de subida habilita RLS en esas tablas. Las políticas efectivas de las tablas principales, Storage y la publicación Realtime quedan por confirmar.
+
+## Relaciones del dominio
 
 ```mermaid
 erDiagram
@@ -13,44 +20,19 @@ erDiagram
   EVENTS ||--o{ COMMITTEES : contiene
   EVENTS ||--o{ WALLS : contiene
   COMMITTEES o|--o{ EVENT_MEMBERSHIPS : asigna
-  EVENT_MEMBERSHIPS ||--o{ PROFILES : representa
+  EVENT_MEMBERSHIPS ||--o| PROFILES : representa
   WALLS ||--o{ POSTS : recibe
-  EVENT_MEMBERSHIPS ||--o{ POSTS : autoriza
   POSTS ||--o{ POST_COMMENTS : contiene
   POSTS ||--o| POLLS : puede_tener
   POLLS ||--o{ POLL_OPTIONS : ofrece
   POLL_OPTIONS ||--o{ POLL_VOTES : recibe
   EVENTS ||--o{ DM_CONVERSATIONS : contiene
   DM_CONVERSATIONS ||--o{ DM_MESSAGES : contiene
+  EVENTS ||--o| EVENT_DELEGATION_COUNTERS : numera
 ```
 
-Tablas referenciadas: `users`, `events`, `event_memberships`, `committees`, `walls`, `profiles`, `posts`, `post_committee_tags`, `post_comments`, `polls`, `poll_options`, `poll_votes`, `dm_conversations`, `dm_messages`, `audit_logs` y `auth_attempts`.
+Los campos y usos están en [modelos de datos](../03-referencia/modelos-de-datos.md). El snapshot resume unicidad de códigos de participante por evento y de votos por encuesta y membresía. La migración 001 limita a uno cada tipo de muro general/anuncios vigente por evento y un muro vigente por comité. Estos índices limitan duplicados, pero no crean muros.
 
-## Relaciones funcionales
+## Validaciones pendientes
 
-- `event_memberships` vincula usuario, evento, rol, estado, código y opcionalmente comité.
-- `profiles` expone datos públicos asociados a membresía.
-- `walls` pertenece al evento y puede referir un comité.
-- `posts` pertenece a muro y membresía autora; una encuesta agrega `polls`, opciones y votos.
-- `dm_conversations` y `dm_messages` se restringen funcionalmente al evento.
-- `audit_logs` y `auth_attempts` reciben trazas best-effort.
-
-## Restricciones esperadas pero no verificables
-
-- `participant_code` único por evento.
-- Un voto vigente por encuesta y membresía.
-- Una conversación uno a uno única por pareja/evento.
-- Claves foráneas y cascadas coherentes.
-- Enumeraciones para estados de evento, cuenta, contenido y mensaje.
-- Políticas RLS para tablas y canales Realtime.
-- Buckets y políticas de Storage.
-
-## Anomalías observadas en el contrato
-
-- El código asigna `AUTHOR` o `ADMIN` a `posts.deleted_by_membership_id`, aunque el nombre sugiere un UUID de membresía.
-- El borrado de DM usa un único estado, `DELETED` (enum `dm_message_status_enum`: `VISIBLE`, `DELETED`). Antes probaba varios valores mediante `DM_DELETED_MESSAGE_STATUS`; esa variable ya no existe.
-- La creación de evento, encuesta y otras operaciones relacionadas no es atómica desde la API.
-
-## Acción previa a cambios de datos
-
-Obtener un dump de esquema sin datos, políticas RLS, índices, triggers, funciones, enums y configuración de Storage. Compararlo con [modelos de datos](../03-referencia/modelos-de-datos.md) antes de diseñar migraciones.
+La [compatibilidad entre API y esquema](../07-auditoria/discrepancias.md#d-05--compatibilidad-entre-api-y-esquema) debe comprobarse en una base aislada, en particular el rol al crear un evento y las columnas/RPC usadas por participantes y perfiles. Verificar también triggers existentes, aprovisionamiento de muros iniciales, reutilización de conversaciones bajo concurrencia y acceso efectivo a canales y avatares.

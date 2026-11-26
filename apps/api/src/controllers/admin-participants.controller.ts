@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { logAudit } from '../utils/audit.logger';
+import { isAdminRole } from '../utils/rbac.utils';
 import {
   IMPORT_CONFIRM_BATCH_MAX,
   IMPORT_MAX_ROWS,
@@ -8,9 +9,11 @@ import {
   ImportCommittee,
   NormalizedImportRow,
   buildImportPreview,
+  foldText,
   validateConfirmRows,
 } from '../utils/participant-import.utils';
 import { createParticipantAccount } from '../services/participant-account.service';
+import { resolveOrCreateImportCommittee, ResolvedImportCommittee } from '../services/committee-import.service';
 
 // Sprint 2 del sitio admin: importacion CSV (S2-05, S2-07) y cambio de
 // comite (S2-08). La autorizacion por evento ya la resolvio
@@ -19,6 +22,63 @@ import { createParticipantAccount } from '../services/participant-account.servic
 const CSV_MAX_CHARS = 2_000_000;
 const IMPORT_CONCURRENCY = 5;
 const PAGE_SIZE = 1000;
+
+type ChangeRoleBody = { role: 'PARTICIPANT' | 'MODERATOR'; reason?: string };
+
+// El cambio operativo de rol no sirve para otorgar ni retirar administracion.
+export const changeParticipantRole = async (
+  req: Request<{ membershipId: string }, {}, ChangeRoleBody>,
+  res: Response
+) => {
+  try {
+    const body = req.body ?? {};
+    if (!['PARTICIPANT', 'MODERATOR'].includes(body.role)) {
+      return res.status(400).json({ error: 'role debe ser PARTICIPANT o MODERATOR' });
+    }
+    if (body.reason !== undefined && body.reason !== null && typeof body.reason !== 'string') {
+      return res.status(400).json({ error: 'reason debe ser texto' });
+    }
+    const reason = body.reason?.trim();
+    const { membershipId } = req.params;
+    const actorUserId = req.auth?.userId ?? null;
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from('event_memberships')
+      .select('id, event_id, user_id, role')
+      .eq('id', membershipId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (lookupError) return res.status(500).json({ error: 'No se pudo consultar el registro' });
+    if (!existing) return res.status(404).json({ error: 'Participante no encontrado' });
+    if (isAdminRole(existing.role)) return res.status(403).json({ error: 'No se puede cambiar el rol de una membership administrativa' });
+    if (existing.role === body.role) return res.status(400).json({ error: 'El participante ya tiene ese rol' });
+
+    const { data: membership, error } = await supabaseAdmin
+      .from('event_memberships')
+      .update({ role: body.role, updated_by_user_id: actorUserId })
+      .eq('id', membershipId)
+      .select('id, event_id, user_id, role')
+      .single();
+
+    if (error) return res.status(400).json({ error: error.message });
+    await logAudit({
+      eventId: existing.event_id,
+      membership: req.auth?.currentMembership,
+      actorUserId: actorUserId ?? undefined,
+      targetMembershipId: membershipId,
+      targetUserId: existing.user_id,
+      actionType: 'CHANGE_ROLE',
+      entityType: 'MEMBERSHIP',
+      entityId: membershipId,
+      outcome: 'SUCCESS',
+      reason: `Rol ${existing.role} -> ${body.role}${reason ? `. Motivo: ${reason}` : ''}`,
+    });
+    return res.json({ message: 'Rol actualizado correctamente', membership });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
 
 // Las respuestas con contrasenas no se deben guardar en caches ni proxies.
 const noStore = (res: Response) => res.setHeader('Cache-Control', 'no-store');
@@ -68,7 +128,7 @@ const loadImportContext = async (eventId: string) => {
   const { codes, error: codesError } = await loadExistingCodes(eventId);
   if (codesError) return { fail: { status: 500, error: 'No se pudieron consultar los participantes' } };
 
-  return { committees, codes };
+  return { committees, codes, eventStatus: (event.status as string | null) ?? null };
 };
 
 // POST /admin/participants/import/preview  { event_id, csv }
@@ -138,13 +198,62 @@ export const confirmParticipantImport = async (req: Request, res: Response) => {
     const checked = validateConfirmRows(req.body?.rows, { committees, existingParticipantCodes: ctx.codes! });
     if (checked.error) return res.status(400).json({ error: checked.error });
 
-    const committeeById = new Map(committees.map((c) => [c.id, c]));
     const created: CreatedCredential[] = [];
     const failed: FailedRow[] = checked.invalid.map((item) => ({
       row: item.row,
       participant_code: item.participant_code,
       errors: item.errors,
     }));
+
+    // Comites que no existen en el evento: se resuelven una vez por nombre antes de
+    // crear cuentas. Si el comite ya existe (p. ej. lo creo un lote anterior), se reutiliza.
+    const pendingNames = new Map<string, string>();
+    checked.valid.forEach((row) => {
+      if (!row.committee_id && row.new_committee_name && !pendingNames.has(foldText(row.new_committee_name))) {
+        pendingNames.set(foldText(row.new_committee_name), row.new_committee_name);
+      }
+    });
+    const resolvedCommittees = new Map<string, ResolvedImportCommittee>();
+    for (const [key, name] of pendingNames) {
+      resolvedCommittees.set(key, await resolveOrCreateImportCommittee({
+        eventId,
+        name,
+        committees,
+        actorUserId,
+        eventStatus: ctx.eventStatus ?? null,
+      }));
+    }
+    for (const result of resolvedCommittees.values()) {
+      if (!result.ok || !result.created) continue;
+      await logAudit({
+        eventId,
+        membership: actor,
+        actorUserId: actorUserId ?? undefined,
+        actionType: 'CREATE_COMMITTEE',
+        entityType: 'COMMITTEE',
+        entityId: result.committee.id,
+        outcome: 'SUCCESS',
+        reason: `Comite creado por importacion CSV: ${result.committee.name}`,
+      });
+    }
+
+    const rowsToCreate = checked.valid.filter((row) => {
+      if (row.committee_id || !row.new_committee_name) return true;
+      const result = resolvedCommittees.get(foldText(row.new_committee_name));
+      if (result?.ok) {
+        row.committee_id = result.committee.id;
+        row.committee_label = result.committee.name;
+        return true;
+      }
+      failed.push({
+        row: row.row,
+        participant_code: row.participant_code,
+        errors: [result && !result.ok ? result.error : 'No se pudo crear el comite'],
+      });
+      return false;
+    });
+
+    const committeeById = new Map(committees.map((c) => [c.id, c]));
 
     const createRow = async (row: NormalizedImportRow) => {
       const result = await createParticipantAccount(
@@ -189,6 +298,8 @@ export const confirmParticipantImport = async (req: Request, res: Response) => {
         eventId,
         membership: actor,
         actorUserId: actorUserId ?? undefined,
+        targetMembershipId: result.membership.id,
+        targetUserId: typeof result.user.id === 'string' ? result.user.id : undefined,
         actionType: 'CREATE_ACCOUNT',
         entityType: 'ACCOUNT',
         entityId: result.membership.id,
@@ -199,7 +310,7 @@ export const confirmParticipantImport = async (req: Request, res: Response) => {
 
     // Pocas altas en paralelo: rapido sin saturar la base ni el limite de
     // tiempo de la funcion serverless.
-    const queue = [...checked.valid];
+    const queue = [...rowsToCreate];
     const workers = Array.from({ length: Math.min(IMPORT_CONCURRENCY, queue.length) }, async () => {
       for (let row = queue.shift(); row; row = queue.shift()) {
         try {
@@ -265,7 +376,7 @@ export const changeParticipantCommittee = async (
 
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from('event_memberships')
-      .select('id, event_id, committee_id')
+      .select('id, event_id, user_id, committee_id')
       .eq('id', membershipId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -308,6 +419,8 @@ export const changeParticipantCommittee = async (
       eventId: existing.event_id,
       membership: req.auth?.currentMembership,
       actorUserId: actorUserId ?? undefined,
+      targetMembershipId: membershipId,
+      targetUserId: existing.user_id,
       actionType: 'CHANGE_COMMITTEE',
       entityType: 'MEMBERSHIP',
       entityId: membershipId,

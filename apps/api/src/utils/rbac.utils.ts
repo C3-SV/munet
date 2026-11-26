@@ -1,23 +1,29 @@
+// Valores de membership_role_enum en la base (supabase/schema.sql).
+export const MEMBERSHIP_ROLES = ['PARTICIPANT', 'MODERATOR', 'ADMIN_MUN', 'ADMIN_TECH'] as const;
+
+export const isMembershipRole = (role: unknown): boolean =>
+  typeof role === 'string' && (MEMBERSHIP_ROLES as readonly string[]).includes(role);
+
 // Normaliza nombres de rol para evaluarlos de forma consistente.
 export const normalizeRole = (role: string | null | undefined) =>
   (role ?? '').trim().toUpperCase();
 
-// Determina si el rol tiene privilegios administrativos.
+// Determina si el rol tiene privilegios administrativos: solo los dos administradores del enum.
 export const isAdminRole = (role: string | null | undefined) => {
   const normalizedRole = normalizeRole(role);
 
-  return (
-    normalizedRole.includes('ADMIN') ||
-    normalizedRole.includes('COORDINADOR') ||
-    normalizedRole.includes('ORGANIZADOR')
-  );
+  return normalizedRole === 'ADMIN_MUN' || normalizedRole === 'ADMIN_TECH';
 };
 
-// Detector auxiliar de roles moderadores para posibles reglas futuras.
-export const isModeratorRole = (role: string | null | undefined) => {
-  const normalizedRole = normalizeRole(role);
-  return normalizedRole.includes('MODERADOR') || normalizedRole.includes('MODERATOR');
-};
+// Los roles nuevos se comparan por valor exacto para no ampliar privilegios.
+export const isModeratorRole = (role: string | null | undefined) =>
+  normalizeRole(role) === 'MODERATOR';
+
+export const isSuperAdminRole = (role: string | null | undefined) =>
+  normalizeRole(role) === 'ADMIN_TECH';
+
+export const canModerateRole = (role: string | null | undefined) =>
+  isAdminRole(role) || isModeratorRole(role);
 
 // Evalua acceso a muros de comite segun rol y comite asignado.
 export const canAccessCommitteeWall = (params: {
@@ -29,7 +35,7 @@ export const canAccessCommitteeWall = (params: {
     return true;
   }
 
-  if (isAdminRole(params.role)) {
+  if (canModerateRole(params.role)) {
     return true;
   }
 

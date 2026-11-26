@@ -32,9 +32,11 @@ sequenceDiagram
 
 La API usa una clave privilegiada para datos; por eso la autorización de aplicación es crítica. El navegador crea además un cliente Supabase para Realtime y establece el token explícitamente solo en chat, no en feed/comentarios.
 
+[ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md) (aceptada, no implementada) añade Cloudflare R2: el navegador subirá y descargará adjuntos directamente de R2 con URL firmadas que emite la API, que sigue controlando toda la autorización.
+
 ## Límites comprobados
 
-- No hay esquema SQL, migraciones, seeds ni políticas RLS en el repositorio.
+- Hay un snapshot parcial y dos migraciones incrementales. La base reproducible y las políticas completas quedan pendientes. Véase [base de datos](base-de-datos.md).
 - No hay configuración de CI/CD o infraestructura versionada.
 - `apps/docs` sigue siendo una plantilla y no sirve estos Markdown.
 - Los contratos son tipos y controladores TypeScript, sin OpenAPI.
@@ -44,16 +46,16 @@ La API usa una clave privilegiada para datos; por eso la autorización de aplica
 
 - `apps/web/app` depende de componentes, `stores/auth.store.ts` y clientes de `lib/api`.
 - `apps/web/lib/api` encapsula HTTP hacia la API; `lib/supabase.ts` se reserva para Realtime.
-- `apps/api/server.ts` monta routers; éstos llaman controladores y, para posts/chat, servicios/utilidades.
-- `apps/api/lib/supabase.ts` expone clientes anon y service-role.
+- `apps/api/src/server.ts` monta routers. Los controladores usan servicios de autenticación, cuentas, búsqueda, posts, comentarios, muros y chat.
+- `apps/api/src/lib/supabase.ts` expone clientes anon y service-role.
 - `packages/ui` no es el sistema de componentes principal de la interfaz revisada.
 
 ## Riesgos arquitectónicos
 
-1. El modelo de datos efectivo está fuera del control de versiones.
+1. La correspondencia del esquema efectivo con el SQL versionado está pendiente de comprobar.
 2. El service role elude RLS; un error de autorización del backend puede cruzar eventos.
 3. El frontend y backend no comparten tipos de contrato.
-4. Turborepo no ejecuta build, lint o typecheck de la API porque ese paquete no define esos scripts.
-5. La autorización administrativa global no coincide con el aislamiento histórico por evento.
+4. Turborepo incluye build y tipos de la API. Lint de API y test general quedan pendientes.
+5. Las rutas administrativas con evento objetivo validan una membresía administrativa de ese evento. Consulta [autorización](../03-referencia/autenticacion.md).
 
 Las decisiones que sí tienen evidencia se registran en [ADR](../06-decisiones/README.md).

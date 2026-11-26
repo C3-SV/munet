@@ -16,6 +16,8 @@ import { normalizeAllowedOrigin } from './lib/cors';
 // - Registra middleware JSON y rutas por módulo.
 // - Inicia el servidor HTTP.
 const app = express();
+// Detras del proxy de Vercel, un salto confiable permite leer la IP real.
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT ?? 3002);
 const allowedOrigin = normalizeAllowedOrigin(process.env.WEB_APP_URL);
 

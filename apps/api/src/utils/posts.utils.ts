@@ -83,6 +83,8 @@ export const mapPost = (post: PostRow) => {
     timestamp: new Date(post.created_at).getTime(),
     committeeTags,
     isDeleted,
+    isPinned: post.is_pinned,
+    pinnedAt: post.pinned_at,
     deletedByActorType: post.deleted_by_membership_id,
     poll: null,
     user: {
@@ -93,7 +95,7 @@ export const mapPost = (post: PostRow) => {
       avatar:
         profile?.profile_image_path ??
         'https://ui-avatars.com/api/?name=Participante&background=E5E7EB&color=111827',
-      role: membership?.role ?? 'DELEGADO',
+      role: membership?.role ?? 'PARTICIPANT',
     },
   };
 };

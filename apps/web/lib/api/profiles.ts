@@ -17,8 +17,33 @@ export const getMyProfile = async (context: ProfileContext): Promise<MyProfile> 
     return payload.profile;
 };
 
+// Crea el perfil propio si la membresía no tiene uno (p. ej. el administrador que creó el evento).
+export const createMyProfile = async (
+    context: ProfileContext & {
+        firstName: string;
+        lastName: string;
+        displayName?: string;
+    },
+): Promise<MyProfile> => {
+    const payload = await requestApi<{ profile: MyProfile }>("/profiles/me", {
+        method: "POST",
+        token: context.token,
+        eventId: context.eventId,
+        body: {
+            first_name: context.firstName,
+            last_name: context.lastName,
+            display_name: context.displayName,
+        },
+    });
+
+    return payload.profile;
+};
+
 export const updateMyProfile = async (
     context: ProfileContext & {
+        // Solo los administradores pueden cambiar su propio nombre y apellido.
+        firstName?: string;
+        lastName?: string;
         displayName?: string;
         alias?: string | null;
         bio?: string;
@@ -31,6 +56,8 @@ export const updateMyProfile = async (
         token: context.token,
         eventId: context.eventId,
         body: {
+            first_name: context.firstName,
+            last_name: context.lastName,
             display_name: context.displayName,
             alias: context.alias,
             bio: context.bio,

@@ -118,7 +118,7 @@ pero sí refleja los mismos mensajes/estados en la UI):
    si no, es una pieza nueva a construir.
 
 5. **Importación CSV** — no es parte de S1-14; sigue fuera de alcance según
-   `docs/07-auditoria/pendientes.md`.
+   `docs/PENDIENTES.md`.
 
 ## Verificación
 

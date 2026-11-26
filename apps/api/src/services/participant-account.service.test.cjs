@@ -60,8 +60,10 @@ function harness(results = [], options = {}) {
   };
 }
 
+// Codigo libre en el evento y sin otra persona en otros eventos.
+const freeCode = () => [{ data: null }, { data: [] }];
 const successResults = () => [
-  { data: null }, { data: { id: 'u1' } }, { data: { id: 'm1' } }, { data: { id: 'p1' } },
+  ...freeCode(), { data: { id: 'u1' } }, { data: { id: 'm1' } }, { data: { id: 'p1' } },
 ];
 
 test('codigo existente devuelve 409 sin insertar ni generar credenciales', async () => {
@@ -87,7 +89,7 @@ for (const committee of [
 ]) {
   for (const cached of [false, true]) {
     test(`rechaza comite ${committee.status === 'ARCHIVED' ? 'archivado' : 'ajeno'} antes de insertar, precargado=${cached}`, async () => {
-      const results = [{ data: null }];
+      const results = freeCode();
       if (!cached) results.push({ data: committee });
       const h = harness(results);
       const result = await h.service.createParticipantAccount({ ...input(), committee_id: 'c1' }, 'admin-user',
@@ -108,14 +110,14 @@ for (const error of [
   { code: '23503', message: 'Referencia inexistente' },
 ]) {
   test(`fallo ${error.code} de membership borra user y devuelve ${error.code === '23505' ? 409 : 400}`, async () => {
-    const h = harness([{ data: null }, { data: { id: 'u1' } }, { error }, { data: null }]);
+    const h = harness([...freeCode(), { data: { id: 'u1' } }, { error }, { data: null }]);
     const result = await h.service.createParticipantAccount(input(), 'admin-user');
     assert.equal(result.ok, false);
     assert.equal(result.status, error.code === '23505' ? 409 : 400);
-    assert.equal(h.calls[2].table, 'event_memberships');
-    assert.equal(h.calls[2].steps[0][0], 'insert');
-    assert.equal(h.calls[3].table, 'users');
-    assert.deepEqual(h.calls[3].steps, [['delete'], ['eq', 'id', 'u1']]);
+    assert.equal(h.calls[3].table, 'event_memberships');
+    assert.equal(h.calls[3].steps[0][0], 'insert');
+    assert.equal(h.calls[4].table, 'users');
+    assert.deepEqual(h.calls[4].steps, [['delete'], ['eq', 'id', 'u1']]);
     assert.equal(h.calls.some(call => call.table === 'profiles'), false);
     assert.equal(h.rpcCalls.length, 0);
     h.done();
@@ -124,16 +126,16 @@ for (const error of [
 
 test('fallo al insertar perfil borra primero membership y despues user', async () => {
   const h = harness([
-    { data: null }, { data: { id: 'u1' } }, { data: { id: 'm1' } },
+    ...freeCode(), { data: { id: 'u1' } }, { data: { id: 'm1' } },
     { error: { message: 'Perfil invalido' } }, { data: null }, { data: null },
   ]);
   const result = await h.service.createParticipantAccount(input(), 'admin-user');
   assert.equal(result.ok, false);
   assert.equal(result.status, 400);
   assert.equal(result.error, 'Perfil invalido');
-  assert.equal(h.calls[3].table, 'profiles');
-  assert.equal(h.calls[3].steps[0][0], 'insert');
-  assert.deepEqual(h.calls.slice(4), [
+  assert.equal(h.calls[4].table, 'profiles');
+  assert.equal(h.calls[4].steps[0][0], 'insert');
+  assert.deepEqual(h.calls.slice(5), [
     { table: 'event_memberships', steps: [['delete'], ['eq', 'id', 'm1']] },
     { table: 'users', steps: [['delete'], ['eq', 'id', 'u1']] },
   ]);
@@ -184,7 +186,7 @@ test('alta exitosa asigna codigo con membership_id y guarda solo hash de la cont
 
 test('un rechazo de bcrypt no inserta ningun user', async () => {
   const hashError = new Error('No se pudo calcular hash');
-  const h = harness([{ data: null }], { hashError });
+  const h = harness(freeCode(), { hashError });
   await assert.rejects(h.service.createParticipantAccount(input(), 'admin-user'), error => error === hashError);
   assert.equal(h.generated, 1);
   assert.deepEqual(h.hashCalls, [[password, 10]]);
@@ -192,4 +194,54 @@ test('un rechazo de bcrypt no inserta ningun user', async () => {
   assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
   assert.equal(h.rpcCalls.length, 0);
   h.done();
+});
+
+test('codigo de otra persona en otro evento devuelve 409 sin insertar ni generar credenciales', async () => {
+  const h = harness([{ data: null }, { data: [{ user_id: 'otra-persona' }] }]);
+  const result = await h.service.createParticipantAccount(input(), 'admin-user');
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 409);
+  assert.match(result.error, /otra persona en otro evento/);
+  assert.deepEqual(h.calls[1].steps.filter(step => step[0] !== 'select' && step[0] !== 'limit'), [
+    ['eq', 'participant_code', 'COD001'], ['neq', 'event_id', 'event'], ['is', 'deleted_at', null],
+  ]);
+  assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+  assert.equal(h.generated, 0);
+  assert.equal(h.hashCalls.length, 0);
+  h.done();
+});
+
+test('la importacion CSV tambien comprueba el codigo en otros eventos aunque omita la comprobacion del evento', async () => {
+  const h = harness([{ data: [{ user_id: 'otra-persona' }] }]);
+  const result = await h.service.createParticipantAccount(input(), 'admin-user', { skipCodeCheck: true });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 409);
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].steps.some(step => step[0] === 'neq' && step[1] === 'event_id'), true);
+  h.done();
+});
+
+test('un fallo al comprobar el codigo en otros eventos devuelve 500 sin crear nada', async () => {
+  const h = harness([{ data: null }, { error: { message: 'fallo' } }]);
+  const result = await h.service.createParticipantAccount(input(), 'admin-user');
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 500);
+  assert.equal(h.calls.some(call => call.steps.some(step => step[0] === 'insert')), false);
+  h.done();
+});
+
+test('findCodeUsedByAnotherPerson permite repetir el codigo para la misma persona y bloquea a otra', async () => {
+  const same = harness([{ data: [{ user_id: 'u1' }] }]);
+  assert.deepEqual(plain(await same.service.findCodeUsedByAnotherPerson({ participantCode: 'DEL01', eventId: 'e2', userId: 'u1' })), { error: null, conflict: null });
+
+  const other = harness([{ data: [{ user_id: 'u1' }, { user_id: 'u2' }] }]);
+  const result = await other.service.findCodeUsedByAnotherPerson({ participantCode: 'DEL01', eventId: 'e2', userId: 'u1' });
+  assert.equal(result.error, null);
+  assert.match(result.conflict, /otra persona/);
+
+  const free = harness([{ data: [] }]);
+  assert.equal((await free.service.findCodeUsedByAnotherPerson({ participantCode: 'NUEVO', eventId: 'e2' })).conflict, null);
+
+  const broken = harness([{ error: { message: 'fallo' } }]);
+  assert.equal((await broken.service.findCodeUsedByAnotherPerson({ participantCode: 'X', eventId: 'e2' })).error, 'fallo');
 });

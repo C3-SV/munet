@@ -28,7 +28,20 @@ export type AuditActionType =
   | 'REACTIVATE_ACCOUNT'
   | 'RESET_PASSWORD'
   | 'CHANGE_COMMITTEE'
-  | 'IMPORT_PARTICIPANTS';
+  | 'CHANGE_ROLE'
+  | 'PIN_POST'
+  | 'UNPIN_POST'
+  | 'HIDE_POST'
+  | 'UNHIDE_POST'
+  | 'HIDE_COMMENT'
+  | 'UNHIDE_COMMENT'
+  | 'MODERATE_DELETE_POST'
+  | 'MODERATE_DELETE_COMMENT'
+  | 'IMPORT_PARTICIPANTS'
+  | 'UPLOAD_ATTACHMENT'
+  | 'DELETE_ATTACHMENT'
+  | 'MODERATE_DELETE_ATTACHMENT'
+  | 'ACCESS_DENIED';
 
 export type AuditEntityType =
   | 'POST'
@@ -42,17 +55,23 @@ export type AuditEntityType =
   | 'EVENT'
   | 'COMMITTEE'
   | 'MEMBERSHIP'
-  | 'ACCOUNT';
+  | 'ACCOUNT'
+  | 'ATTACHMENT';
 
 export type AuditOutcome = 'SUCCESS' | 'FAILURE' | 'DENIED';
 
 // Inserta un evento en audit_logs con fallback a membership o actor explicito.
+// Nunca lanza: un fallo (error de Supabase o excepcion) se registra con console.error
+// para que la operacion que llama no se corte por su auditoria.
+// eventId es null para denegaciones globales (audit_logs.event_id es nullable).
 export const logAudit = async (params: {
-  eventId: string;
+  eventId: string | null;
   membership?: AuthMembership;
   actorUserId?: string;
   actorMembershipId?: string;
   actorRole?: string;
+  targetMembershipId?: string;
+  targetUserId?: string;
   actionType: AuditActionType;
   entityType: AuditEntityType;
   entityId: string;
@@ -66,6 +85,8 @@ export const logAudit = async (params: {
       actor_user_id: params.membership?.userId ?? params.actorUserId ?? null,
       actor_membership_id: params.membership?.id ?? params.actorMembershipId ?? null,
       actor_role: params.membership?.role ?? params.actorRole ?? null,
+      target_membership_id: params.targetMembershipId ?? null,
+      target_user_id: params.targetUserId ?? null,
       action_type: params.actionType,
       entity_type: params.entityType,
       entity_id: params.entityId,

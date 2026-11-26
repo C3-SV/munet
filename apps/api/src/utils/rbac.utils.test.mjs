@@ -71,15 +71,21 @@ test("un admin accede a todos los muros de comité", () => {
   }
 });
 
-test("un moderador no accede a comités ajenos solo por su rol", () => {
-  assert.equal(
-    canAccessCommitteeWall({
-      role: "MODERATOR",
-      membershipCommitteeId: COMMITTEE_A,
-      wallCommitteeId: COMMITTEE_B,
-    }),
-    false,
-  );
+// Regla del Sprint 3 (S3-04): el moderador modera todos los muros del evento,
+// asi que tambien accede a comités ajenos (con o sin comité propio).
+// Publicar en avisos sigue reservado a admins (ver la prueba de avisos).
+test("un moderador accede a los muros de todos los comités", () => {
+  for (const membershipCommitteeId of [COMMITTEE_A, null]) {
+    assert.equal(
+      canAccessCommitteeWall({
+        role: "MODERATOR",
+        membershipCommitteeId,
+        wallCommitteeId: COMMITTEE_B,
+      }),
+      true,
+      String(membershipCommitteeId),
+    );
+  }
 });
 
 test("solo los admins publican en avisos", () => {

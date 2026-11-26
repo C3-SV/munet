@@ -21,6 +21,7 @@ export const DM_MEMBERSHIP_SELECT = `
     first_name,
     last_name,
     display_name,
+    alias,
     profile_image_path
   ),
   committees (
@@ -59,8 +60,9 @@ export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
   return {
     id: membership?.id ?? 'unknown',
     name,
+    alias: profile?.alias?.trim() || null,
     avatar: profile?.profile_image_path ?? avatarForName(name),
-    role: membership?.role ?? 'DELEGADO',
+    role: membership?.role ?? 'PARTICIPANT',
     committee: visibleCommittee?.name ?? visibleCommittee?.code ?? 'Sin comite',
     lastActive: 'Activo',
     delegationName: membership?.delegation_name ?? null,

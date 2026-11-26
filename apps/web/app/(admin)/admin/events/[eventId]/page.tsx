@@ -1,14 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminAlertBanner } from "../../../../../components/admin/AdminAlertBanner";
 import { AdminButton } from "../../../../../components/admin/AdminButton";
 import { AdminEmptyState } from "../../../../../components/admin/AdminEmptyState";
+import { AdminEventStatusCard, type AdminEventStatusFeedback } from "../../../../../components/admin/AdminEventStatusCard";
 import { AdminFormInput } from "../../../../../components/admin/AdminFormInput";
 import { AdminFormTextarea } from "../../../../../components/admin/AdminFormTextarea";
 import { AdminPageHeader } from "../../../../../components/admin/AdminPageHeader";
+import { getEventStatusToggleTarget } from "../../../../../lib/admin-event-status";
 import {
     getEvent,
     updateEvent,
@@ -18,6 +19,7 @@ import {
 } from "../../../../../lib/api/admin";
 import { ApiError } from "../../../../../lib/api/client";
 import { useAuthStore } from "../../../../../stores/auth.store";
+import { IconAlertTriangle, IconCheck, IconCommittees, IconDirectory, IconRefresh } from "../../../../../components/ui/icons";
 
 type FormState = {
     name: string;
@@ -83,6 +85,10 @@ export default function EventDetailPage() {
     const [apiError, setApiError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [statusSaving, setStatusSaving] = useState(false);
+    const [statusDialogError, setStatusDialogError] = useState<string | null>(null);
+    const [statusFeedback, setStatusFeedback] = useState<AdminEventStatusFeedback | null>(null);
 
     useEffect(() => {
         if (!token || !eventId) {
@@ -206,24 +212,58 @@ export default function EventDetailPage() {
         }
     };
 
+    // Cierra o reabre el evento con un PATCH que solo envía `status`. Se actualiza
+    // solo el estado del formulario para no perder cambios sin guardar en otros campos.
+    const handleConfirmStatusChange = async () => {
+        const target = event ? getEventStatusToggleTarget(event.status) : null;
+
+        if (!token || !target) {
+            setStatusDialogError("No se pudo cambiar el estado. Recarga la página.");
+            return;
+        }
+
+        setStatusSaving(true);
+        setStatusDialogError(null);
+
+        try {
+            const response = await updateEvent(token, eventId, { status: target });
+            setEvent(response.event);
+            setForm((previous) => ({ ...previous, status: response.event.status }));
+            setStatusDialogOpen(false);
+            setStatusFeedback({
+                type: "success",
+                message:
+                    response.event.status === "CLOSED"
+                        ? "El evento está cerrado. Participantes y moderadores solo podrán leer."
+                        : "El evento está abierto de nuevo.",
+            });
+        } catch (statusError) {
+            setStatusDialogError(
+                statusError instanceof ApiError
+                    ? statusError.message
+                    : "No se pudo cambiar el estado del evento. Intenta de nuevo.",
+            );
+        } finally {
+            setStatusSaving(false);
+        }
+    };
+
     const headerAction = event ? (
         <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/events/${eventId}/participants`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/users.svg"
-                >
-                    Participantes
-                </AdminButton>
-            </Link>
-            <Link href={`/admin/events/${eventId}/committees`}>
-                <AdminButton
-                    variant="secondary"
-                    icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/building.svg"
-                >
-                    Gestionar comités
-                </AdminButton>
-            </Link>
+            <AdminButton
+                href={`/admin/events/${eventId}/participants`}
+                variant="secondary"
+                icon={<IconDirectory size={16} />}
+            >
+                Participantes
+            </AdminButton>
+            <AdminButton
+                href={`/admin/events/${eventId}/committees`}
+                variant="secondary"
+                icon={<IconCommittees size={16} />}
+            >
+                Gestionar comités
+            </AdminButton>
         </div>
     ) : undefined;
 
@@ -263,20 +303,42 @@ export default function EventDetailPage() {
                     }}
                 >
                     <AdminEmptyState
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/alert-triangle.svg"
+                        icon={<IconAlertTriangle size={32} />}
                         title="No se pudo cargar el evento"
                         description={loadError}
                         action={
                             <AdminButton
                                 variant="secondary"
                                 onClick={() => setReloadKey((value) => value + 1)}
-                                icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/refresh.svg"
+                                icon={<IconRefresh size={16} />}
                             >
                                 Reintentar
                             </AdminButton>
                         }
                     />
                 </div>
+            )}
+
+            {!loading && !loadError && event && (
+                <AdminEventStatusCard
+                    status={event.status}
+                    disabled={saving}
+                    dialogOpen={statusDialogOpen}
+                    dialogLoading={statusSaving}
+                    dialogError={statusDialogError}
+                    feedback={statusFeedback}
+                    onOpenDialog={() => {
+                        setStatusFeedback(null);
+                        setStatusDialogError(null);
+                        setStatusDialogOpen(true);
+                    }}
+                    onCloseDialog={() => {
+                        setStatusDialogOpen(false);
+                        setStatusDialogError(null);
+                    }}
+                    onConfirm={() => void handleConfirmStatusChange()}
+                    onDismissFeedback={() => setStatusFeedback(null)}
+                />
             )}
 
             {!loading && !loadError && event && (
@@ -380,7 +442,7 @@ export default function EventDetailPage() {
                                 )
                             }
                             disabled={saving}
-                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
+                            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                             style={{
                                 backgroundColor: "var(--input-bg)",
                                 border: "1px solid var(--input-border)",
@@ -418,7 +480,7 @@ export default function EventDetailPage() {
                         <AdminButton
                             type="submit"
                             loading={saving}
-                            icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                            icon={<IconCheck size={16} />}
                         >
                             {saving ? "Guardando..." : "Guardar cambios"}
                         </AdminButton>

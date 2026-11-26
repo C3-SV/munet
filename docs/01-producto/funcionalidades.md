@@ -1,50 +1,23 @@
 # Funcionalidades y estado
 
-La clasificación refleja el código local revisado el 2026-10-23. “Implementado” no significa verificado en producción.
+Base de la clasificación: [revisión de main](../README.md). Para operar la plataforma, consulta el [manual funcional](manual-funcional.md).
 
-| Área | Problema que resuelve | Implementación actual | Estado |
-|---|---|---|---|
-| Activación y acceso | Incorporar cuentas precreadas y abrir sesión | API de búsqueda por código, activación, login y contexto; interfaz de login | Parcialmente implementado |
-| Multi-evento | Separar participaciones y elegir contexto | Membresías activas en sesión y selector de evento | Parcialmente implementado |
-| Eventos | Crear y administrar eventos | POST/PATCH administrativos; interfaces de listado, creación y configuración; crea en estado `ACTIVE` | Parcialmente implementado y divergente |
-| Comités | Organizar participantes y muros temáticos | Listado y alta administrativa; interfaces de listado, creación y edición | Parcialmente implementado |
-| Muros | Comunicación general, anuncios y comités | Lectura de muros y feed; acceso calculado por tipo y membresía | Parcialmente implementado |
-| Publicaciones | Publicar texto y encuestas | Alta, listado y eliminación; encuestas de 2–10 opciones | Parcialmente implementado |
-| Comentarios | Conversación bajo publicaciones | Alta, listado y eliminación; una profundidad | Parcialmente implementado |
-| Encuestas | Votar y cerrar consultas | Voto reemplazable y cierre por autor | Parcialmente implementado |
-| Perfiles | Identidad pública en el evento | Consulta/edición propia y administrativa; avatar público | Parcialmente implementado |
-| Mensajes directos | Comunicación uno a uno | Conversaciones, participantes, mensajes y borrado lógico | Parcialmente implementado |
-| Panel administrativo | Punto de entrada operacional | Layout responsive, dashboard y flujos de eventos/comités | Base parcial |
-| Cuentas y membresías administrativas | Altas, consulta, edición, suspensión/reactivación y restablecimiento de contraseña | Endpoints completos (`/admin/participants`, `/admin/create-account`); interfaz administrativa de listado, alta, edición y ciclo de vida por evento; CSV pendiente | Parcialmente implementado |
-| Moderación | Retirar contenido y sancionar | Administradores pueden eliminar posts/comentarios y editar perfiles; sin reportes/sanciones | Parcialmente implementado |
-| Auditoría | Trazabilidad de acciones | Inserciones best-effort en `audit_logs` y `auth_attempts`; sin consulta ni garantía | Parcialmente implementado |
-| Notificaciones | Avisar actividad relevante | No existe módulo; Realtime solo refresca vistas | Documentado, no implementado |
-| Reportes | Escalar contenido problemático | Sin rutas, UI ni tablas usadas por el código | Documentado, no implementado |
-| CSV | Carga/descarga masiva | Solo aparece en requisitos y roadmap | Documentado, no implementado |
+| Área | Estado | Alcance observado |
+|---|---|---|
+| Activación e inicio de sesión | Implementado | Búsqueda de cuentas pendientes, activación con contraseña inicial y login por código. Recuperación autónoma pendiente. |
+| Selección de evento | Implementado | Selección entre membresías activas en `/select-event`, con entrada al panel o al feed según rol. El último evento usado en el navegador va primero y «Cambiar evento» está en el menú lateral (W07). Pendiente: que el selector aparezca también tras el login, que hoy entra directo al evento por defecto, y el desempate por fecha de membresía ([PENDIENTES](../PENDIENTES.md), sección 5). |
+| Administración de eventos | Parcial / no verificado | Listado acotado, alta y edición. El alta (`POST /admin/events`, solo `ADMIN_TECH`) crea la membresía `ADMIN_TECH` del creador y los muros General y Avisos. Con el evento `CLOSED`, la guarda `requireEventOpenForWrites` rechaza con 403 las escrituras de participantes y moderación ([ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)); la reapertura es `PATCH /admin/events/:eventId`. Las escrituras en `ARCHIVED` siguen sin decidir. En la página del evento, bloque «Estado del evento» con «Cerrar evento» y «Reabrir evento» y confirmación. |
+| Comités | Implementado | Listado, alta con muro, edición y «Eliminar» con confirmación (borrado lógico del comité y su muro; los participantes quedan sin comité y la API no lo bloquea si hay miembros). |
+| Administración de participantes | Implementado | Listado filtrado y paginado, alta individual, edición, suspensión, reactivación y restablecimiento. Búsqueda por texto (`q`) en API y panel, con acciones por fila. |
+| Importación CSV | Implementado, no verificado E2E | API de previsualización y confirmación por lotes. Pantalla con plantilla descargable, revisión de filas y descarga de credenciales. |
+| Asignaciones | Implementado, no verificado en navegador | Alta, ficha y menú de cada fila permiten asignar, mover o quitar comité. Pantalla general `/admin/assignments`: selector de evento, filtros (comité, sin comité, estado, búsqueda) y selección múltiple con «Asignar a comité» y «Quitar de comité», en lotes de hasta 50 con progreso, resumen y reintento de fallidos; cada cambio llama a la asignación individual y queda auditado. |
+| Código de delegación | Implementado, no verificado E2E | Migración 002 aplicada el 21 de noviembre de 2026: existen `event_delegation_counters` y `assign_delegation_code`, y las membresías vigentes tienen código. El backend pide el código al crear cuentas, individual o por CSV; si falla, el alta se completa con aviso. Los perfiles lo muestran si existe. Falta probar un lote CSV mixto de punta a punta y verificar privilegios de `service_role` con un alta real ([PENDIENTES](../PENDIENTES.md), sección 1 y Q03). |
+| Perfiles | Implementado | Perfil propio y de miembros del evento, alias, avatar y edición administrativa con restricciones. |
+| Muros, publicaciones y encuestas | Implementado | Muros existentes del evento, publicaciones de texto o encuesta, voto reemplazable, cierre por autor y borrado lógico. Cero o un adjunto por publicación (JPG o PNG hasta 5 MB, o PDF hasta 20 MB), guardado en Cloudflare R2 con subida por URL firmada y descarga a demanda ([ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md), [plan](../04-desarrollo/plan-adjuntos-r2.md)). Fijado desde moderación, con máximo 3 por muro. Pendiente: probar un PDF cercano a 20 MB y el origen de producción frente al CORS del bucket. |
+| Comentarios | Implementado | Comentarios, un nivel de respuesta y borrado lógico. En anuncios, escritura reservada a administración. |
+| Mensajes directos | Implementado | Texto individual dentro del evento, historial y borrado lógico por el autor. Grupos, adjuntos y bloqueo ausentes. |
+| Moderación | Parcial | Pantalla `/admin/events/:eventId/moderation` para administradores y moderadores: selector de muro con contadores, pestañas Visibles, Ocultos, Eliminados y Todos, ocultar y restaurar posts y comentarios con motivo, fijar (máximo 3 por muro) y desfijar, y eliminación de posts y comentarios con motivo obligatorio. Rol `MODERATOR` asignable desde la ficha y el listado de participantes. Retiro desde los muros por administradores y suspensión desde la ficha. Los fijados van primero en el feed y llevan la marca «Fijado». La suspensión corta la sesión: sin membresía activa la API responde 401 y la web cierra sesión ([ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)). La consulta de auditoría está en la fila de reportes. Sin reportes ni sanciones. |
+| Modo práctica | Implementado y fusionado en `main` (entregas 1 a 3) | Sandbox local de «Conoce MUNET» que corre solo en el navegador y no toca el servidor: contexto «Práctica» (entrada desde el menú lateral y el selector de evento), aviso fijo, reinicio, almacén local por usuario en IndexedDB y un simulador que aplica las reglas del participante: muro (publicaciones, encuestas, comentarios, adjuntos locales con límites), directorio, perfil y mensajes directos con respuestas preparadas. Lo que no está simulado responde «No disponible en modo práctica». Las entregas 1 (PR 14), 2 (PR 15) y 3 (PR 17) están fusionadas en `main`; la entrega 3 está aplicada y el evento de entrenamiento del servidor tiene 12 cuentas (verificado el 21 de noviembre de 2026). El botón de práctica queda visible en producción. Diseño y estado: [diseño del modo práctica](../04-desarrollo/diseno-sandbox-conoce-munet.md). |
+| Reportes, notificaciones y consulta de auditoría | Parcial | Consulta de auditoría en `GET /admin/audit-logs` y en la página «Auditoría» (`/admin/events/:eventId/audit`): `ADMIN_TECH` ve el registro completo del evento y `ADMIN_MUN` solo las acciones de cuidado general ([ADR-007](../06-decisiones/ADR-007-decisiones-de-producto-noviembre-2026.md)). Realtime refresca vistas y el backend intenta registrar acciones. Faltan reportes y bandeja de notificaciones. |
 
-## Panel administrativo nuevo
-
-Rutas presentes:
-
-- `/admin`: tarjetas de navegación; no presenta métricas.
-- `/admin/events`: listado conectado a `GET /admin/events` con paginación.
-- `/admin/events/new`: formulario conectado a `POST /admin/events`.
-- `/admin/events/[eventId]`: configuración conectada a `GET/PATCH /admin/events/:eventId`.
-- `/admin/events/[eventId]/committees`: listado conectado a `GET /admin/committees?event_id=`.
-- `/admin/events/[eventId]/committees/new`: formulario conectado a `POST /admin/committees`.
-- `/admin/events/[eventId]/committees/[committeeId]/edit`: edición conectada a `GET/PATCH /admin/committees/:committeeId`.
-- `/admin/events/[eventId]/participants`: listado conectado a `GET /admin/participants` con filtros y paginación.
-- `/admin/events/[eventId]/participants/new`: alta conectada a `POST /admin/create-account`; muestra la contraseña inicial una sola vez.
-- `/admin/events/[eventId]/participants/[membershipId]`: detalle y edición vía `GET/PATCH /admin/participants/:membershipId`, con suspensión, reactivación y restablecimiento de contraseña.
-
-El menú también enlaza `/admin/assignments` y `/admin/moderation`, que siguen como marcadores. El layout exige que la **membresía activa** sea administrativa; desde el 2026-10-29 la API también exige que esa membresía sea del evento sobre el que se opera (salvo crear un evento nuevo), así que ambas capas ya coinciden.
-
-## Límites operativos relevantes
-
-- Los listados de feed y chat no implementan paginación robusta.
-- Varias mutaciones de múltiples tablas no son transaccionales.
-- No hay archivos adjuntos en publicaciones ni chat, pese al alcance histórico para publicaciones.
-- Las suscripciones Realtime refrescan datos; no constituyen un sistema de notificaciones.
-- El estado del evento no impide escrituras en los controladores revisados.
-
-Los detalles por endpoint están en [referencia de API](../03-referencia/api.md).
+La [referencia de API](../03-referencia/api.md) señala qué rutas tienen cliente web. Los casos que requieren confirmación en un entorno aislado figuran en [discrepancias](../07-auditoria/discrepancias.md).

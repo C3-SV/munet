@@ -21,7 +21,23 @@ export interface Post {
     deletedByActorType?: "AUTHOR" | "ADMIN" | null;
     canDelete?: boolean;
     poll?: PollData | null;
+    // Cero o un adjunto por publicación. Sin URL: se pide a demanda al abrirlo.
+    attachment?: PostAttachment | null;
+    // Total de comentarios visibles; lo calcula la API.
+    commentCount?: number;
+    // Fijado por moderación; la API lo devuelve en el feed y la tarjeta lo marca.
+    isPinned?: boolean;
+    pinnedAt?: string | null;
     timestamp: number;
+}
+
+export interface PostAttachment {
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    // Solo el autor puede retirar su adjunto desde el feed.
+    canRemove: boolean;
 }
 
 export interface PollOption {
@@ -108,6 +124,7 @@ export interface MyProfile extends PublicProfile {
 export interface Delegate {
     id: string;
     name: string;
+    alias?: string | null;
     avatar: string;
     role: string;
     committee: string;

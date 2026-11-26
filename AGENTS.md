@@ -19,7 +19,7 @@ MUNET es una plataforma web para operar eventos de Modelo de Naciones Unidas. El
 - Límites técnicos: [`docs/02-arquitectura/`](docs/02-arquitectura/).
 - Endpoints, datos, autenticación y flujos: [`docs/03-referencia/`](docs/03-referencia/).
 - Puesta en marcha e investigación: [`docs/04-desarrollo/`](docs/04-desarrollo/).
-- Estado real, divergencias y pendientes: [`docs/07-auditoria/`](docs/07-auditoria/).
+- Estado real y divergencias: [`docs/07-auditoria/`](docs/07-auditoria/). Pendientes: [`docs/PENDIENTES.md`](docs/PENDIENTES.md), la lista única.
 - Decisiones arquitectónicas: [`docs/06-decisiones/`](docs/06-decisiones/).
 
 ## Cómo investigar una funcionalidad
@@ -36,7 +36,7 @@ MUNET es una plataforma web para operar eventos de Modelo de Naciones Unidas. El
 - No expongas `SUPABASE_SERVICE_ROLE_KEY` al cliente ni documentes valores secretos.
 - La identidad operativa es una membresía dentro de un evento, no solo un usuario global.
 - No asumas aislamiento por evento: compruébalo en cada controlador y en las políticas RLS, que no están versionadas.
-- Roles administrativos se detectan hoy por texto (`ADMIN`, `COORDINADOR`, `ORGANIZADOR`); es una implementación provisional, no un catálogo normativo.
+- Los roles son los de `membership_role_enum`: `PARTICIPANT`, `MODERATOR`, `ADMIN_MUN` y `ADMIN_TECH`. Es administrativo solo `ADMIN_MUN` o `ADMIN_TECH` (`isAdminRole`).
 - No cambies estados, reglas o contratos para “alinearlos” con documentos históricos sin una decisión explícita.
 - No edites artefactos de `docs/superpowers/`; son evidencia de planificación, no la fuente de verdad actual.
 

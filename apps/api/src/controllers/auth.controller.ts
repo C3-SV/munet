@@ -11,6 +11,40 @@ type ActivateAccountBody = {
     new_password: string;
 };
 
+const ACTIVATION_FAILED = "No se pudo completar la activacion. Intenta de nuevo; tu contraseña inicial sigue vigente.";
+
+// Deshace lo creado por una activacion que fallo a medias: borra el usuario de Auth creado en
+// ESTA ejecucion (nunca uno previo) y revierte el vinculo en users, para que la cuenta siga
+// pendiente y se pueda reintentar con la misma contraseña inicial. Cada paso es de mejor
+// esfuerzo y solo registra su error: el cliente ya recibe un 500.
+const compensateActivation = async (params: {
+    authUserId: string;
+    userId: string;
+    previousEmail: string | null;
+    usersUpdated: boolean;
+}) => {
+    if (params.usersUpdated) {
+        const { error } = await supabaseAdmin
+            .from("users")
+            .update({
+                supabase_auth_user_id: null,
+                email: params.previousEmail,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", params.userId);
+
+        if (error) {
+            console.error("Compensacion: no se pudo revertir users", params.userId, error.message);
+        }
+    }
+
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(params.authUserId);
+
+    if (deleteError) {
+        console.error("Compensacion: no se pudo borrar el usuario de Auth", params.authUserId, deleteError.message);
+    }
+};
+
 // Flujo de activación:
 // 1) valida membership pendiente por código + evento
 // 2) verifica contraseña inicial de un solo uso
@@ -172,7 +206,14 @@ export const activateAccount = async (
             .eq("id", membership.user_id);
 
         if (userError) {
-            return res.status(400).json({ error: userError.message });
+            console.error("Activacion: no se pudo vincular el usuario de Auth", userError.message);
+            await compensateActivation({
+                authUserId,
+                userId: membership.user_id,
+                previousEmail: userRecord.email ?? null,
+                usersUpdated: false,
+            });
+            return res.status(500).json({ error: ACTIVATION_FAILED });
         }
 
         // 6. actualizar membership
@@ -187,9 +228,22 @@ export const activateAccount = async (
             .eq("id", membership.id);
 
         if (membershipUpdateError) {
-            return res
-                .status(400)
-                .json({ error: membershipUpdateError.message });
+            console.error("Activacion: no se pudo activar la membresia", membershipUpdateError.message);
+            await compensateActivation({
+                authUserId,
+                userId: membership.user_id,
+                previousEmail: userRecord.email ?? null,
+                usersUpdated: true,
+            });
+            await logAuthAttempt({
+                event_id,
+                participant_code,
+                event_membership_id: membership.id,
+                attempt_type: "ACTIVATION",
+                result: "FAILURE",
+                failure_reason: "ACTIVATION_ROLLED_BACK",
+            });
+            return res.status(500).json({ error: ACTIVATION_FAILED });
         }
 
         // 7. log intento
@@ -205,6 +259,40 @@ export const activateAccount = async (
     } catch (error) {
         console.error(error);
         return res.status(500).json({ error: "Error interno" });
+    }
+};
+
+// Bloqueo persistente de login (Q02-1). El limitador en memoria cuenta por instancia en Vercel;
+// este limite sale de auth_attempts, compartida por todas las instancias.
+// Con LOGIN_LOCK_MAX_FAILURES fallos LOGIN en los ultimos LOGIN_LOCK_WINDOW_MS se rechaza el intento.
+export const LOGIN_LOCK_MAX_FAILURES = 5;
+export const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCKED_MESSAGE = "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
+
+// Cuenta fallos recientes con el mismo participant_code que se guarda en el log.
+// Si la consulta falla no bloquea: el conteo es telemetria y no debe cerrar el acceso.
+const isLoginLocked = async (participantCode: string) => {
+    try {
+        const since = new Date(Date.now() - LOGIN_LOCK_WINDOW_MS).toISOString();
+        const { count, error } = await supabaseAdmin
+            .from("auth_attempts")
+            .select("id", { count: "exact", head: true })
+            .eq("participant_code", participantCode)
+            .eq("attempt_type", "LOGIN")
+            .eq("result", "FAILURE")
+            // Los bloqueos LOCKED tambien son FAILURE: se excluyen para que no renueven la ventana.
+            .or("failure_reason.is.null,failure_reason.neq.LOCKED")
+            .gte("created_at", since);
+
+        if (error) {
+            console.error("Bloqueo de login: no se pudo contar los intentos fallidos", error.message);
+            return false;
+        }
+
+        return (count ?? 0) >= LOGIN_LOCK_MAX_FAILURES;
+    } catch (error) {
+        console.error("Bloqueo de login: no se pudo contar los intentos fallidos", error);
+        return false;
     }
 };
 
@@ -229,6 +317,19 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
                 .json({ error: "participant_code y password son requeridos" });
         }
 
+        // 0. bloqueo persistente: antes de consultar membresias o Auth. Aplica igual exista o no
+        // el codigo, para no revelar cual existe.
+        if (await isLoginLocked(participant_code)) {
+            await logAuthAttempt({
+                participant_code,
+                attempt_type: "LOGIN",
+                result: "FAILURE",
+                failure_reason: "LOCKED",
+            });
+
+            return res.status(429).json({ error: LOGIN_LOCKED_MESSAGE });
+        }
+
         // 1. buscar memberships activas por codigo participante
         const { data: memberships, error: membershipsError } =
             await supabaseAdmin
@@ -240,14 +341,15 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         // Login ignora memberships borradas/logicamente desactivadas.
 
         if (membershipsError || !memberships?.length) {
-            // participant_code inexistente o no activo: mismo mensaje de negocio.
+            // participant_code inexistente o no activo: mismo 401 que una contraseña incorrecta,
+            // para no revelar qué códigos existen (Q02-2). El motivo real queda solo en el log.
             await logAuthAttempt({
                 participant_code,
                 attempt_type: "LOGIN",
                 result: "FAILURE",
                 failure_reason: "MEMBERSHIP_NOT_FOUND",
             });
-            return res.status(400).json({ error: "Membership no encontrado" });
+            return res.status(401).json({ error: "Credenciales invalidas" });
         }
 
         const uniqueUserIds = [
@@ -300,7 +402,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         }
 
         // 4. actualizar ultimo login
-        await supabaseAdmin
+        const { error: lastLoginError } = await supabaseAdmin
             .from("event_memberships")
             .update({
                 last_login_at: new Date().toISOString(),
@@ -310,6 +412,11 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
             .eq("user_id", user.id)
             .eq("account_status", "ACTIVE")
             .is("deleted_at", null);
+
+        if (lastLoginError) {
+            // Es telemetria: un fallo no debe impedir el login, pero no puede pasar en silencio.
+            console.error("No se pudo actualizar last_login_at", lastLoginError.message);
+        }
         // Actualizamos todas las memberships activas del usuario para telemetria de acceso.
 
         // 5. obtener contexto de eventos

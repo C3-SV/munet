@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../../components/layout/Sidebar";
 import { Footer } from "../../components/layout/Footer";
-import { isAdminRole, useAuthStore } from "../../stores/auth.store";
+import { PracticeBanner } from "../../components/practice/PracticeBanner";
+import { useAuthStore, userNeedsEventSelection } from "../../stores/auth.store";
 
 export default function MainLayout({
     children,
@@ -13,6 +14,8 @@ export default function MainLayout({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    // Cambia al reiniciar la práctica para remontar el contenido de las páginas (ver el return).
+    const [practiceEpoch, setPracticeEpoch] = useState(0);
 
     const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
     const hydrated = useAuthStore((state) => state.hydrated);
@@ -28,9 +31,12 @@ export default function MainLayout({
     );
 
     useEffect(() => {
-        // Recupera auth desde localStorage al montar el layout protegido.
-        hydrateAuth();
-    }, [hydrateAuth]);
+        // Recupera auth desde localStorage solo si aún no está hidratada. Volver a montar el layout
+        // (p. ej. desde /guia) no debe sacar de la práctica, que vive solo en memoria.
+        if (!hydrated) {
+            hydrateAuth();
+        }
+    }, [hydrated, hydrateAuth]);
 
     useEffect(() => {
         if (!hydrated) {
@@ -42,21 +48,20 @@ export default function MainLayout({
             return;
         }
 
-        // Guard de evento activo: delegados autoentran, admins van a selector.
+        // Guard de evento activo: delegados con una sola membresía entran a su evento; admins y delegados
+        // con varias membresías van al selector.
         if (!activeEventId || !activeMembershipId) {
-            const hasAdminMembership = memberships.some((membership) =>
-                isAdminRole(membership.role),
-            );
-            const firstMembership = memberships[0];
+            // La store deja las membresías en orden de selección: la primera es la del evento por defecto.
+            const defaultMembership = memberships[0];
 
-            if (!hasAdminMembership && firstMembership) {
-                // Si es delegado y no hay contexto activo, lo resolvemos automáticamente.
-                setActiveMembership(firstMembership.id);
+            if (!userNeedsEventSelection(memberships) && defaultMembership) {
+                // Delegado con una sola membresía y sin contexto activo: se resuelve automáticamente.
+                setActiveMembership(defaultMembership.id);
                 router.replace("/feed");
                 return;
             }
 
-            // Solo admins/multi-contexto quedan en selector de evento.
+            // Admins, delegados con varias membresías o usuarios sin membresías quedan en el selector.
             router.replace("/select-event");
         }
     }, [activeEventId, activeMembershipId, hydrated, memberships, router, setActiveMembership, token]);
@@ -66,7 +71,7 @@ export default function MainLayout({
         return (
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--bg-base)" }}>
                 <span className="font-body text-sm" style={{ color: "var(--text-secondary)" }}>
-                    Cargando sesion...
+                    Cargando sesión...
                 </span>
             </div>
         );
@@ -74,13 +79,20 @@ export default function MainLayout({
 
     return (
         <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "var(--bg-base)" }}>
-            <Sidebar />
+            {/* Al cambiar de evento la Sidebar se remonta: no conserva secciones abiertas del evento anterior. */}
+            <Sidebar key={activeEventId} />
 
             <main
-                className={`flex-1 overflow-y-auto relative flex flex-col md:pl-64 ${isChatRoom ? "" : "pt-16 md:pt-0"}`}
+                className={`flex-1 relative flex flex-col md:pl-64 ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}
                 style={{ backgroundColor: "var(--bg-base)" }}
             >
-                <div className="flex-1 shrink-0">{children}</div>
+                {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}
+                <div className={isChatRoom ? "flex-1 min-h-0 flex flex-col" : "flex-1 shrink-0"}>
+                    <PracticeBanner onReset={() => setPracticeEpoch((n) => n + 1)} />
+                    {/* Al cambiar de evento (o de práctica) o reiniciarla se remonta el contenido: el feed y el chat
+                        del evento anterior no conservan estado ni caché. El banner no cambia. */}
+                    <React.Fragment key={`${activeEventId}:${practiceEpoch}`}>{children}</React.Fragment>
+                </div>
 
                 {!isChatRoom && <Footer />}
             </main>

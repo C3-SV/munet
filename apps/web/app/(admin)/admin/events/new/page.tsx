@@ -10,6 +10,7 @@ import { AdminFormInput } from "../../../../../components/admin/AdminFormInput";
 import { AdminFormTextarea } from "../../../../../components/admin/AdminFormTextarea";
 import { AdminButton } from "../../../../../components/admin/AdminButton";
 import { AdminAlertBanner } from "../../../../../components/admin/AdminAlertBanner";
+import { IconCheck } from "../../../../../components/ui/icons";
 
 // Genera un slug limpio a partir del nombre del evento.
 const toSlug = (value: string) =>
@@ -135,7 +136,9 @@ export default function NewEventPage() {
         } catch (err) {
             const message =
                 err instanceof ApiError
-                    ? err.message
+                    ? err.status === 403
+                        ? "Solo el equipo técnico puede crear eventos"
+                        : err.message
                     : "Error al crear el evento. Intenta de nuevo.";
             setApiError(message);
         } finally {
@@ -267,7 +270,7 @@ export default function NewEventPage() {
                         type="submit"
                         loading={loading}
                         disabled={success}
-                        icon="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/check.svg"
+                        icon={<IconCheck size={16} />}
                     >
                         {loading ? "Creando evento..." : "Crear evento"}
                     </AdminButton>

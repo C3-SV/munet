@@ -1,57 +1,32 @@
 # Estado actual auditado
 
-- **Fecha:** 2026-10-23
-- **Commit base:** `0a42cb5`
-- **Alcance:** inspección estática del repositorio local y pruebas unitarias independientes disponibles
-- **Fuera de alcance:** producción, datos reales, Supabase desplegado y servicios de hosting
+- **Fecha:** 2026-11-18
+- **Commit de main:** `a76cb837d428c9c450824b83a88208dfbffab338`
+- **Evidencia:** revisión estática de web, API y SQL, con pruebas locales descritas en [pruebas y validación](../04-desarrollo/pruebas-y-validacion.md).
+- **Entornos verificados:** repositorio local. Los recorridos con Supabase, Storage y Realtime requieren un entorno aislado.
 
-## Resumen ejecutivo
+## Alcance funcional
 
-MUNET es un MVP parcial con flujos participantes utilizables a nivel de código: acceso, contexto multi-evento, muros, publicaciones/encuestas, comentarios, perfiles y mensajes directos. El panel administrativo permite listar, crear y configurar eventos, y listar, crear y editar comités. La administración de participantes, asignaciones y moderación continúa incompleta.
+El sitio participante conecta activación, sesión, selector de evento, perfiles con alias, muros, encuestas, comentarios y chat 1:1 con la API. El panel permite consultar y configurar eventos, crear y editar comités y gestionar cuentas individuales. La API limita la administración a la membresía del evento objetivo, con listado filtrado y creación en rutas sin evento objetivo.
 
-La arquitectura separa web y API, pero su seguridad depende especialmente del backend porque opera Supabase con service role. No es posible verificar integridad, RLS ni compatibilidad del despliegue: el esquema no está versionado.
+La [lista de funcionalidades](../01-producto/funcionalidades.md) recoge el estado por módulo y el [manual funcional](../01-producto/manual-funcional.md) describe el uso por rol.
 
-## Inventario real
+## Brechas que afectan la operación
 
-| Componente | Tecnología | Responsabilidad | Evaluación |
-|---|---|---|---|
-| `apps/web` | Next.js 16, React 19, Zustand, Supabase JS, Tailwind | Cliente participante y panel admin inicial | Activo, parcial |
-| `apps/api` | Express 5, TypeScript, Supabase JS, bcrypt | API y persistencia/autorización | Activo, parcial |
-| `apps/docs` | Next.js | Plantilla generada | No contiene documentación MUNET |
-| `packages/ui` | React | Componentes de ejemplo | Uso productivo limitado/no observado |
-| `packages/*-config` | ESLint/TypeScript | Configuración compartida | Activo |
-| `docs` | Markdown | Fuente documental | Consolidada por esta auditoría |
+1. El alta de evento usa `ADMIN_TECH` (Sprint 3) y crea los muros general y de anuncios; la creación queda reservada al equipo técnico. Pendiente probar el alta real con una cuenta `ADMIN_TECH`.
+2. CSV tiene previsualización y confirmación en API, pendientes de conectar a la web. El cambio individual de comité ya está en la ficha. Asignaciones generales sigue como marcador; la moderación del Sprint 3 está implementada en el panel (ver [pruebas y validación](../04-desarrollo/pruebas-y-validacion.md#pruebas-del-sprint-3-frontend-admin-21-de-noviembre-de-2026)).
+3. La generación de `#` depende de la migración 002. El código de login admite colisión entre eventos al dar de alta, pero el login rechaza códigos activos asociados a usuarios distintos.
+4. `CLOSED` se puede guardar. El alta de comité lo respeta, pero no existe una guarda general que impida escribir en el evento cerrado.
 
-## Funcionalidad comprobada
+Consulta [discrepancias](discrepancias.md) para el contraste con reglas y esquema, y [pendientes](../PENDIENTES.md) para el orden propuesto de trabajo.
 
-- Autenticación/activación y contexto de membresías.
-- Selector de evento y navegación por muros.
-- Posts de texto/encuesta, comentarios, votos y cierre.
-- Perfiles y avatares.
-- DM uno a uno.
-- API de altas de evento, comité, membresía y cuenta.
-- UI administrativa con listado/configuración de eventos y listado/alta/edición de comités.
+## Inventario del repositorio
 
-Todos tienen limitaciones descritas en [funcionalidades](../01-producto/funcionalidades.md).
-
-## Hallazgos críticos
-
-1. `requireAdmin` no limita las mutaciones al evento donde el usuario es admin.
-2. No hay esquema/migraciones/RLS versionados y el backend usa service role.
-3. Auditoría y registros de acceso fallan silenciosamente.
-4. Operaciones compuestas no son transaccionales.
-5. El estado del evento no impone solo lectura; los eventos se crean `ACTIVE`.
-6. La API no participa en build/lint/typecheck de Turbo.
-7. El root permite Node 18, pero Next.js 16.1.5 requiere Node 20.9 o superior.
-
-## Base administrativa incorporada
-
-La rama fusionada aporta rutas, layout y componentes admin, el cliente `lib/api/admin.ts` y protección `requireAdmin`. La UI consume listado/configuración de eventos y listado/alta/edición de comités; participantes, asignaciones y moderación existen como marcadores. Los documentos `docs/superpowers/` describen la decisión de autorización, pero sus casillas sin marcar no son evidencia fiable de ejecución; el código sí lo es.
-
-## Madurez de verificación
-
-Solo hay dos pruebas Node de utilidades de CORS y URL base. No se hallaron pruebas de dominio, integración o autorización. Sin dependencias instaladas y sin entorno Supabase aislado no se ejecutaron builds ni flujos end-to-end durante la auditoría.
-
-## Conclusión
-
-El repositorio ofrece una base funcional significativa, pero no un sistema integral terminado. Antes de ampliar funcionalidad conviene resolver el modelo administrativo global/evento, versionar datos/RLS, eliminar logs sensibles y hacer que la API participe en el pipeline de calidad. Estas son recomendaciones documentales; esta auditoría no modifica la aplicación.
+| Ruta | Responsabilidad |
+|---|---|
+| `apps/web` | Next.js. Sitio participante y panel administrativo. |
+| `apps/api` | Express y TypeScript. Autorización y operaciones con Supabase. |
+| `supabase` | Snapshot parcial y dos migraciones incrementales. |
+| `apps/docs` | Plantilla Next.js independiente de estos documentos. |
+| `packages` | Configuración compartida y componentes de ejemplo. |
+| `docs` | Documentación mantenida y referencias históricas. |

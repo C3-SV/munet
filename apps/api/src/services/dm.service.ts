@@ -409,7 +409,8 @@ export const createDmMessage = async (params: {
   await supabaseAdmin
     .from('dm_conversations')
     .update({ last_message_at: inserted.created_at })
-    .eq('id', params.conversationId);
+    .eq('id', params.conversationId)
+    .eq('event_id', params.eventId);
   // last_message_at facilita ordenar inbox por actividad reciente.
 
   await logAudit({
@@ -503,7 +504,8 @@ export const deleteDmMessage = async (params: {
       deleted_at: deletedAt,
       deleted_by_membership_id: params.membership.id,
     })
-    .eq('id', params.messageId);
+    .eq('id', params.messageId)
+    .eq('event_id', params.eventId);
 
   if (updateError) {
     await logDmMessageDeletionAudit({

@@ -1,5 +1,8 @@
 "use client";
 
+// Estado de cuenta, evento o comité. Solo usa tokens de color (--success, --warning,
+// --danger y --danger-bg): no contiene hexadecimales ni rgba propios.
+
 const STATUS_LABELS: Record<string, string> = {
     ACTIVE: "Activo",
     CLOSED: "Cerrado",
@@ -9,45 +12,44 @@ const STATUS_LABELS: Record<string, string> = {
     SUSPENDED: "Suspendido",
 };
 
-const STATUS_PALETTES: Record<string, { backgroundColor: string; color: string }> = {
-    ACTIVE: {
-        backgroundColor: "color-mix(in srgb, #22c55e 12%, transparent)",
-        color: "#16a34a",
-    },
-    CLOSED: {
-        backgroundColor: "color-mix(in srgb, #f59e0b 14%, transparent)",
-        color: "#b45309",
-    },
-    ARCHIVED: {
-        backgroundColor: "color-mix(in srgb, #94a3b8 14%, transparent)",
-        color: "var(--text-secondary)",
-    },
-    INACTIVE: {
-        backgroundColor: "color-mix(in srgb, #94a3b8 14%, transparent)",
-        color: "var(--text-secondary)",
-    },
-    PENDING_ACTIVATION: {
-        backgroundColor: "color-mix(in srgb, #f59e0b 14%, transparent)",
-        color: "#b45309",
-    },
-    SUSPENDED: {
-        backgroundColor: "color-mix(in srgb, #ef4444 12%, transparent)",
-        color: "#dc2626",
-    },
+type StatusTone = "success" | "warning" | "danger" | "neutral";
+
+const STATUS_TONES: Record<string, StatusTone> = {
+    ACTIVE: "success",
+    CLOSED: "warning",
+    PENDING_ACTIVATION: "warning",
+    SUSPENDED: "danger",
+    ARCHIVED: "neutral",
+    INACTIVE: "neutral",
 };
 
-const FALLBACK_PALETTE = {
-    backgroundColor: "color-mix(in srgb, #94a3b8 12%, transparent)",
-    color: "var(--text-secondary)",
+const TONE_STYLES: Record<StatusTone, { backgroundColor: string; color: string }> = {
+    success: {
+        backgroundColor: "color-mix(in srgb, var(--success) 8%, transparent)",
+        color: "var(--success)",
+    },
+    warning: {
+        backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)",
+        color: "var(--warning)",
+    },
+    danger: {
+        backgroundColor: "var(--danger-bg)",
+        color: "var(--danger)",
+    },
+    neutral: {
+        backgroundColor: "color-mix(in srgb, var(--text-muted) 14%, transparent)",
+        color: "var(--text-primary)",
+    },
 };
 
 export const AdminStatusBadge = ({ status }: { status: string }) => {
     const normalized = status.trim().toUpperCase();
+    const tone = STATUS_TONES[normalized] ?? "neutral";
 
     return (
         <span
             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-            style={STATUS_PALETTES[normalized] ?? FALLBACK_PALETTE}
+            style={TONE_STYLES[tone]}
         >
             {STATUS_LABELS[normalized] ?? status}
         </span>

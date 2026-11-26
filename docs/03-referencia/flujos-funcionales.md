@@ -1,64 +1,40 @@
 # Flujos funcionales
 
-## Activación e ingreso
+Para los pasos en pantalla, consulta el [manual funcional](../01-producto/manual-funcional.md). Los contratos HTTP están en la [referencia de API](api.md).
 
-1. La persona introduce su código.
-2. La web consulta cuentas pendientes por código.
-3. Selecciona evento cuando corresponde y activa o inicia sesión.
-4. La API devuelve token/contexto con membresías activas.
-5. Si hay más de una, la persona selecciona evento; el store conserva la membresía activa.
+## Activación, sesión y selección
 
-Limitaciones: no hay recuperación de contraseña; el login registra datos sensibles en consola del navegador; producción no fue probada.
+La búsqueda por código devuelve membresías pendientes de eventos sin borrado lógico. La activación recibe evento, código, temporal y contraseña nueva. Crea la identidad en Supabase Auth, vincula el usuario interno, activa la membresía y limpia su hash inicial. Devuelve una confirmación. El login posterior entrega token y contexto con membresías activas.
 
-## Lectura y publicación en un muro
+El login usa solo el código y la contraseña. Si el código activo corresponde a diferentes usuarios, devuelve conflicto. Al entrar, una sola membresía no administrativa puede ir directo al feed. Con varias membresías o con una administrativa, el selector permite elegir el evento cuando todavía no hay selección. La selección se conserva localmente.
 
-1. La ruta `/feed/[muro]` obtiene metadatos y publicaciones por `lib/api`.
-2. `GET /posts?muro=...` resuelve muro, evento y membresía.
-3. El servicio comprueba acceso y devuelve posts visibles.
-4. Para publicar, `POST /posts` valida capacidad; si es encuesta crea post, poll y opciones secuencialmente.
-5. Realtime dispara una recarga de la API.
+## Eventos y comités
 
-Limitaciones: sin paginación, sin adjuntos, transacción no garantizada y autorización Realtime no verificable.
+`POST /admin/events` inserta un evento `ACTIVE` con `is_read_only=false` e intenta insertar la membresía administrativa del creador. Si falla, intenta marcar el evento como eliminado. No crea muros general y de anuncios en el controlador. Véase [compatibilidad con el esquema](../07-auditoria/discrepancias.md#d-05--compatibilidad-entre-api-y-esquema).
 
-## Comentarios y encuestas
+La configuración guarda nombre, slug, descripción, fechas y estado (`ACTIVE`, `CLOSED`, `ARCHIVED`). El alta de comité rechaza eventos cerrados o archivados, valida nombre y código en el evento y crea el muro de comité. Un fallo al crear el muro activa una compensación. La edición sincroniza el nombre del muro si cambia el del comité. La API de borrado marca el comité como eliminado e intenta lo mismo con el muro. Un fallo de esta segunda escritura queda en el log.
 
-Los comentarios aceptan un padre, pero no nietos. En anuncios solo administración comenta. Un voto nuevo elimina/reemplaza el anterior mediante varias operaciones; el autor puede cerrar su encuesta. No hay reapertura.
+## Alta, asignación y mantenimiento de participantes
 
-## Perfil
+El alta individual y el CSV comparten el servicio que crea usuario interno, membresía `PENDING_ACTIVATION` y perfil. La contraseña inicial se genera en servidor y solo se devuelve al crear la cuenta. Después se intenta asignar el [código de delegación](modelos-de-datos.md#dos-códigos-con-usos-distintos).
 
-El evento activo viaja en `x-event-id`. El usuario edita nombre/bio/ruta de imagen o sube un avatar base64. Administración puede editar perfiles ajenos con restricciones. Storage se configura como público; no se verificaron sus políticas.
+La ficha web guarda cambios de rol, comité, delegación, institución y perfil con el PATCH general. El endpoint dedicado de comité acepta un identificador del mismo evento o `null` y un motivo opcional. Ambos rechazan comités archivados. El backend relee membresías en las solicitudes posteriores. Comprueba el nuevo acceso al muro tras recargar la vista.
 
-## Mensaje directo
+Suspender y reactivar exigen motivo. Reactivar establece `ACTIVE`, incluso si la cuenta nunca completó activación. Para una cuenta pendiente, restablecer reemplaza el secreto de activación. En una cuenta activa con identidad vinculada, reemplaza la contraseña en Supabase Auth. La cuenta suspendida debe reactivarse antes del restablecimiento.
 
-```mermaid
-flowchart LR
-  L[Buscar participante] --> C[Crear o reutilizar conversación]
-  C --> M[Listar/enviar mensajes]
-  M --> R[Evento Realtime]
-  R --> M
-  M --> D[Borrado lógico por autor]
-```
+## Importación CSV
 
-Ambas membresías deben estar activas y pertenecer al mismo evento. No existen grupos, adjuntos, bloqueo ni supervisión.
+1. El consumidor envía el texto del archivo con el evento a **preview**. Se devuelven filas válidas, inválidas y duplicadas. Este paso no escribe.
+2. El consumidor envía las filas válidas normalizadas a **confirm**, en lotes de hasta 50. El servidor vuelve a validar comité y códigos del evento.
+3. El resultado incluye altas, fallos por fila y credenciales iniciales de las altas. Un fallo individual no detiene el lote. El backend intenta registrar las altas y el resumen en auditoría.
+4. Antes de reintentar ante un error, consulta las cuentas creadas. Los lotes pueden quedar parcialmente aplicados y las contraseñas ya emitidas requieren restablecimiento si se pierden.
 
-## Crear evento desde el panel
+La aplicación web todavía carece de interfaz para este recorrido.
 
-1. El layout exige que la membresía seleccionada parezca administrativa.
-2. `/admin/events/new` valida nombre, slug y fechas en cliente.
-3. `POST /admin/events` exige token y cualquier membresía administrativa activa.
-4. El controlador crea el evento directamente `ACTIVE` y sus datos auxiliares según el código.
-5. La UI abre la configuración del evento creado y el listado lo muestra mediante `GET /admin/events`.
+## Perfiles, muros y chat
 
-## Crear/listar/editar comités desde el panel
-
-El formulario envía `event_id`, nombre, código, descripción y orden a `POST /admin/committees`. El listado usa `GET /admin/committees?event_id=`, que exige rol admin pero no membresía en ese evento; así el alta y la lectura comparten alcance. La edición usa `GET/PATCH /admin/committees/:committeeId`.
-
-## Configurar evento y editar comité
-
-1. `/admin/events` lista los eventos con `GET /admin/events` y paginación.
-2. `/admin/events/:eventId` carga el evento y guarda `name`, `slug`, descripción, fechas y `status` con `PATCH /admin/events/:eventId`.
-3. `/admin/events/:eventId/committees/:committeeId/edit` carga el comité, valida que pertenezca al evento y guarda nombre, código, descripción y orden con `PATCH /admin/committees/:committeeId`.
-
-## Flujos no existentes
-
-No hay recorridos completos para edición/cierre de evento, administración visual de participantes/asignaciones, importación CSV, reportes, sanciones, notificaciones, auditoría consultable o supervisión de DM.
+- **Perfil.** Con `x-event-id`, el backend devuelve el perfil propio o de una membresía del evento. El alias puede editarse o quitarse. El avatar se envía a la API como base64 y la API lo sube a Storage.
+- **Muros.** El evento se selecciona con `x-event-id` y el muro mediante su slug. La API comprueba permisos de acceso y publicación. Una encuesta crea post, poll y opciones en varias escrituras. Se puede reemplazar el voto mientras siga abierta. Su autor puede cerrarla.
+- **Comentarios.** Cada respuesta se vincula a un comentario raíz del mismo post. Los participantes pueden leer comentarios de anuncios. Para comentar allí se requiere administración.
+- **Chat.** La búsqueda y creación limitan el interlocutor al evento y a membresías activas. La API crea o reutiliza una conversación individual y valida al integrante que lee o escribe. El autor puede borrar su mensaje lógicamente.
+- **Actualización de vistas.** Feed, comentarios y chat usan suscripciones para volver a consultar la API. La entrega Realtime y Storage quedan por verificar con un entorno aislado.

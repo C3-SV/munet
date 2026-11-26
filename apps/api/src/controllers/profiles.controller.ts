@@ -418,6 +418,99 @@ export const getMyProfile = async (req: Request, res: Response) => {
   }
 };
 
+// POST /profiles/me  { first_name, last_name, display_name?, alias?, bio? }
+// Crea el perfil propio cuando la membresia no tiene uno. Lo necesita el administrador
+// que crea un evento: el alta de ese acceso no genera perfil.
+export const createMyProfile = async (req: Request, res: Response) => {
+  try {
+    const activeMembership = getActiveMembership(req);
+
+    if (!activeMembership) {
+      return res.status(400).json({ error: 'x-event-id es requerido' });
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const firstName = typeof body.first_name === 'string' ? body.first_name.trim() : '';
+    const lastName = typeof body.last_name === 'string' ? body.last_name.trim() : '';
+
+    if (!firstName || firstName.length > 100) {
+      return res.status(400).json({ error: 'first_name es obligatorio (hasta 100 caracteres)' });
+    }
+
+    if (!lastName || lastName.length > 100) {
+      return res.status(400).json({ error: 'last_name es obligatorio (hasta 100 caracteres)' });
+    }
+
+    const displayName = typeof body.display_name === 'string' ? body.display_name.trim() : '';
+
+    if (displayName.length > 120) {
+      return res.status(400).json({ error: 'display_name supera 120 caracteres' });
+    }
+
+    if (body.bio !== undefined && body.bio !== null && typeof body.bio !== 'string') {
+      return res.status(400).json({ error: 'bio debe ser texto' });
+    }
+
+    let alias: string | null = null;
+
+    if (hasOwn(body, 'alias')) {
+      const parsedAlias = parseAlias(body.alias);
+
+      if ('error' in parsedAlias) {
+        return res.status(400).json({ error: parsedAlias.error });
+      }
+
+      alias = parsedAlias.value;
+    }
+
+    const existing = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Membresia no encontrada' });
+    }
+
+    if (firstItem(existing.profiles)) {
+      return res.status(409).json({ error: 'Ya tienes perfil en este evento' });
+    }
+
+    const { error } = await supabaseAdmin.from('profiles').insert({
+      event_membership_id: activeMembership.id,
+      first_name: firstName,
+      last_name: lastName,
+      display_name: displayName || null,
+      bio: typeof body.bio === 'string' && body.bio.trim() ? body.bio : null,
+      alias,
+      profile_image_path: null,
+      updated_by_membership_id: activeMembership.id,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const created = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
+
+    if (!created) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    await logAudit({
+      eventId: activeMembership.eventId,
+      membership: activeMembership,
+      actionType: 'UPDATE_PROFILE',
+      entityType: 'PROFILE',
+      entityId: activeMembership.id,
+      outcome: 'SUCCESS',
+      reason: 'Perfil propio creado',
+    });
+
+    return res.status(201).json({ profile: formatProfileResponse(created) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'No se pudo crear tu perfil' });
+  }
+};
+
 // PATCH /profiles/me
 export const updateMyProfile = async (req: Request, res: Response) => {
   try {
@@ -435,10 +528,12 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       });
     }
 
-    const { display_name, bio, profile_image_path } = req.body as {
+    const { display_name, bio, profile_image_path, first_name, last_name } = req.body as {
       display_name?: string;
       bio?: string;
       profile_image_path?: string;
+      first_name?: string;
+      last_name?: string;
     };
 
     const existing = await loadMembershipProfile(activeMembership.id, activeMembership.eventId);
@@ -466,10 +561,32 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       aliasToSave = parsedAlias.value;
     }
 
+    // Los administradores pueden corregir su propio nombre y apellido; los participantes no.
+    let firstNameToSave = profile.first_name;
+    let lastNameToSave = profile.last_name;
+
+    if (isAdminRole(activeMembership.role)) {
+      const nextFirst = typeof first_name === 'string' ? first_name.trim() : profile.first_name;
+      const nextLast = typeof last_name === 'string' ? last_name.trim() : profile.last_name;
+
+      if (!nextFirst || nextFirst.length > 100) {
+        return res.status(400).json({ error: 'first_name es obligatorio (hasta 100 caracteres)' });
+      }
+
+      if (!nextLast || nextLast.length > 100) {
+        return res.status(400).json({ error: 'last_name es obligatorio (hasta 100 caracteres)' });
+      }
+
+      firstNameToSave = nextFirst;
+      lastNameToSave = nextLast;
+    }
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
         // Solo sobrescribimos campos enviados; lo demás conserva valor previo.
+        first_name: firstNameToSave,
+        last_name: lastNameToSave,
         display_name: display_name ?? profile.display_name,
         alias: aliasToSave,
         bio: bio ?? profile.bio,

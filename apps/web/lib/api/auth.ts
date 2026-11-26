@@ -6,6 +6,17 @@ import {
 } from "../../types/auth";
 import { API_URL, buildApiUrl } from "./base-url";
 
+// Error de auth con el estado HTTP, para que la UI oriente el siguiente paso.
+export class AuthRequestError extends Error {
+    status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = "AuthRequestError";
+        this.status = status;
+    }
+}
+
 export interface ActivateAccountPayload {
     participant_code: string;
     event_id: string;
@@ -28,7 +39,7 @@ export async function loginRequest(
     const data = await res.json();
 
     if (!res.ok) {
-        throw new Error(data.error || "Error al iniciar sesión");
+        throw new AuthRequestError(data.error || "Error al iniciar sesión", res.status);
     }
 
     return data;
@@ -50,8 +61,9 @@ export async function authContextRequest(token: string): Promise<{
     const data = await res.json();
 
     if (!res.ok) {
-        throw new Error(
-            data.error || "No se pudo refrescar el contexto de sesion",
+        throw new AuthRequestError(
+            data.error || "No se pudo refrescar el contexto de sesión",
+            res.status,
         );
     }
 
@@ -61,13 +73,11 @@ export async function authContextRequest(token: string): Promise<{
 export type ActivationEvent = {
     event_id: string;
     event_name: string;
-    membership_id: string;
 };
 
 type ActivationEventResponse = {
     event?: { id: string; name: string } | null;
     account_status: string;
-    membership_id: string;
 };
 
 // Valida cuentas pendientes de activacion por codigo de participante.
@@ -88,7 +98,7 @@ export async function validateActivationRequest(
     };
 
     if (!res.ok) {
-        throw new Error(data.error || "Error al validar la cuenta");
+        throw new AuthRequestError(data.error || "Error al validar la cuenta", res.status);
     }
 
     const formattedEvents = (data.events ?? []).flatMap((item) => {
@@ -100,7 +110,6 @@ export async function validateActivationRequest(
             {
                 event_id: item.event.id,
                 event_name: item.event.name,
-                membership_id: item.membership_id,
             },
         ];
     });
@@ -127,7 +136,7 @@ export async function activateAccountRequest(
     const data = await res.json();
 
     if (!res.ok) {
-        throw new Error(data.error || "Error al activar la cuenta");
+        throw new AuthRequestError(data.error || "Error al activar la cuenta", res.status);
     }
 
     return data;

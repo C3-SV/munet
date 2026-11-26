@@ -4,6 +4,14 @@ import { POST_SELECT, type PostRow } from '../types/posts.types';
 import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug, mapPost } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
+import {
+  abortClaim,
+  attachAttachmentsToPosts,
+  attachClaimedUpload,
+  claimUploadForPost,
+  completeClaim,
+  type ClaimedUpload,
+} from './attachments.service';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
 type PollStatus = 'OPEN' | 'CLOSED';
@@ -55,6 +63,7 @@ type NormalizedPost = ReturnType<typeof mapPost> & {
   canDelete: boolean;
   postType: PostType;
   poll: PollView | null;
+  commentCount: number;
 };
 
 // Normaliza el tipo de post para soportar valores legacy sin romper la API.
@@ -93,6 +102,7 @@ const normalizePost = (post: PostRow, membership: AuthMembership): NormalizedPos
     ...mapped,
     postType: normalizePostType(post.post_type),
     poll: null,
+    commentCount: 0,
     canDelete: isAdmin || post.author_membership_id === membership.id,
   };
 };
@@ -115,6 +125,32 @@ const logPollAudit = async (params: {
     outcome: params.outcome,
     reason: params.reason,
   });
+};
+
+// Añade el total de comentarios visibles de cada post con una sola consulta por lote.
+const attachCommentCounts = async <T extends { id: string }>(params: { posts: T[]; eventId: string }) => {
+  if (params.posts.length === 0) {
+    return params.posts.map((post) => ({ ...post, commentCount: 0 }));
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('post_comments')
+    .select('post_id')
+    .eq('event_id', params.eventId)
+    .eq('status', 'VISIBLE')
+    .is('deleted_at', null)
+    .in('post_id', params.posts.map((post) => post.id));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const counts = new Map<string, number>();
+  ((data ?? []) as { post_id: string }[]).forEach((row) => {
+    counts.set(row.post_id, (counts.get(row.post_id) ?? 0) + 1);
+  });
+
+  return params.posts.map((post) => ({ ...post, commentCount: counts.get(post.id) ?? 0 }));
 };
 
 // Enriquece posts tipo encuesta con opciones, votos y estado del voto propio.
@@ -260,6 +296,7 @@ const buildPostResponseById = async (params: {
     .select(POST_SELECT)
     .eq('id', params.postId)
     .eq('event_id', params.eventId)
+    .eq('status', 'VISIBLE')
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -273,11 +310,17 @@ const buildPostResponseById = async (params: {
   }
 
   const mapped = normalizePost(post as PostRow, params.membership);
-  const [enriched] = await attachPollDataToPosts({
+  const [withPoll] = await attachPollDataToPosts({
     posts: [mapped],
     sourcePosts: [post as PostRow],
     eventId: params.eventId,
     membership: params.membership,
+  });
+  const [withCounts] = await attachCommentCounts({ posts: [withPoll], eventId: params.eventId });
+  const [enriched] = await attachAttachmentsToPosts({
+    posts: [withCounts],
+    eventId: params.eventId,
+    membershipId: params.membership.id,
   });
 
   return enriched;
@@ -300,7 +343,8 @@ const resolvePostContext = async (params: {
     throw new Error(postError.message);
   }
 
-  if (!post || post.event_id !== params.eventId) {
+  // Un post oculto por moderacion no existe para el participante: no se opera sobre el.
+  if (!post || post.event_id !== params.eventId || post.status === 'HIDDEN') {
     // Evita operar posts fuera del evento activo enviado por header.
     return {
       allowed: false as const,
@@ -395,6 +439,9 @@ export const getPostsByWall = async (params: {
     .eq('event_id', params.eventId)
     .eq('wall_id', matchedWall.id)
     .is('deleted_at', null)
+    // Los fijados conservan prioridad aunque existan publicaciones mas recientes.
+    .order('is_pinned', { ascending: false })
+    .order('pinned_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
 
   if (postsError) {
@@ -412,11 +459,18 @@ export const getPostsByWall = async (params: {
     membership: params.membership,
   });
 
+  const postsWithCounts = await attachCommentCounts({ posts: postsWithPolls, eventId: params.eventId });
+  const postsWithAttachments = await attachAttachmentsToPosts({
+    posts: postsWithCounts,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
   return {
     status: 200,
     body: {
       wall: wallView,
-      posts: postsWithPolls,
+      posts: postsWithAttachments,
     },
   };
 };
@@ -427,6 +481,8 @@ export const createPostService = async (payload: {
   content?: string;
   postType?: string;
   pollOptions?: string[];
+  // Intento de subida iniciado con POST /posts/attachments/init (adjunto opcional).
+  uploadId?: unknown;
   eventId: string;
   membership: AuthMembership;
 }) => {
@@ -486,6 +542,40 @@ export const createPostService = async (payload: {
     };
   }
 
+  // Adjunto: se reclama el intento, se verifica el objeto y se copia a su ruta final ANTES de
+  // crear el post. Así nunca existe una referencia a un objeto que no está.
+  let claim: ClaimedUpload | null = null;
+
+  if (payload.uploadId !== undefined && payload.uploadId !== null) {
+    const outcome = await claimUploadForPost({
+      eventId,
+      membership,
+      wallId: matchedWall.id,
+      uploadId: payload.uploadId,
+    });
+
+    if (outcome.kind === 'error') {
+      return outcome.result;
+    }
+
+    if (outcome.kind === 'replay') {
+      // Reintento del cliente tras un corte: devuelve el post ya creado en vez de duplicarlo.
+      const existing = await buildPostResponseById({ postId: outcome.postId, eventId, membership });
+
+      return existing
+        ? { status: 200, body: { post: existing } }
+        : { status: 404, body: { error: 'Post no encontrado' } };
+    }
+
+    claim = outcome.claim;
+  }
+
+  const abortAttachment = async () => {
+    if (claim) {
+      await abortClaim(claim);
+    }
+  };
+
   const { data: insertedPost, error: insertError } = await supabaseAdmin
     .from('posts')
     .insert({
@@ -501,10 +591,25 @@ export const createPostService = async (payload: {
     .single();
 
   if (insertError || !insertedPost) {
+    await abortAttachment();
     return {
       status: 400,
       body: { error: insertError?.message ?? 'No se pudo crear el post' },
     };
+  }
+
+  if (claim) {
+    const attachError = await attachClaimedUpload({ claim, postId: insertedPost.id, membership });
+
+    if (attachError) {
+      // Compensación: sin adjunto no hay post. Se borra el post y el objeto final, y se libera el intento.
+      await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
+      return {
+        status: 400,
+        body: { error: 'No se pudo guardar el adjunto. Intenta de nuevo.' },
+      };
+    }
   }
 
   if (postType === 'TEXT') {
@@ -536,6 +641,7 @@ export const createPostService = async (payload: {
     if (pollError || !pollData) {
       // Rollback manual del post para no dejar publicación huérfana sin encuesta.
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
       return {
         status: 400,
         body: { error: pollError?.message ?? 'No se pudo crear la encuesta' },
@@ -556,6 +662,7 @@ export const createPostService = async (payload: {
       // Si fallan opciones, revertimos poll y post para mantener consistencia.
       await supabaseAdmin.from('polls').delete().eq('id', pollData.id);
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
+      await abortAttachment();
       return {
         status: 400,
         body: { error: optionsError.message ?? 'No se pudieron crear las opciones de la encuesta' },
@@ -570,6 +677,11 @@ export const createPostService = async (payload: {
       outcome: 'SUCCESS',
       reason: `Encuesta creada en muro ${matchedWall.id} para post ${insertedPost.id}`,
     });
+  }
+
+  if (claim) {
+    // El post y el adjunto ya existen: se cierra el intento y se limpia el objeto temporal.
+    await completeClaim(claim, insertedPost.id);
   }
 
   const post = await buildPostResponseById({
@@ -892,7 +1004,8 @@ export const deletePostService = async (params: {
     throw new Error(postError.message);
   }
 
-  if (!post || post.event_id !== params.eventId) {
+  // Un post oculto por moderacion no se borra desde la ruta de participante; lo gestiona moderacion.
+  if (!post || post.event_id !== params.eventId || post.status === 'HIDDEN') {
     return {
       status: 404,
       body: { error: 'Post no encontrado en este evento' },
@@ -972,7 +1085,8 @@ export const deletePostService = async (params: {
   return {
     status: 200,
     body: {
-      post: postWithPoll,
+      // Un post eliminado no sirve su adjunto.
+      post: { ...postWithPoll, attachment: null },
     },
   };
 };

@@ -1,8 +1,21 @@
 import React, { useState } from "react";
-import { closeFeedPoll, deleteFeedPost, voteOnFeedPoll } from "../../lib/api/feed";
+import {
+    closeFeedPoll,
+    deleteFeedPost,
+    getAttachmentDownloadUrl,
+    removeOwnAttachment,
+    voteOnFeedPoll,
+} from "../../lib/api/feed";
+import { formatFileSize, isImageAttachment } from "../../lib/attachments";
+import { formatDateTime } from "../../lib/format-datetime";
+import { AttachmentImagePreview } from "./AttachmentImagePreview";
 import { PostComments } from "./PostComments";
 import { UserHoverCard } from "../profile/UserHoverCard";
-import { Card } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Card, type CardVariant } from "../ui/Card";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { IconFile } from "../ui/icons";
+import { PersonLabel } from "../ui/PersonLabel";
 import type { Post } from "../../types/common";
 
 interface PostCardProps {
@@ -10,15 +23,33 @@ interface PostCardProps {
     token: string;
     eventId: string;
     canComment?: boolean;
+    // En el muro de un comité el comité no se repite en cada publicación.
+    showAuthorCommittee?: boolean;
+    // "official" en el muro de avisos; "flat" en el resto del foro.
+    variant?: CardVariant;
     onPostUpdated?: (post: Post) => void;
     onPostDeleted?: (postId: string) => void;
 }
+
+const deletedLabel = (deletedByActorType: Post["deletedByActorType"]) => {
+    if (deletedByActorType === "ADMIN") {
+        return "Eliminada por la organización";
+    }
+
+    if (deletedByActorType === "AUTHOR") {
+        return "Eliminada por su autor";
+    }
+
+    return "Esta publicación fue eliminada";
+};
 
 export const PostCard = ({
     post,
     token,
     eventId,
     canComment = true,
+    showAuthorCommittee = true,
+    variant = "flat",
     onPostUpdated,
     onPostDeleted,
 }: PostCardProps) => {
@@ -26,20 +57,30 @@ export const PostCard = ({
     const [isClosingPoll, setIsClosingPoll] = useState(false);
     const [votingOptionId, setVotingOptionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<
+        "delete-post" | "close-poll" | "remove-attachment" | null
+    >(null);
+    const [isOpeningAttachment, setIsOpeningAttachment] = useState(false);
+    const [isRemovingAttachment, setIsRemovingAttachment] = useState(false);
 
-    const authorLabel = `${post.user.name}${post.user.alias ? ` “${post.user.alias}”` : ""} | ${post.user.committeeName ?? "COMITE SIN ASIGNAR"}`.toUpperCase();
+    const isOfficial = variant === "official";
+    const isFlat = variant === "flat";
+    // Un comité ya visible en la línea del autor no se repite como etiqueta.
+    const committeeTags = (post.committeeTags ?? []).filter(
+        (tag) => tag !== post.user.committeeName,
+    );
 
-    const handleDeletePost = async () => {
-        // Soft delete con confirmacion previa; backend decide permiso final.
+    const requestDeletePost = () => {
+        // Soft delete: pide confirmacion antes de llamar a la API; backend decide permiso final.
         if (!post.canDelete || post.isDeleted || isDeleting) {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Esta publicacion se marcara como eliminada y ya no podra leerse su contenido. Deseas continuar?",
-        );
+        setConfirmAction("delete-post");
+    };
 
-        if (!confirmed) {
+    const handleDeletePost = async () => {
+        if (!post.canDelete || post.isDeleted || isDeleting) {
             return;
         }
 
@@ -49,7 +90,7 @@ export const PostCard = ({
             await deleteFeedPost(post.id, { token, eventId });
             onPostDeleted?.(post.id);
         } catch (deleteError) {
-            setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar la publicacion");
+            setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar la publicación");
         } finally {
             setIsDeleting(false);
         }
@@ -73,17 +114,17 @@ export const PostCard = ({
         }
     };
 
-    const handleClosePoll = async () => {
+    const requestClosePoll = () => {
         // Cierre manual de encuesta; solo disponible para el autor.
         if (!post.poll || !post.poll.canClose || post.isDeleted || isClosingPoll) {
             return;
         }
 
-        const confirmed = window.confirm(
-            "Al cerrar la encuesta ya no se podra votar ni cambiar votos. Deseas continuar?",
-        );
+        setConfirmAction("close-poll");
+    };
 
-        if (!confirmed) {
+    const handleClosePoll = async () => {
+        if (!post.poll || !post.poll.canClose || post.isDeleted || isClosingPoll) {
             return;
         }
 
@@ -99,61 +140,128 @@ export const PostCard = ({
         }
     };
 
+    const handleOpenAttachment = async () => {
+        // La URL firmada dura 60 segundos: se pide al hacer clic, no al cargar el muro.
+        if (!post.attachment || isOpeningAttachment) {
+            return;
+        }
+
+        // La pestaña se abre de inmediato (dentro del clic) para que el navegador no la bloquee.
+        const tab = window.open("about:blank", "_blank");
+
+        if (tab) {
+            tab.opener = null;
+        }
+
+        try {
+            setError(null);
+            setIsOpeningAttachment(true);
+            const url = await getAttachmentDownloadUrl(post.id, { token, eventId });
+
+            if (tab) {
+                tab.location.href = url;
+            } else {
+                window.location.assign(url);
+            }
+        } catch (attachmentError) {
+            tab?.close();
+            setError(
+                attachmentError instanceof Error ? attachmentError.message : "No se pudo abrir el adjunto",
+            );
+        } finally {
+            setIsOpeningAttachment(false);
+        }
+    };
+
+    const handleRemoveAttachment = async () => {
+        if (!post.attachment?.canRemove || isRemovingAttachment) {
+            return;
+        }
+
+        try {
+            setError(null);
+            setIsRemovingAttachment(true);
+            await removeOwnAttachment(post.id, { token, eventId });
+            onPostUpdated?.({ ...post, attachment: null });
+        } catch (removeError) {
+            setError(
+                removeError instanceof Error ? removeError.message : "No se pudo retirar el adjunto",
+            );
+        } finally {
+            setIsRemovingAttachment(false);
+        }
+    };
+
+    const canVoteNow = Boolean(post.poll?.canVote) && !votingOptionId;
+
     return (
-        <Card className="mb-4 p-5 md:p-6">
+        <Card
+            variant={variant}
+            className={isFlat ? "py-5 md:py-6" : "mb-4 p-5 md:p-6"}
+        >
+            {isOfficial && (
+                <p
+                    className="mb-3 text-xs font-semibold font-heading"
+                    style={{ color: "var(--signal)" }}
+                >
+                    Aviso
+                </p>
+            )}
+
             <div className="flex items-start justify-between mb-4 gap-4">
                 <UserHoverCard
                     membershipId={post.user.id}
                     name={post.user.name}
+                    alias={post.user.alias}
+                    committeeName={post.user.committeeName}
                     role={post.user.role}
                 >
-                    <div className="flex items-center gap-4 cursor-pointer">
-                        <div className="relative shrink-0">
-                            <img
-                                src={post.user.avatar}
-                                className="size-11 rounded-full object-cover"
-                                alt={post.user.name}
-                                style={{ border: "2px solid var(--border-color)" }}
-                            />
-                        </div>
-                        <div>
-                            <h4
-                                className="font-bold font-heading text-[14px]"
-                                style={{ color: "var(--text-primary)" }}
-                            >
-                                {authorLabel}
-                            </h4>
+                    <div className="cursor-pointer min-w-0 max-w-full">
+                        <PersonLabel
+                            person={{
+                                name: post.user.name,
+                                alias: post.user.alias,
+                                committeeName: post.user.committeeName,
+                                avatar: post.user.avatar,
+                            }}
+                            showSecondary={showAuthorCommittee}
+                        >
                             <div
                                 className="flex items-center gap-1.5 text-xs font-body mt-0.5"
                                 style={{ color: "var(--text-muted)" }}
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="13"
-                                    height="13"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
+                                <time
+                                    dateTime={post.createdAt}
+                                    title={formatDateTime(post.createdAt)}
                                 >
-                                    <circle cx="12" cy="12" r="10" />
-                                    <polyline points="12 6 12 12 16 14" />
-                                </svg>
-                                <span className="lowercase">{post.createdAt}</span>
+                                    {formatDateTime(post.createdAt)}
+                                </time>
                             </div>
-                        </div>
+                        </PersonLabel>
                     </div>
                 </UserHoverCard>
 
                 <div className="flex flex-col items-end gap-2">
-                    {post.committeeTags && post.committeeTags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 justify-end mt-1">
-                            {post.committeeTags.map((tag) => (
+                    {post.isPinned && !post.isDeleted && (
+                        <span
+                            className="px-2.5 py-1 text-xs font-semibold rounded-full font-heading"
+                            style={{
+                                color: "var(--text-accent)",
+                                backgroundColor:
+                                    "color-mix(in srgb, var(--text-accent) 10%, transparent)",
+                                border:
+                                    "1px solid color-mix(in srgb, var(--text-accent) 20%, transparent)",
+                            }}
+                        >
+                            Fijado
+                        </span>
+                    )}
+                    {committeeTags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            {committeeTags.map((tag) => (
                                 <span
                                     key={tag}
-                                    className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest rounded-full font-heading"
+                                    className="px-2.5 py-1 text-xs font-semibold rounded-full font-heading"
                                     style={{
                                         backgroundColor:
                                             "color-mix(in srgb, var(--text-accent) 10%, transparent)",
@@ -168,62 +276,119 @@ export const PostCard = ({
                         </div>
                     )}
 
-                    {post.canDelete && (
-                        <button
-                            type="button"
-                            onClick={handleDeletePost}
-                            disabled={post.isDeleted || isDeleting}
-                            className="text-xs font-semibold font-heading"
-                            style={{
-                                color: post.isDeleted ? "var(--text-muted)" : "#b91c1c",
-                                cursor: post.isDeleted || isDeleting ? "not-allowed" : "pointer",
-                                opacity: post.isDeleted || isDeleting ? 0.6 : 1,
-                            }}
+                    {post.canDelete && !post.isDeleted && (
+                        <Button
+                            variant="danger-text"
+                            size="sm"
+                            onClick={requestDeletePost}
+                            disabled={isDeleting}
+                            loading={isDeleting}
                         >
-                            {post.isDeleted ? "Eliminada" : isDeleting ? "Eliminando..." : "Eliminar"}
-                        </button>
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                        </Button>
                     )}
                 </div>
             </div>
 
-            <p
-                className="font-body leading-relaxed text-[15px]"
-                style={{
-                    color: post.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
-                    fontStyle: post.isDeleted ? "italic" : "normal",
-                }}
-            >
-                {post.content}
-            </p>
+            {post.isDeleted ? (
+                <p
+                    className="font-body text-[15px] italic"
+                    style={{ color: "var(--text-muted)" }}
+                >
+                    {deletedLabel(post.deletedByActorType)}
+                </p>
+            ) : (
+                <p
+                    className="font-body leading-relaxed text-[15px]"
+                    style={{
+                        color: "var(--text-primary)",
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                    }}
+                >
+                    {post.content}
+                </p>
+            )}
+
+            {post.attachment && !post.isDeleted && (
+                <div className="mt-4 space-y-2">
+                    {isImageAttachment(post.attachment.mimeType) && (
+                        <AttachmentImagePreview
+                            postId={post.id}
+                            token={token}
+                            eventId={eventId}
+                            name={post.attachment.name}
+                            onOpen={() => void handleOpenAttachment()}
+                            disabled={isOpeningAttachment}
+                        />
+                    )}
+                    <div className="flex items-stretch gap-2">
+                    <button
+                        type="button"
+                        onClick={() => void handleOpenAttachment()}
+                        disabled={isOpeningAttachment}
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-left hover:bg-[var(--bg-surface-secondary)] disabled:opacity-60"
+                        style={{ border: "1px solid var(--border-color)" }}
+                        aria-label={`Abrir adjunto ${post.attachment.name} en una pestaña nueva`}
+                    >
+                        <span style={{ color: "var(--text-accent)" }}>
+                            <IconFile size={22} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span
+                                className="block truncate text-sm font-semibold font-heading"
+                                style={{ color: "var(--text-primary)" }}
+                            >
+                                {post.attachment.name}
+                            </span>
+                            <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                {isOpeningAttachment
+                                    ? "Abriendo..."
+                                    : `${isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} · ${formatFileSize(post.attachment.size)}`}
+                            </span>
+                        </span>
+                    </button>
+                    {post.attachment.canRemove && (
+                        <Button
+                            variant="danger-text"
+                            size="sm"
+                            onClick={() => setConfirmAction("remove-attachment")}
+                            disabled={isRemovingAttachment}
+                            loading={isRemovingAttachment}
+                            aria-label={`Quitar adjunto ${post.attachment.name}`}
+                        >
+                            Quitar
+                        </Button>
+                    )}
+                    </div>
+                </div>
+            )}
 
             {post.postType === "POLL" && post.poll && (
                 <div
-                    className="mt-4 rounded-xl p-4 space-y-3"
+                    className="mt-4 rounded-[var(--radius-sm)] p-4 space-y-3"
                     style={{
                         backgroundColor: "var(--bg-surface-secondary)",
                         border: "1px solid var(--border-color)",
                     }}
                 >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3 min-w-0">
                         <p
-                            className="text-[11px] font-extrabold uppercase tracking-wider font-heading"
-                            style={{ color: "var(--text-secondary)" }}
+                            className="min-w-0 text-sm font-semibold font-heading"
+                            style={{ color: "var(--text-secondary)", overflowWrap: "anywhere" }}
                         >
-                            {post.poll.isClosed ? "Encuesta cerrada" : "Encuesta abierta"}
+                            {`Encuesta · ${post.poll.isClosed ? "cerrada" : "abierta"}`}
                         </p>
                         {post.poll.canClose && (
-                            <button
-                                type="button"
-                                onClick={() => void handleClosePoll()}
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={requestClosePoll}
                                 disabled={isClosingPoll}
-                                className="text-xs font-semibold font-heading"
-                                style={{
-                                    color: isClosingPoll ? "var(--text-muted)" : "var(--text-accent)",
-                                    cursor: isClosingPoll ? "wait" : "pointer",
-                                }}
+                                loading={isClosingPoll}
                             >
                                 {isClosingPoll ? "Cerrando..." : "Cerrar encuesta"}
-                            </button>
+                            </Button>
                         )}
                     </div>
 
@@ -234,28 +399,25 @@ export const PostCard = ({
                                 type="button"
                                 onClick={() => void handleVoteOption(option.id)}
                                 disabled={!post.poll?.canVote || Boolean(votingOptionId)}
-                                className="w-full text-left rounded-lg px-3 py-2.5"
+                                aria-pressed={option.isSelectedByMe}
+                                className="w-full text-left rounded-[var(--radius-sm)] px-3 py-2.5 min-h-11"
                                 style={{
                                     border: `1px solid ${option.isSelectedByMe ? "var(--text-accent)" : "var(--border-color)"}`,
                                     backgroundColor:
                                         option.isSelectedByMe
                                             ? "color-mix(in srgb, var(--text-accent) 12%, transparent)"
                                             : "var(--bg-surface)",
-                                    cursor:
-                                        !post.poll?.canVote || Boolean(votingOptionId)
-                                            ? "not-allowed"
-                                            : "pointer",
-                                    opacity:
-                                        !post.poll?.canVote || Boolean(votingOptionId)
-                                            ? 0.85
-                                            : 1,
+                                    cursor: canVoteNow ? "pointer" : "default",
                                 }}
                             >
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm font-body" style={{ color: "var(--text-primary)" }}>
+                                <div className="flex items-center justify-between gap-3 min-w-0">
+                                    <span
+                                        className="min-w-0 text-sm font-body"
+                                        style={{ color: "var(--text-primary)", overflowWrap: "anywhere" }}
+                                    >
                                         {option.text}
                                     </span>
-                                    <span className="text-xs font-body" style={{ color: "var(--text-secondary)" }}>
+                                    <span className="shrink-0 text-xs font-body" style={{ color: "var(--text-secondary)" }}>
                                         {option.votes} votos ({option.percentage}%)
                                     </span>
                                 </div>
@@ -284,7 +446,7 @@ export const PostCard = ({
             )}
 
             {error && (
-                <p className="mt-3 text-xs font-body" style={{ color: "#b91c1c" }}>
+                <p className="mt-3 text-xs font-body" style={{ color: "var(--danger)" }}>
                     {error}
                 </p>
             )}
@@ -294,6 +456,45 @@ export const PostCard = ({
                 token={token}
                 eventId={eventId}
                 disabled={!canComment || Boolean(post.isDeleted)}
+                showAuthorCommittee={showAuthorCommittee}
+                initialCount={post.commentCount}
+            />
+
+            <ConfirmDialog
+                open={confirmAction === "delete-post"}
+                title="¿Eliminar esta publicación?"
+                description="El contenido dejará de leerse. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleDeletePost();
+                }}
+            />
+            <ConfirmDialog
+                open={confirmAction === "remove-attachment"}
+                title="¿Quitar el archivo adjunto?"
+                description="El archivo dejará de estar disponible para quienes leen esta publicación. El texto se conserva."
+                confirmLabel="Quitar archivo"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleRemoveAttachment();
+                }}
+            />
+            <ConfirmDialog
+                open={confirmAction === "close-poll"}
+                title="¿Cerrar esta encuesta?"
+                description="Ya no se podrá votar ni cambiar votos."
+                confirmLabel="Cerrar encuesta"
+                tone="danger"
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={() => {
+                    setConfirmAction(null);
+                    void handleClosePoll();
+                }}
             />
         </Card>
     );

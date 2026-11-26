@@ -28,7 +28,6 @@ Basadas en `apps/api/.env.example` y usos del código:
 | `PORT` | Puerto HTTP, predeterminado 3002 |
 | `WEB_APP_URL` | Origen permitido por CORS |
 
-`ALLOW_DEMO_POSTS` y `DEFAULT_POST_AUTHOR_MEMBERSHIP_ID` aparecen en el ejemplo, pero no tienen uso encontrado en el código actual: son configuración obsoleta.
 
 ## Variables del frontend
 

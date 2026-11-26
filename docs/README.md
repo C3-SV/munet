@@ -1,33 +1,37 @@
 # Documentación de MUNET
 
-Revisión documental: **2026-10-23**. Evidencia: repositorio local en `0a42cb5`; no se verificó producción ni una base de datos desplegada.
+Revisión documental del **18 de noviembre de 2026**, sobre `main` en `a76cb837d428c9c450824b83a88208dfbffab338`. La evidencia procede del repositorio y de pruebas locales. El comportamiento con un Supabase desplegado queda por verificar.
 
-Esta carpeta es la fuente documental mantenida. Distingue cuatro clases de afirmación:
+Esta carpeta es la fuente documental mantenida. El estado funcional usa cuatro categorías.
 
-- **Actual comprobado:** evidencia directa en el código local.
-- **Requerimiento:** comportamiento esperado recuperado de especificaciones históricas.
-- **Plan reciente:** intención registrada en el contexto o planes del repositorio, todavía no necesariamente implementada.
-- **No verificado:** requiere esquema, políticas, entorno o decisión externa no disponibles.
+- **Implementado** indica que existe un recorrido en el código.
+- **Parcial** indica que falta una parte del recorrido.
+- **Pendiente** indica que falta la funcionalidad descrita.
+- **No verificado** indica que hay código, pero falta evidencia de su funcionamiento completo.
+
+Las reglas y planes históricos se conservan como contexto de producto.
 
 ## Ruta de lectura
 
-1. [Visión y alcance](01-producto/vision-y-alcance.md)
-2. [Funcionalidades y estado](01-producto/funcionalidades.md)
-3. [Arquitectura general](02-arquitectura/arquitectura-general.md)
-4. [Flujos funcionales](03-referencia/flujos-funcionales.md)
-5. [Estado actual de la auditoría](07-auditoria/estado-actual.md)
+1. [Manual funcional para MUN ESEN](01-producto/manual-funcional.md)
+2. [Visión y alcance](01-producto/vision-y-alcance.md)
+3. [Funcionalidades y estado](01-producto/funcionalidades.md)
+4. [Arquitectura general](02-arquitectura/arquitectura-general.md)
+5. [Flujos funcionales](03-referencia/flujos-funcionales.md)
+6. [Estado actual de la auditoría](07-auditoria/estado-actual.md)
+7. [Alcance y planes del equipo web](04-desarrollo/plan-web/README.md)
 
 ## Índice
 
 | Área | Fuente principal |
 |---|---|
-| Producto | [visión](01-producto/vision-y-alcance.md), [funcionalidades](01-producto/funcionalidades.md), [reglas](01-producto/reglas-de-negocio.md), [roles](01-producto/roles-y-permisos.md), [requerimientos](01-producto/requerimientos.md), [criterios de aceptación](01-producto/criterios-de-aceptacion.md) |
+| Producto | [manual funcional](01-producto/manual-funcional.md), [visión](01-producto/vision-y-alcance.md), [funcionalidades](01-producto/funcionalidades.md), [reglas](01-producto/reglas-de-negocio.md), [roles](01-producto/roles-y-permisos.md), [requerimientos](01-producto/requerimientos.md), [criterios de aceptación](01-producto/criterios-de-aceptacion.md) |
 | Arquitectura | [general](02-arquitectura/arquitectura-general.md), [frontend](02-arquitectura/frontend.md), [backend](02-arquitectura/backend.md), [datos](02-arquitectura/base-de-datos.md), [integraciones](02-arquitectura/integraciones.md) |
 | Referencia | [API](03-referencia/api.md), [modelos](03-referencia/modelos-de-datos.md), [autenticación](03-referencia/autenticacion.md), [flujos](03-referencia/flujos-funcionales.md) |
-| Desarrollo | [configuración](04-desarrollo/configuracion-local.md), [guía](04-desarrollo/guia-para-desarrolladores.md), [agentes](04-desarrollo/guia-para-agentes.md), [pruebas](04-desarrollo/pruebas-y-validacion.md) |
+| Desarrollo | [configuración](04-desarrollo/configuracion-local.md), [guía](04-desarrollo/guia-para-desarrolladores.md), [agentes](04-desarrollo/guia-para-agentes.md), [pruebas](04-desarrollo/pruebas-y-validacion.md), [evento de entrenamiento](04-desarrollo/evento-de-entrenamiento.md), [modo práctica](04-desarrollo/diseno-sandbox-conoce-munet.md), [plan web](04-desarrollo/plan-web/README.md) |
 | Operaciones | [despliegue y configuración](05-operaciones/despliegue-y-configuracion.md) |
 | Decisiones | [índice de ADR](06-decisiones/README.md) |
-| Auditoría | [estado](07-auditoria/estado-actual.md), [trazabilidad](07-auditoria/matriz-de-trazabilidad.md), [discrepancias](07-auditoria/discrepancias.md), [pendientes](07-auditoria/pendientes.md), [migración](07-auditoria/migracion-historica.md) |
+| Auditoría | [estado](07-auditoria/estado-actual.md), [trazabilidad](07-auditoria/matriz-de-trazabilidad.md), [discrepancias](07-auditoria/discrepancias.md), [pendientes](PENDIENTES.md), [migración](07-auditoria/migracion-historica.md) |
 
 ## Criterio editorial
 

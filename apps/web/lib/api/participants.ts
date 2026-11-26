@@ -7,10 +7,13 @@ export type ParticipantAccountStatus =
     | "ACTIVE"
     | "SUSPENDED";
 
+export type ParticipantImportRole = "PARTICIPANT" | "MODERATOR" | "ADMIN_MUN";
+
 export type AdminParticipantProfile = {
     first_name: string;
     last_name: string;
     display_name: string | null;
+    alias: string | null;
     bio?: string | null;
     profile_image_path?: string | null;
 };
@@ -20,6 +23,7 @@ export type AdminParticipant = {
     event_id: string;
     user_id: string;
     participant_code: string;
+    delegation_code: string | null;
     role: string;
     committee_id: string | null;
     delegation_name: string | null;
@@ -42,6 +46,7 @@ export type ParticipantMembership = {
     event_id: string;
     user_id: string;
     participant_code: string;
+    delegation_code?: string | null;
     role: string;
     committee_id: string | null;
     delegation_name: string | null;
@@ -53,6 +58,7 @@ export type ParticipantMembership = {
 
 export type ListParticipantsParams = {
     eventId: string;
+    q?: string;
     page?: number;
     limit?: number;
     committeeId?: string;
@@ -71,6 +77,7 @@ export type CreateAccountBody = {
     last_name: string;
     display_name?: string;
     bio?: string;
+    alias?: string;
 };
 
 export type CreateAccountResponse = {
@@ -79,6 +86,8 @@ export type CreateAccountResponse = {
     membership: ParticipantMembership;
     profile: Record<string, unknown>;
     initial_password: string;
+    delegation_code: string | null;
+    warnings: string[];
 };
 
 export type UpdateParticipantBody = {
@@ -89,16 +98,93 @@ export type UpdateParticipantBody = {
     first_name?: string;
     last_name?: string;
     display_name?: string | null;
+    alias?: string | null;
     bio?: string | null;
+};
+
+export type ChangeParticipantCommitteeResponse = {
+    message: string;
+    membership: {
+        id: string;
+        event_id: string;
+        committee_id: string | null;
+    };
+    committee: { id: string; name: string | null } | null;
+};
+
+export type ParticipantImportRow = {
+    row: number;
+    first_name: string;
+    last_name: string;
+    participant_code: string;
+    committee_id: string | null;
+    committee_label: string | null;
+    delegation_name: string | null;
+    institution_name: string | null;
+    role: ParticipantImportRole;
+    alias: string | null;
+    // Comité que no existe y se creará al confirmar; el servidor lo resuelve por nombre.
+    new_committee_name: string | null;
+};
+
+export type ParticipantImportInvalidRow = {
+    row: number;
+    values: Record<string, string>;
+    errors: string[];
+};
+
+export type ParticipantImportDuplicateRow = {
+    row: number;
+    values: Record<string, string>;
+    participant_code: string;
+    reason: "IN_FILE" | "IN_EVENT";
+};
+
+export type ParticipantImportPreview = {
+    total_rows: number;
+    valid: ParticipantImportRow[];
+    invalid: ParticipantImportInvalidRow[];
+    duplicates: ParticipantImportDuplicateRow[];
+    new_committees: string[];
+    template_headers: string[];
+    limits: { max_rows: number; confirm_batch_max: number };
+};
+
+export type ParticipantImportCreatedRow = {
+    row: number;
+    membership_id: string;
+    participant_code: string;
+    delegation_code: string | null;
+    first_name: string;
+    last_name: string;
+    role: ParticipantImportRole;
+    committee_label: string | null;
+    alias: string | null;
+    initial_password: string;
+    warnings: string[];
+};
+
+export type ParticipantImportFailedRow = {
+    row: number;
+    participant_code: string | null;
+    errors: string[];
+};
+
+export type ParticipantImportConfirmResponse = {
+    message: string;
+    summary: { requested: number; created: number; failed: number };
+    created: ParticipantImportCreatedRow[];
+    failed: ParticipantImportFailedRow[];
 };
 
 // ─── Participantes ────────────────────────────────────────────────────────────
 
-// Lista los participantes del evento con filtros y paginación.
+// Lista los participantes del evento con búsqueda, filtros y paginación.
 export const listParticipants = async (
     token: string,
     {
         eventId,
+        q,
         page = 1,
         limit = 10,
         committeeId,
@@ -114,6 +200,10 @@ export const listParticipants = async (
         page: String(page),
         limit: String(limit),
     });
+
+    if (q?.trim()) {
+        params.set("q", q.trim());
+    }
 
     if (committeeId) {
         params.set("committee_id", committeeId);
@@ -156,6 +246,35 @@ export const updateParticipant = async (
         body,
     });
 
+// Da o quita el rol de moderador (S3-04). Solo admite PARTICIPANT o MODERATOR.
+export const changeParticipantRole = (
+    token: string,
+    membershipId: string,
+    role: "PARTICIPANT" | "MODERATOR",
+    reason?: string,
+): Promise<{ message: string; membership: ParticipantMembership }> =>
+    requestApi(`/admin/participants/${membershipId}/role`, {
+        method: "PATCH",
+        token,
+        body: { role, ...(reason?.trim() ? { reason: reason.trim() } : {}) },
+    });
+
+// Cambia el comité mediante el endpoint específico de S2-08.
+export const changeParticipantCommittee = async (
+    token: string,
+    membershipId: string,
+    committeeId: string | null,
+    reason?: string,
+): Promise<ChangeParticipantCommitteeResponse> =>
+    requestApi(`/admin/participants/${membershipId}/committee`, {
+        method: "PATCH",
+        token,
+        body: {
+            committee_id: committeeId,
+            ...(reason?.trim() ? { reason: reason.trim() } : {}),
+        },
+    });
+
 // Suspende la cuenta. El motivo es obligatorio en el backend.
 export const suspendParticipant = async (
     token: string,
@@ -188,6 +307,32 @@ export const resetParticipantPassword = async (
     requestApi(`/admin/participants/${membershipId}/reset-password`, {
         method: "POST",
         token,
+    });
+
+// ─── Importación CSV ─────────────────────────────────────────────────────────
+
+// Valida el texto de un CSV sin escribir nada.
+export const previewParticipantImport = async (
+    token: string,
+    eventId: string,
+    csv: string,
+): Promise<ParticipantImportPreview> =>
+    requestApi("/admin/participants/import/preview", {
+        method: "POST",
+        token,
+        body: { event_id: eventId, csv },
+    });
+
+// Confirma un lote de hasta 50 filas validadas por el preview.
+export const confirmParticipantImport = async (
+    token: string,
+    eventId: string,
+    rows: ParticipantImportRow[],
+): Promise<ParticipantImportConfirmResponse> =>
+    requestApi("/admin/participants/import/confirm", {
+        method: "POST",
+        token,
+        body: { event_id: eventId, rows },
     });
 
 // ─── Alta de cuentas ──────────────────────────────────────────────────────────
