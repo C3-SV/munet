@@ -156,12 +156,10 @@ const Feed = () => {
     }, [postIdsKey]);
 
     useEffect(() => {
-        // Realtime de reacciones: cuando alguien reacciona en este muro se vuelven a pedir los
-        // contadores de las publicaciones visibles (agrupando ráfagas), sin recargar el muro.
+        // Consulta la API mientras el muro está visible para reflejar también las eliminaciones.
         if (
             !activeWall?.id ||
             activeWall.kind === "announcements" ||
-            !supabaseBrowser ||
             !token ||
             !eventId ||
             isForbidden ||
@@ -170,11 +168,7 @@ const Feed = () => {
             return;
         }
 
-        const realtimeClient = supabaseBrowser;
-        let timer: ReturnType<typeof setTimeout> | null = null;
         let cancelled = false;
-        realtimeClient.realtime.setAuth(token);
-        const channel = realtimeClient.channel(`feed-reactions:${activeWall.id}`);
 
         const refreshReactions = async () => {
             const ids = postIdsRef.current.split(",").filter(Boolean).slice(0, 100);
@@ -192,32 +186,22 @@ const Feed = () => {
                     );
                 }
             } catch {
-                // Los contadores se corrigen con el siguiente cambio o al recargar el muro.
+                // Se reintenta en la próxima consulta.
             }
         };
 
-        channel
-            .on(
-                "postgres_changes",
-                { event: "*", schema: "public", table: "post_reactions", filter: `wall_id=eq.${activeWall.id}` },
-                () => {
-                    if (timer) {
-                        clearTimeout(timer);
-                    }
-
-                    timer = setTimeout(() => void refreshReactions(), 800);
-                },
-            )
-            .subscribe();
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === "visible") void refreshReactions();
+        }, 10000);
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") void refreshReactions();
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
 
         return () => {
             cancelled = true;
-
-            if (timer) {
-                clearTimeout(timer);
-            }
-
-            void realtimeClient.removeChannel(channel);
+            window.clearInterval(timer);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
         };
     }, [activeWall?.id, activeWall?.kind, eventId, isForbidden, token]);
 

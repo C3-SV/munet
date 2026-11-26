@@ -47,6 +47,8 @@ La pantalla de moderación usa `ModerationPostCard` en lugar de `PostCard` porqu
 
 El panel admin reutiliza la estética del sitio participante: sidebar fija en escritorio y drawer con barra superior en móvil, con cierre de sesión y cambio de tema accesibles.
 
+Las reacciones se consultan mediante la API cada 10 segundos mientras el muro está visible, y al volver a la pestaña; esto incluye las retiradas sin exponer la tabla al navegador.
+
 ## Realtime
 
 Feed, comentarios y chat se suscriben a cambios para volver a consultar la API. Feed y comentarios invocan `realtime.setAuth(token)` antes de suscribirse; chat lo hace igual en su propia vista. Al unirse por primera vez el canal no relee; al reconectarse (`SUBSCRIBED` posterior) sí vuelve a consultar la API. Al cambiar de evento o muro, el feed descarta las publicaciones anteriores. Los votos de encuesta (`poll_votes`) no tienen `wall_id`, por lo que el feed abre un filtro `poll_id=eq.<id>` por cada encuesta cargada en el muro; la lista se recalcula cuando cambian las encuestas visibles. Las eliminaciones de votos no llegan con ese filtro salvo que la réplica de la tabla incluya la columna, y el flujo actual de la API no las emite salvo en limpieza de datos heredados. El alcance efectivo de las suscripciones queda por comprobar en un entorno aislado.
