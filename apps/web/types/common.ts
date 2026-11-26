@@ -1,3 +1,5 @@
+import type { PostReactions } from "../lib/reactions";
+
 export interface User {
     id: string;
     name: string;
@@ -25,6 +27,8 @@ export interface Post {
     attachment?: PostAttachment | null;
     // Total de comentarios visibles; lo calcula la API.
     commentCount?: number;
+    // Reacciones de los canales (no existen en avisos). La API las calcula por persona.
+    reactions?: PostReactions;
     // Fijado por moderación; la API lo devuelve en el feed y la tarjeta lo marca.
     isPinned?: boolean;
     pinnedAt?: string | null;

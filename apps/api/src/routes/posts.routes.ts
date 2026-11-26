@@ -8,11 +8,14 @@ import {
   deletePost,
   listComments,
   listPosts,
+  listReactions,
+  reactToPost,
+  unreactToPost,
   voteOnPoll,
 } from '../controllers/posts.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireEventOpenForWrites } from '../middleware/event-status.middleware';
-import { attachmentInitLimiter, createPostLimiter, createCommentLimiter } from '../middleware/rate-limit';
+import { attachmentInitLimiter, createPostLimiter, createCommentLimiter, reactionLimiter } from '../middleware/rate-limit';
 
 const router = Router();
 
@@ -21,6 +24,10 @@ const router = Router();
 router.get('/', requireAuth, listPosts);
 router.post('/', requireAuth, requireEventOpenForWrites, createPostLimiter, createPost);
 router.post('/attachments/init', requireAuth, requireEventOpenForWrites, attachmentInitLimiter, initUpload);
+// Reacciones: se consultan por lote y se agregan, cambian o retiran por publicación.
+router.get('/reactions', requireAuth, listReactions);
+router.put('/:postId/reaction', requireAuth, requireEventOpenForWrites, reactionLimiter, reactToPost);
+router.delete('/:postId/reaction', requireAuth, requireEventOpenForWrites, reactionLimiter, unreactToPost);
 router.get('/:postId/attachment/download', requireAuth, downloadAttachment);
 router.delete('/:postId/attachment', requireAuth, requireEventOpenForWrites, deleteOwnAttachment);
 router.delete('/:postId', requireAuth, requireEventOpenForWrites, deletePost);

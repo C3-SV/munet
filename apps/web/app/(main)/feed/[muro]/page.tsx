@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FeedFilters } from "../../../../components/feed/FeedFilters";
@@ -11,6 +11,7 @@ import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
 import { markAnnouncementsRead } from "../../../../lib/api/notifications";
+import { getPostReactions } from "../../../../lib/api/reactions";
 import { isNewAnnouncement } from "../../../../lib/notifications";
 import { AttachmentUploadError } from "../../../../lib/attachment-upload";
 import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
@@ -144,6 +145,79 @@ const Feed = () => {
             cancelled = true;
         };
     }, [eventId, muroParam, token, reloadKey]);
+
+    // Ids de las publicaciones en pantalla: sirven para refrescar solo sus reacciones.
+    const postIdsKey = posts.map((post) => post.id).join(",");
+    const postIdsRef = useRef(postIdsKey);
+    useEffect(() => {
+        postIdsRef.current = postIdsKey;
+    }, [postIdsKey]);
+
+    useEffect(() => {
+        // Realtime de reacciones: cuando alguien reacciona en este muro se vuelven a pedir los
+        // contadores de las publicaciones visibles (agrupando ráfagas), sin recargar el muro.
+        if (
+            !activeWall?.id ||
+            activeWall.kind === "announcements" ||
+            !supabaseBrowser ||
+            !token ||
+            !eventId ||
+            isForbidden ||
+            isPracticeEvent(eventId)
+        ) {
+            return;
+        }
+
+        const realtimeClient = supabaseBrowser;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let cancelled = false;
+        realtimeClient.realtime.setAuth(token);
+        const channel = realtimeClient.channel(`feed-reactions:${activeWall.id}`);
+
+        const refreshReactions = async () => {
+            const ids = postIdsRef.current.split(",").filter(Boolean).slice(0, 100);
+
+            if (ids.length === 0) {
+                return;
+            }
+
+            try {
+                const reactions = await getPostReactions(ids, { token, eventId });
+
+                if (!cancelled) {
+                    setPosts((current) =>
+                        current.map((post) => (reactions[post.id] ? { ...post, reactions: reactions[post.id] } : post)),
+                    );
+                }
+            } catch {
+                // Los contadores se corrigen con el siguiente cambio o al recargar el muro.
+            }
+        };
+
+        channel
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "post_reactions", filter: `wall_id=eq.${activeWall.id}` },
+                () => {
+                    if (timer) {
+                        clearTimeout(timer);
+                    }
+
+                    timer = setTimeout(() => void refreshReactions(), 800);
+                },
+            )
+            .subscribe();
+
+        return () => {
+            cancelled = true;
+
+            if (timer) {
+                clearTimeout(timer);
+            }
+
+            void realtimeClient.removeChannel(channel);
+        };
+    }, [activeWall?.id, activeWall?.kind, eventId, isForbidden, token]);
 
     // Ids de encuestas del muro: poll_votes no tiene wall_id, así que se escucha cada una.
     const pollIdsKey = posts

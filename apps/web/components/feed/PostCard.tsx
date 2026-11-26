@@ -8,8 +8,10 @@ import {
 } from "../../lib/api/feed";
 import { formatFileSize, isImageAttachment } from "../../lib/attachments";
 import { formatDateTime } from "../../lib/format-datetime";
+import { isPracticeEvent } from "../../lib/practice/constants";
 import { AttachmentImagePreview } from "./AttachmentImagePreview";
 import { PostComments } from "./PostComments";
+import { ReactionBar } from "./ReactionBar";
 import { UserHoverCard } from "../profile/UserHoverCard";
 import { Button } from "../ui/Button";
 import { Card, type CardVariant } from "../ui/Card";
@@ -463,6 +465,17 @@ export const PostCard = ({
                 <p className="mt-3 text-xs font-body" style={{ color: "var(--danger)" }}>
                     {error}
                 </p>
+            )}
+
+            {/* Reacciones: solo en los canales (no en avisos) y no en la práctica. */}
+            {variant !== "official" && !post.isDeleted && !isPracticeEvent(eventId) && (
+                <ReactionBar
+                    postId={post.id}
+                    token={token}
+                    eventId={eventId}
+                    reactions={post.reactions}
+                    onChange={(reactions) => onPostUpdated?.({ ...post, reactions })}
+                />
             )}
 
             <PostComments

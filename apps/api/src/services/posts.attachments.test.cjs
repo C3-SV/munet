@@ -71,6 +71,7 @@ function harness({ db = () => undefined, copy } = {}) {
     '../utils/posts.utils': postsUtils,
     '../utils/rbac.utils': { isAdminRole: () => false },
     '../types/posts.types': postTypes,
+    './reactions.service': { attachReactions: async ({ posts }) => posts },
     './walls.service': wallsService,
   };
   const attachments = loadTs(__dirname + '/attachments.service.ts', imports, { console: quietConsole, setTimeout });

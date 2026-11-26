@@ -4,6 +4,7 @@ import { POST_SELECT, type PostRow } from '../types/posts.types';
 import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug, mapPost } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
+import type { ReactionSummary } from '../utils/reactions.utils';
 import {
   abortClaim,
   attachAttachmentsToPosts,
@@ -12,6 +13,7 @@ import {
   completeClaim,
   type ClaimedUpload,
 } from './attachments.service';
+import { attachReactions } from './reactions.service';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
 type PollStatus = 'OPEN' | 'CLOSED';
@@ -64,6 +66,7 @@ type NormalizedPost = ReturnType<typeof mapPost> & {
   postType: PostType;
   poll: PollView | null;
   commentCount: number;
+  reactions?: ReactionSummary;
 };
 
 // Normaliza el tipo de post para soportar valores legacy sin romper la API.
@@ -460,8 +463,17 @@ export const getPostsByWall = async (params: {
   });
 
   const postsWithCounts = await attachCommentCounts({ posts: postsWithPolls, eventId: params.eventId });
+  // Las reacciones solo existen en los canales; en avisos no se consultan.
+  const postsWithReactions =
+    wallView.kind === 'announcements'
+      ? postsWithCounts
+      : await attachReactions({
+          posts: postsWithCounts,
+          eventId: params.eventId,
+          membershipId: params.membership.id,
+        });
   const postsWithAttachments = await attachAttachmentsToPosts({
-    posts: postsWithCounts,
+    posts: postsWithReactions,
     eventId: params.eventId,
     membershipId: params.membership.id,
   });

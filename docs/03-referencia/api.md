@@ -24,6 +24,9 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /posts/:postId/poll/vote` | `option_id` | Reemplaza voto vigente. |
 | `POST /posts/:postId/poll/close` | — | El autor cierra la encuesta. |
 | `GET /posts/:postId/comments` | — | Comentarios visibles en el muro autorizado. |
+| `PUT /posts/:postId/reaction` | `reaction`: `LIKE`, `LOVE`, `LAUGH` o `CLAP` | Agrega o cambia la reacción de la persona (una por publicación). Solo en canales (general y de comité), no en avisos. 400 si el tipo no existe; 403 sin acceso al muro o en avisos; 404 si la publicación está oculta, eliminada o es de otro evento. Responde `{ reactions: { counts, mine } }`. Se rechaza en evento cerrado. Requiere la migración 006. |
+| `DELETE /posts/:postId/reaction` | — | Retira la reacción de la persona. Mismas reglas de acceso. |
+| `GET /posts/reactions?ids=a,b,c` | hasta 100 ids | Reacciones de varias publicaciones, solo de muros accesibles: `{ reactions: { [postId]: { counts, mine } } }`. |
 | `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Se puede responder a un comentario o a otra respuesta del mismo post (`parent_comment_id`). En anuncios solo comentan administradores y moderadores. |
 | `DELETE /posts/:postId/comments/:commentId` | — | Autor o administración. |
 
