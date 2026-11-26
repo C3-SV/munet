@@ -36,13 +36,13 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 
 | Método y ruta | Entrada | Regla principal |
 |---|---|---|
-| `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 5 MB o PDF ≤ 20 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 3 intentos sin consumir o más de 20 por hora. |
-| `POST /posts` con `upload_id` | Los campos actuales más `upload_id` | Verifica el objeto, lo copia a su ruta final y crea post y adjunto. Un intento solo se usa una vez; un reintento devuelve el mismo post. |
-| `GET /posts/:postId/attachment/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. |
-| `DELETE /posts/:postId/attachment` | — | El autor retira su adjunto. |
-| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
+| `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Una llamada por archivo. Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 15 MB o PDF ≤ 30 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 14 intentos sin consumir o más de 60 por hora; 30 por minuto por persona. 507 si el almacenamiento llegó al 95 % de la cuota (`STORAGE_QUOTA_BYTES`); al 90 % solo queda una alerta en los registros. |
+| `POST /posts` con `upload_ids` | Los campos actuales más `upload_ids` (hasta 12; también se acepta `upload_id` con uno) | Reclama y verifica cada objeto, lo copia a su ruta final y crea el post con sus adjuntos en el orden dado. Hasta 10 imágenes y 2 PDF; 400 si se excede, con tamaño total o ids repetidos. Si algo falla se compensan todos los archivos y no se crea el post. Un reintento devuelve el mismo post. Requiere la migración 007. |
+| `GET /posts/:postId/attachments/:attachmentId/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. La ruta anterior `/attachment/download` (sin id) entrega el primer adjunto. |
+| `DELETE /posts/:postId/attachments/:attachmentId` | — | El autor retira un adjunto. La ruta anterior `DELETE /posts/:postId/attachment` solo sirve si hay uno; con varios responde 400. |
+| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500), `attachment_id` (obligatorio si hay varios) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
 
-`GET /posts` incluirá `attachment` (`id`, `name`, `mimeType`, `size`, `canRemove`) sin URL. `canRemove` es verdadero solo para el autor del post.
+`GET /posts` incluye `attachments` (lista en orden; cada uno con `id`, `name`, `mimeType`, `size`, `canRemove`) y `attachment` (el primero) sin URL. `canRemove` es verdadero solo para el autor del post.
 
 ## Perfiles
 

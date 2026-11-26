@@ -52,7 +52,8 @@ export const initUpload = async (req: Request, res: Response) => {
   }
 };
 
-// GET /posts/:postId/attachment/download -> URL firmada de 60 segundos, a demanda.
+// GET /posts/:postId/attachments/:attachmentId/download (o la ruta anterior /attachment/download,
+// que entrega el primero) -> URL firmada de 60 segundos, a demanda.
 export const downloadAttachment = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -71,6 +72,8 @@ export const downloadAttachment = async (req: Request, res: Response) => {
       postId: String(req.params.postId),
       eventId,
       membership,
+      // Sin id (ruta anterior) se entrega el primer adjunto.
+      attachmentId: req.params.attachmentId ? String(req.params.attachmentId) : null,
     });
 
     noStore(res);
@@ -81,7 +84,7 @@ export const downloadAttachment = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /posts/:postId/attachment -> el autor retira su adjunto.
+// DELETE /posts/:postId/attachments/:attachmentId (o /attachment, si hay uno solo) -> el autor retira su adjunto.
 export const deleteOwnAttachment = async (req: Request, res: Response) => {
   try {
     const eventId = readEventId(req);
@@ -101,6 +104,7 @@ export const deleteOwnAttachment = async (req: Request, res: Response) => {
       eventId,
       membership,
       mode: 'AUTHOR',
+      attachmentId: req.params.attachmentId ? String(req.params.attachmentId) : null,
     });
 
     return res.status(result.status).json(result.body);
@@ -128,6 +132,8 @@ export const deleteModerationAttachment = async (req: Request, res: Response) =>
       membership,
       mode: 'MODERATION',
       reason,
+      // Obligatorio si la publicación tiene varios adjuntos.
+      attachmentId: typeof req.body?.attachment_id === 'string' ? req.body.attachment_id.trim() : null,
     });
 
     return res.status(result.status).json(result.body);

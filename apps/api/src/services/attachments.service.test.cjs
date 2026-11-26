@@ -48,7 +48,7 @@ const label = ({ table, op, payload }) => {
   return `${table}:${op}`;
 };
 
-function setup({ db = () => undefined, storage = fakeStorage(), wallView = { canAccess: true, canPublish: true }, walls } = {}) {
+function setup({ db = () => undefined, storage = fakeStorage(), wallView = { canAccess: true, canPublish: true }, walls, quota = { level: 'disabled' } } = {}) {
   const events = [];
   const audits = [];
   const wallList = walls ?? [{ id: WALL, slug: 'general' }];
@@ -64,6 +64,7 @@ function setup({ db = () => undefined, storage = fakeStorage(), wallView = { can
     '../utils/audit.logger': { logAudit: async (entry) => { audits.push(entry); } },
     '../utils/posts.utils': { findWallBySlug: (list, slug) => list.find((wall) => wall.slug === slug) ?? null },
     './walls.service': { loadWallsByEvent: async () => wallList, mapWallForMembership: () => wallView },
+    './storage-quota.service': { checkUploadQuota: async () => quota },
   }, { console: quietConsole, setTimeout });
   service.attachmentSettings.copyRetryDelaysMs = [0, 0];
   return { service, events, audits, storage };
@@ -87,7 +88,7 @@ const counts = (pending, recent) => (call) => {
 
 test('init: tipo o tamaño inválidos se rechazan sin tocar la base', async () => {
   const h = setup();
-  for (const overrides of [{ mimeType: 'image/webp' }, { size: 21 * 1024 * 1024 }, { fileName: '' }]) {
+  for (const overrides of [{ mimeType: 'image/webp' }, { size: 31 * 1024 * 1024 }, { fileName: '' }]) {
     assert.equal((await h.service.initAttachmentUpload(initParams(overrides))).status, 400);
   }
   assert.deepEqual(h.events, []);
@@ -103,14 +104,14 @@ test('init: muro inexistente, sin acceso o sin permiso de publicar', async () =>
 });
 
 test('init: límites por membresía salen de la base (429)', async () => {
-  const tooManyPending = setup({ db: counts(3, 0) });
+  const tooManyPending = setup({ db: counts(14, 0) });
   assert.equal((await tooManyPending.service.initAttachmentUpload(initParams())).status, 429);
   assert.equal(tooManyPending.events.includes('attachment_uploads:insert'), false);
 
-  const tooManyPerHour = setup({ db: counts(0, 20) });
+  const tooManyPerHour = setup({ db: counts(0, 60) });
   assert.equal((await tooManyPerHour.service.initAttachmentUpload(initParams())).status, 429);
 
-  const justUnder = setup({ db: counts(2, 19) });
+  const justUnder = setup({ db: counts(13, 59) });
   assert.equal((await justUnder.service.initAttachmentUpload(initParams())).status, 201);
 });
 
@@ -296,7 +297,7 @@ test('attachClaimedUpload inserta la fila definitiva y audita', async () => {
   const h = setup({ db: (call) => { inserted = { ...call.payload }; return { data: { id: ATTACHMENT }, error: null }; } });
   assert.equal(await h.service.attachClaimedUpload({ claim, postId: POST, membership }), null);
   assert.deepEqual(inserted, {
-    event_id: EVENT, post_id: POST, uploaded_by_membership_id: MEMBER, storage_path: FINAL_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf', size_bytes: 1000,
+    event_id: EVENT, post_id: POST, uploaded_by_membership_id: MEMBER, storage_path: FINAL_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf', size_bytes: 1000, position: 0,
   });
   assert.equal(h.audits[0].actionType, 'UPLOAD_ATTACHMENT');
   assert.equal(h.audits[0].entityType, 'ATTACHMENT');
@@ -362,7 +363,8 @@ const attachmentRow = { id: ATTACHMENT, storage_path: FINAL_KEY, file_name: 'act
 
 const downloadDb = ({ post = postRow(), attachment = attachmentRow } = {}) => (call) => {
   if (call.table === 'posts') return { data: post, error: null };
-  if (call.table === 'attachments') return { data: attachment, error: null };
+  // La API lista los adjuntos del post (puede haber varios): la tabla devuelve un arreglo.
+  if (call.table === 'attachments') return { data: attachment ? (Array.isArray(attachment) ? attachment : [attachment]) : [], error: null };
   return undefined;
 };
 
@@ -462,4 +464,128 @@ test('retiro: post o adjunto inexistente es 404', async () => {
   assert.equal((await setup({ db: downloadDb({ post: null }) }).service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'MODERATION', reason: 'xxx' })).status, 404);
   const none = setup({ db: downloadDb({ post: postRow({ author_membership_id: MEMBER }), attachment: null }) });
   assert.equal((await none.service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'AUTHOR' })).status, 404);
+});
+
+test('init: con la cuota al 95 % se rechaza la carga nueva (507) sin firmar ni registrar nada', async () => {
+  const h = setup({ quota: { level: 'blocked', usedPercent: 96 } });
+  const result = await h.service.initAttachmentUpload(initParams());
+
+  assert.equal(result.status, 507);
+  assert.match(body(result).error, /casi lleno/);
+  assert.deepEqual(h.events, []);
+  assert.equal(h.storage.calls.length, 0);
+});
+
+test('init: con alerta al 90 % la carga se acepta', async () => {
+  const h = setup({ db: counts(0, 0), quota: { level: 'alert', usedPercent: 92 } });
+
+  assert.equal((await h.service.initAttachmentUpload(initParams())).status, 201);
+});
+
+// ---------------------------------------------------------------------------
+// Varios adjuntos por publicación (mejora 10)
+
+const A1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+const A2 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
+const A3 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3';
+const stored = (id, position, mime = 'image/jpeg', key = `events/${EVENT}/posts/${id}.jpg`) => ({ id, storage_path: key, file_name: `${id}.jpg`, mime_type: mime, position, created_at: '2026-11-25T10:00:00Z' });
+
+test('varios adjuntos: el feed los devuelve en orden y conserva attachment (el primero)', async () => {
+  const rows = [
+    { id: A2, post_id: 'a', file_name: '2.png', mime_type: 'image/png', size_bytes: 20, position: 1, created_at: '2026-11-25T10:00:02Z' },
+    { id: A3, post_id: 'a', file_name: 'acta.pdf', mime_type: 'application/pdf', size_bytes: 30, position: 2, created_at: '2026-11-25T10:00:03Z' },
+    { id: A1, post_id: 'a', file_name: '1.jpg', mime_type: 'image/jpeg', size_bytes: 10, position: 0, created_at: '2026-11-25T10:00:01Z' },
+    { id: 'zz', post_id: 'b', file_name: 'b.jpg', mime_type: 'image/jpeg', size_bytes: 1, position: 0 },
+  ];
+  const h = setup({ db: () => ({ data: rows, error: null }) });
+  const posts = JSON.parse(JSON.stringify(await h.service.attachAttachmentsToPosts({
+    posts: [{ id: 'a', user: { id: MEMBER } }, { id: 'b', isDeleted: true }, { id: 'c' }],
+    eventId: EVENT,
+    membershipId: MEMBER,
+  })));
+
+  assert.deepEqual(posts[0].attachments.map((item) => item.id), [A1, A2, A3]);
+  assert.equal(posts[0].attachment.id, A1);
+  assert.ok(posts[0].attachments.every((item) => item.canRemove === true));
+  assert.deepEqual(posts[0].attachments.map((item) => item.size), [10, 20, 30]);
+  // Un post eliminado no sirve sus adjuntos; uno sin adjuntos tiene lista vacía.
+  assert.deepEqual(posts[1].attachments, []);
+  assert.equal(posts[1].attachment, null);
+  assert.deepEqual(posts[2].attachments, []);
+});
+
+test('varios adjuntos: sin posición definida se ordena por alta', () => {
+  const { service } = setup();
+  const sorted = service.sortAttachmentRows([
+    { id: 'b', created_at: '2026-11-25T10:00:02Z' },
+    { id: 'a', created_at: '2026-11-25T10:00:01Z' },
+    { id: 'c', position: null, created_at: '2026-11-25T10:00:03Z' },
+  ]);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(sorted.map((item) => item.id))), ['a', 'b', 'c']);
+});
+
+test('varios adjuntos: attachClaimedUpload guarda la posición indicada', async () => {
+  let inserted;
+  const h = setup({ db: (call) => { inserted = { ...call.payload }; return { data: { id: ATTACHMENT }, error: null }; } });
+  await h.service.attachClaimedUpload({ claim, postId: POST, membership, position: 4 });
+
+  assert.equal(inserted.position, 4);
+});
+
+test('varios adjuntos: se descarga el indicado por id y un id ajeno es 404', async () => {
+  const all = [stored(A1, 0), stored(A2, 1, 'image/png', `events/${EVENT}/posts/${A2}.png`)];
+  const ok = setup({ db: downloadDb({ attachment: all }) });
+  const result = await ok.service.getAttachmentDownload({ postId: POST, eventId: EVENT, membership, attachmentId: A2 });
+
+  assert.equal(result.status, 200);
+  assert.equal(ok.storage.calls[0][1].key, `events/${EVENT}/posts/${A2}.png`);
+
+  const wrong = setup({ db: downloadDb({ attachment: all }) });
+  assert.equal((await wrong.service.getAttachmentDownload({ postId: POST, eventId: EVENT, membership, attachmentId: A3 })).status, 404);
+  assert.equal((await wrong.service.getAttachmentDownload({ postId: POST, eventId: EVENT, membership, attachmentId: 'no-uuid' })).status, 404);
+  assert.equal(wrong.storage.calls.length, 0);
+});
+
+test('varios adjuntos: sin id se descarga el primero (compatibilidad)', async () => {
+  const h = setup({ db: downloadDb({ attachment: [stored(A2, 1), stored(A1, 0)] }) });
+  await h.service.getAttachmentDownload({ postId: POST, eventId: EVENT, membership });
+
+  assert.equal(h.storage.calls[0][1].key, `events/${EVENT}/posts/${A1}.jpg`);
+});
+
+test('varios adjuntos: retirar sin indicar cuál es 400 y no borra nada', async () => {
+  const h = setup({ db: downloadDb({ post: postRow({ author_membership_id: MEMBER }), attachment: [stored(A1, 0), stored(A2, 1)] }) });
+  const result = await h.service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'AUTHOR' });
+
+  assert.equal(result.status, 400);
+  assert.match(body(result).error, /attachment_id/);
+  assert.equal(h.storage.calls.length, 0);
+  assert.equal(h.events.includes('attachments:delete'), false);
+});
+
+test('varios adjuntos: retirar con id borra solo ese objeto y esa fila', async () => {
+  let deletedFilter;
+  const db = (call) => {
+    if (call.op === 'delete') { deletedFilter = call.steps.find((step) => step[0] === 'eq' && step[1] === 'id'); return { error: null }; }
+    return downloadDb({ post: postRow({ author_membership_id: MEMBER }), attachment: [stored(A1, 0), stored(A2, 1)] })(call);
+  };
+  const h = setup({ db });
+  const result = await h.service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'AUTHOR', attachmentId: A2 });
+
+  assert.equal(result.status, 200);
+  assert.equal(h.storage.calls[0][1], `events/${EVENT}/posts/${A2}.jpg`);
+  assert.equal(deletedFilter[2], A2);
+  assert.equal(body(result).attachmentId, A2);
+  assert.equal(h.audits[0].entityId, A2);
+});
+
+test('varios adjuntos: con un solo adjunto retirar sin id sigue funcionando', async () => {
+  const db = (call) => {
+    if (call.op === 'delete') return { error: null };
+    return downloadDb({ post: postRow({ author_membership_id: MEMBER }), attachment: [stored(A1, 0)] })(call);
+  };
+  const h = setup({ db });
+
+  assert.equal((await h.service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'AUTHOR' })).status, 200);
 });

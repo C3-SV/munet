@@ -19,7 +19,7 @@ Estos criterios expresan pruebas esperadas, no pruebas ya ejecutadas. Deben usar
 | CA-13 | REQ-13 | Autor/moderador retira; tercero no; desaparece sin marcador y conserva datos/auditoría restringida. | Parcial |
 | CA-14 | REQ-14 | Solo lector comenta; vacío y nieto fallan; autor/moderación retira; sin edición. | Parcial |
 | CA-15 | REQ-15 | Encuesta solo en muro autorizado; voto único reemplazable; cierre auditado bloquea votos; sin reapertura. | Parcial |
-| CA-16 | REQ-16 | Un JPG/PNG ≤5 MB o PDF ≤20 MB; permisos heredados; retiro conserva metadata sin huérfanos. | No implementado |
+| CA-16 | REQ-16 | Hasta 10 imágenes ≤15 MB y 2 PDF ≤30 MB; carrusel; permisos heredados; retiro por archivo conserva metadata sin huérfanos. | No implementado |
 | CA-17 | REQ-17 | Abre/reutiliza par del mismo evento; no consigo mismo/tercero/otro evento; historial ordenado persiste. | Parcial |
 | CA-18 | REQ-18 | Solo integrantes envían/leen; confirma tras persistir; solo autor elimina; sin edición/adjuntos. | Parcial |
 | CA-19 | REQ-19 | Admin MUN del evento da motivo; auditoría ocurre antes; si falla se deniega; otro evento no accede; solo lectura. | No implementado |

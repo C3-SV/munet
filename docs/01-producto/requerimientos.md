@@ -19,7 +19,7 @@ Se conservan los identificadores históricos. La última columna refleja la [rev
 | REQ-13 | Autor/moderación retira u oculta post lógicamente, auditable y sin marcador al participante. | Parcial / divergente |
 | REQ-14 | Comentar y responder (también a otras respuestas); eliminación lógica por autor/moderación, sin edición. | Parcial |
 | REQ-15 | Crear encuesta en muro autorizado, voto único reemplazable y cierre por creador auditado. | Parcial |
-| REQ-16 | Un adjunto por post: JPG/PNG ≤5 MB o PDF ≤20 MB, metadata, permisos heredados y retiro. | Parcial: interfaz web sin guardado; sin API ni Storage |
+| REQ-16 | Hasta 10 imágenes (JPG/PNG ≤15 MB) y 2 PDF (≤30 MB) por post, con carrusel, metadata, permisos heredados, retiro por archivo y protección de cuota (alerta 90 %, bloqueo 95 %). | Parcial: interfaz web sin guardado; sin API ni Storage |
 | REQ-17 | Reutilizar conversación 1:1 entre miembros activos del mismo evento, con bandeja/historial. | Parcial |
 | REQ-18 | Enviar texto/enlaces; autor/hora/conversación; solo autor elimina lógicamente; sin adjuntos/edición. | Parcial |
 | REQ-19 | Supervisión DM de solo lectura, permiso/motivo y auditoría previa fail-closed. | Documentado, no implementado |

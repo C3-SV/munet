@@ -13,7 +13,7 @@ import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../li
 import { markAnnouncementsRead } from "../../../../lib/api/notifications";
 import { getPostReactions } from "../../../../lib/api/reactions";
 import { isNewAnnouncement } from "../../../../lib/notifications";
-import { AttachmentUploadError } from "../../../../lib/attachment-upload";
+import { AttachmentUploadError, type UploadProgress } from "../../../../lib/attachment-upload";
 import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
@@ -33,7 +33,7 @@ const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
         return error.message;
     }
 
-    // El modo práctica responde 501 o 507 con un texto claro; la API real nunca devuelve ninguno de los dos.
+    // 501: el modo práctica sin adjuntos. 507: el almacenamiento está casi lleno (práctica o API real).
     if (error instanceof ApiError && (error.status === 501 || error.status === 507)) {
         return error.message;
     }
@@ -62,6 +62,8 @@ const Feed = () => {
     const [error, setError] = useState<string | null>(null);
     // Error al publicar: no se reintenta recargando; el borrador del editor se conserva.
     const [publishError, setPublishError] = useState<string | null>(null);
+    // Avance de la subida de archivos al publicar.
+    const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
     const [isForbidden, setIsForbidden] = useState(false);
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
     const [walls, setWalls] = useState<EventWall[]>([]);
@@ -373,8 +375,8 @@ const Feed = () => {
         content: string;
         postType: "TEXT" | "POLL";
         pollOptions?: string[];
-        // Adjunto elegido en el editor: se sube a almacenamiento y luego se crea el post.
-        attachment?: File;
+        // Archivos elegidos en el editor: se suben a almacenamiento y luego se crea el post.
+        attachments?: File[];
     }) => {
         // Publica y actualiza estado local optimistamente con el post retornado.
         if (!token || !eventId) {
@@ -388,7 +390,8 @@ const Feed = () => {
                 content: draft.content,
                 postType: draft.postType,
                 pollOptions: draft.pollOptions,
-                attachment: draft.attachment,
+                attachments: draft.attachments,
+                onUploadProgress: setUploadProgress,
                 token,
                 eventId,
             });
@@ -396,8 +399,10 @@ const Feed = () => {
             // Mezcla sin duplicar: el refresco por Realtime puede traer la publicación antes que esta respuesta.
             setPosts((currentPosts) => mergeFeedPosts(currentPosts, [newPost]));
         } catch (submitError) {
-            setPublishError(publishErrorMessage(submitError, Boolean(draft.attachment)));
+            setPublishError(publishErrorMessage(submitError, Boolean(draft.attachments?.length)));
             throw submitError;
+        } finally {
+            setUploadProgress(null);
         }
     };
 
@@ -586,6 +591,7 @@ const Feed = () => {
                         key={`${eventId ?? "sin-evento"}:${muroParam}`}
                         draftKey={isPracticeEvent(eventId) ? undefined : `${eventId ?? "sin-evento"}:${muroParam}`}
                         onPublish={handlePublishPost}
+                        uploadProgress={uploadProgress}
                         disabled={isLoading}
                     />
                 )}

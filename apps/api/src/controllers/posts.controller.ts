@@ -56,12 +56,13 @@ export const createPost = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'No perteneces a este evento' });
     }
 
-    const { muro, content, post_type, poll_options, upload_id } = req.body as {
+    const { muro, content, post_type, poll_options, upload_id, upload_ids } = req.body as {
       muro?: string;
       content?: string;
       post_type?: string;
       poll_options?: string[];
       upload_id?: unknown;
+      upload_ids?: unknown;
     };
 
     const result = await createPostService({
@@ -70,6 +71,7 @@ export const createPost = async (req: Request, res: Response) => {
       postType: post_type,
       pollOptions: poll_options,
       uploadId: upload_id,
+      uploadIds: upload_ids,
       eventId,
       membership,
     });
