@@ -589,3 +589,25 @@ test('varios adjuntos: con un solo adjunto retirar sin id sigue funcionando', as
 
   assert.equal((await h.service.removeAttachment({ postId: POST, eventId: EVENT, membership, mode: 'AUTHOR' })).status, 200);
 });
+
+test('feed: sin la migración 007 (columna position inexistente) se reintenta y el feed sigue', async () => {
+  let calls = 0;
+  const h = setup({
+    db: (call) => {
+      if (call.table !== 'attachments') return undefined;
+      calls += 1;
+      if (calls === 1) return { data: null, error: { message: 'column attachments.position does not exist' } };
+      return { data: [{ id: A2, post_id: 'a', file_name: 'b.jpg', mime_type: 'image/jpeg', size_bytes: 2, created_at: '2026-11-25T10:00:02Z' }, { id: A1, post_id: 'a', file_name: 'a.jpg', mime_type: 'image/jpeg', size_bytes: 1, created_at: '2026-11-25T10:00:01Z' }], error: null };
+    },
+  });
+  const [post] = JSON.parse(JSON.stringify(await h.service.attachAttachmentsToPosts({ posts: [{ id: 'a', user: { id: MEMBER } }], eventId: EVENT, membershipId: MEMBER })));
+
+  assert.equal(calls, 2);
+  assert.deepEqual(post.attachments.map((item) => item.id), [A1, A2]);
+});
+
+test('feed: otro error de la base sí se propaga', async () => {
+  const h = setup({ db: () => ({ data: null, error: { message: 'conexión rechazada' } }) });
+
+  await assert.rejects(h.service.attachAttachmentsToPosts({ posts: [{ id: 'a' }], eventId: EVENT, membershipId: MEMBER }), /conexión rechazada/);
+});
