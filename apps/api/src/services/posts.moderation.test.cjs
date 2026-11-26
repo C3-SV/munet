@@ -39,6 +39,7 @@ test('feed selecciona y expone fijados y ordena antes de los posts recientes', a
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
     './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });
@@ -73,6 +74,7 @@ test('feed incluye commentCount con comentarios visibles por post', async () => 
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
     './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });
@@ -108,6 +110,7 @@ function loadPostsService(dataByTable, log) {
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
     './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': WALLS,
   });
 }
@@ -120,6 +123,7 @@ function loadCommentsService(dataByTable, log) {
     '../utils/posts.utils': load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}) }),
     '../utils/rbac.utils': { isAdminRole: () => false },
     './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': WALLS,
   });
 }

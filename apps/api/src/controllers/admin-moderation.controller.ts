@@ -71,14 +71,17 @@ const withHistory = async (row: ModerationRow, eventId: string, isPost: boolean)
 
 // Metadatos del adjunto por post (sin URL), acotados al evento. Sin posts no consulta.
 const loadAttachments = async (postIds: string[], eventId: string) => {
-  const byPost = new Map<string, { id: string; name: string; mimeType: string; size: number }>();
+  type View = { id: string; name: string; mimeType: string; size: number };
+  const byPost = new Map<string, View[]>();
   if (postIds.length === 0) return byPost;
   const { data, error } = await supabaseAdmin.from('attachments')
-    .select('id, post_id, file_name, mime_type, size_bytes')
+    .select('id, post_id, file_name, mime_type, size_bytes, position, created_at')
     .eq('event_id', eventId).in('post_id', postIds);
   if (error) throw error;
-  for (const row of (data ?? []) as { id: string; post_id: string; file_name: string; mime_type: string; size_bytes: number }[]) {
-    byPost.set(row.post_id, { id: row.id, name: row.file_name, mimeType: row.mime_type, size: Number(row.size_bytes) });
+  const rows = (data ?? []) as { id: string; post_id: string; file_name: string; mime_type: string; size_bytes: number; position?: number | null; created_at?: string | null }[];
+  // Varios adjuntos por publicación: en el orden de la publicación.
+  for (const row of rows.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.id.localeCompare(b.id))) {
+    byPost.set(row.post_id, [...(byPost.get(row.post_id) ?? []), { id: row.id, name: row.file_name, mimeType: row.mime_type, size: Number(row.size_bytes) }]);
   }
   return byPost;
 };
@@ -183,7 +186,8 @@ export const listModerationPosts = async (req: Request, res: Response) => {
     // Una consulta por página: moderación ve el adjunto aunque el post esté eliminado, hasta la purga.
     const attachments = await loadAttachments(rows.map(row => row.id), eventId);
     return res.json({
-      posts: posts.map(post => ({ ...post, attachment: attachments.get(post.id) ?? null })),
+      // `attachments` trae todos; `attachment` (el primero) se conserva para clientes anteriores.
+      posts: posts.map(post => ({ ...post, attachments: attachments.get(post.id) ?? [], attachment: attachments.get(post.id)?.[0] ?? null })),
       pagination: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) },
     });
   } catch (error) {

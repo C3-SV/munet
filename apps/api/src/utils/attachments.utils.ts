@@ -1,16 +1,27 @@
-// Reglas puras de adjuntos de publicaciones (RN-11 / REQ-16): tipos y tamaños permitidos,
+// Reglas puras de adjuntos de publicaciones (RN-11 / REQ-16): tipos, tamaños y cantidades permitidos,
 // firma real del archivo, claves de objeto y cabecera de descarga. Sin dependencias de
 // almacenamiento ni de Express para poder probarlas aisladas.
 
 const MB = 1024 * 1024;
 
+// Límites confirmados (mejora 10): imágenes de hasta 15 MB y PDF de hasta 30 MB.
 export const ATTACHMENT_MIME_LIMITS: Readonly<Record<string, number>> = {
-  'image/jpeg': 5 * MB,
-  'image/png': 5 * MB,
-  'application/pdf': 20 * MB,
+  'image/jpeg': 15 * MB,
+  'image/png': 15 * MB,
+  'application/pdf': 30 * MB,
 };
 
-export const ATTACHMENT_MAX_BYTES = 20 * MB;
+export const ATTACHMENT_MAX_BYTES = 30 * MB;
+
+// Cantidades por publicación: hasta 10 imágenes y hasta 2 PDF.
+export const MAX_IMAGES_PER_POST = 10;
+export const MAX_PDFS_PER_POST = 2;
+export const MAX_ATTACHMENTS_PER_POST = MAX_IMAGES_PER_POST + MAX_PDFS_PER_POST;
+
+// Se permite combinar imágenes y PDF en una misma publicación (decisión pendiente de confirmar).
+// Tope total por publicación: hoy es el máximo teórico (10 x 15 MB + 2 x 30 MB = 210 MB), así
+// que no restringe más de lo que ya limitan los topes por tipo; se puede bajar aquí.
+export const MAX_POST_ATTACHMENT_BYTES = MAX_IMAGES_PER_POST * 15 * MB + MAX_PDFS_PER_POST * 30 * MB;
 export const ATTACHMENT_FILE_NAME_MAX = 255;
 
 // Bytes que hay que leer del inicio del objeto para reconocer su firma.
@@ -120,4 +131,28 @@ export const buildContentDisposition = (fileName: string, disposition: 'inline' 
   const ascii = cleaned.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
   const encoded = encodeURIComponent(cleaned).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+};
+
+export type AttachmentSetResult = { ok: true } | { ok: false; error: string };
+
+// Valida el conjunto de archivos de una publicación: cantidad por tipo y tamaño total.
+export const validateAttachmentSet = (files: { mimeType: string; size: number }[]): AttachmentSetResult => {
+  const images = files.filter((file) => file.mimeType.startsWith('image/')).length;
+  const pdfs = files.filter((file) => file.mimeType === 'application/pdf').length;
+
+  if (images > MAX_IMAGES_PER_POST) {
+    return { ok: false, error: `Una publicación admite hasta ${MAX_IMAGES_PER_POST} imágenes.` };
+  }
+
+  if (pdfs > MAX_PDFS_PER_POST) {
+    return { ok: false, error: `Una publicación admite hasta ${MAX_PDFS_PER_POST} archivos PDF.` };
+  }
+
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+
+  if (total > MAX_POST_ATTACHMENT_BYTES) {
+    return { ok: false, error: `Los archivos de una publicación no pueden superar ${MAX_POST_ATTACHMENT_BYTES / MB} MB en total.` };
+  }
+
+  return { ok: true };
 };

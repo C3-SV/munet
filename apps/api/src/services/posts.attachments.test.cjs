@@ -24,13 +24,17 @@ const PDF_HEAD = Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37
 const uploadRow = { id: UPLOAD, storage_key: PENDING_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf', size_bytes: 1000 };
 const postRow = { id: POST, post_type: 'TEXT', content: 'Hola', status: 'VISIBLE', created_at: '2026-11-20T10:00:00Z' };
 
-function harness({ db = () => undefined, copy } = {}) {
+const JPEG_HEAD = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+
+// `uploads` (opcional): intentos de subida por id, para publicar con varios archivos.
+function harness({ db = () => undefined, copy, uploads } = {}) {
   const events = [];
+  const uploadByKey = (key) => (uploads ? Object.values(uploads).find((upload) => upload.storage_key === key) : undefined);
   const storage = {
-    head: async () => { events.push('storage:head'); return { size: 1000, contentType: 'application/pdf' }; },
-    readRange: async () => { events.push('storage:readRange'); return PDF_HEAD; },
+    head: async (key) => { events.push('storage:head'); const u = uploadByKey(key); return u ? { size: u.size_bytes, contentType: u.mime_type } : { size: 1000, contentType: 'application/pdf' }; },
+    readRange: async (key) => { events.push('storage:readRange'); const u = uploadByKey(key); return u && u.mime_type.startsWith('image/') ? JPEG_HEAD : PDF_HEAD; },
     copy: async (...args) => { events.push('storage:copy'); if (copy) return copy(...args); },
-    delete: async (key) => { events.push(`storage:delete:${key === FINAL_KEY ? 'final' : 'pending'}`); },
+    delete: async (key) => { events.push(`storage:delete:${key.startsWith('events/') ? 'final' : 'pending'}`); },
   };
   const label = ({ table, op, payload }) => {
     if (table === 'attachment_uploads' && op === 'update') {
@@ -46,7 +50,11 @@ function harness({ db = () => undefined, copy } = {}) {
     const custom = db(call, name);
     if (custom !== undefined) return custom;
     switch (name) {
-      case 'upload:claim': return { data: uploadRow, error: null };
+      case 'upload:claim': {
+        if (!uploads) return { data: uploadRow, error: null };
+        const idStep = call.steps.find((step) => step[0] === 'eq' && step[1] === 'id');
+        return { data: uploads[idStep?.[2]] ?? null, error: null };
+      }
       case 'posts:insert': return { data: { ...postRow }, error: null };
       case 'posts:select': return { data: { ...postRow }, error: null };
       case 'post_comments:select': return { data: [], error: null };
@@ -72,6 +80,7 @@ function harness({ db = () => undefined, copy } = {}) {
     '../utils/rbac.utils': { isAdminRole: () => false },
     '../types/posts.types': postTypes,
     './reactions.service': { attachReactions: async ({ posts }) => posts },
+    './storage-quota.service': { checkUploadQuota: async () => ({ level: 'disabled' }) },
     './walls.service': wallsService,
   };
   const attachments = loadTs(__dirname + '/attachments.service.ts', imports, { console: quietConsole, setTimeout });
@@ -185,4 +194,134 @@ test('sin upload_id el flujo no toca adjuntos ni almacenamiento', async () => {
   assert.equal(result.status, 201);
   assert.equal(h.events.some((event) => event.startsWith('storage:') || event.includes('upload')), false);
   assert.equal(h.events.includes('db:attachments:insert'), false);
+});
+
+// ---------------------------------------------------------------------------
+// Varios adjuntos por publicación (mejora 10)
+
+const uuid = (n) => `99999999-9999-4999-8999-${String(n).padStart(12, '0')}`;
+const upload = (n, mime = 'image/jpeg', size = 2000) => ({
+  id: uuid(n),
+  storage_key: `pending/${EVENT}/${uuid(n)}`,
+  file_name: mime === 'application/pdf' ? `doc-${n}.pdf` : `foto-${n}.jpg`,
+  mime_type: mime,
+  size_bytes: size,
+});
+const setOf = (...items) => Object.fromEntries(items.map((item) => [item.id, item]));
+const count = (events, name) => events.filter((event) => event === name).length;
+
+test('varios adjuntos: reclama todos, crea el post una vez y guarda cada fila con su posición', async () => {
+  const items = [upload(1), upload(2), upload(3, 'application/pdf', 5000)];
+  const inserted = [];
+  const h = harness({
+    uploads: setOf(...items),
+    db: (call, name) => { if (name === 'attachments:insert') inserted.push({ ...call.payload }); },
+  });
+  const result = await create(h, { uploadId: undefined, uploadIds: items.map((item) => item.id) });
+
+  assert.equal(result.status, 201);
+  assert.equal(count(h.events, 'db:upload:claim'), 3);
+  assert.equal(count(h.events, 'storage:copy'), 3);
+  assert.equal(count(h.events, 'db:posts:insert'), 1);
+  assert.equal(count(h.events, 'db:attachments:insert'), 3);
+  assert.equal(count(h.events, 'db:upload:complete'), 3);
+  assert.equal(count(h.events, 'storage:delete:pending'), 3);
+  assert.equal(h.events.some((event) => event.startsWith('storage:delete:final')), false);
+  // El orden elegido se conserva en la posición de cada fila.
+  assert.deepEqual(inserted.map((row) => row.position), [0, 1, 2]);
+  assert.deepEqual(inserted.map((row) => row.mime_type), ['image/jpeg', 'image/jpeg', 'application/pdf']);
+  assert.equal(h.audits.filter((action) => action === 'UPLOAD_ATTACHMENT').length, 3);
+});
+
+test('varios adjuntos: hasta 10 imágenes y 2 PDF juntos se aceptan', async () => {
+  const items = [...Array.from({ length: 10 }, (_, i) => upload(i + 1)), upload(11, 'application/pdf', 4000), upload(12, 'application/pdf', 4000)];
+  const h = harness({ uploads: setOf(...items) });
+  const result = await create(h, { uploadId: undefined, uploadIds: items.map((item) => item.id) });
+
+  assert.equal(result.status, 201);
+  assert.equal(count(h.events, 'db:attachments:insert'), 12);
+});
+
+test('varios adjuntos: la imagen 11 se rechaza, se devuelven los intentos y no se crea el post', async () => {
+  const items = Array.from({ length: 11 }, (_, i) => upload(i + 1));
+  const h = harness({ uploads: setOf(...items) });
+  const result = await create(h, { uploadId: undefined, uploadIds: items.map((item) => item.id) });
+
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /10 imágenes/);
+  assert.equal(h.events.includes('db:posts:insert'), false);
+  assert.equal(count(h.events, 'storage:delete:final'), 11);
+  assert.equal(count(h.events, 'db:upload:release'), 11);
+});
+
+test('varios adjuntos: el PDF 3 se rechaza', async () => {
+  const items = [1, 2, 3].map((n) => upload(n, 'application/pdf', 4000));
+  const h = harness({ uploads: setOf(...items) });
+  const result = await create(h, { uploadId: undefined, uploadIds: items.map((item) => item.id) });
+
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /2 archivos PDF/);
+  assert.equal(h.events.includes('db:posts:insert'), false);
+});
+
+test('varios adjuntos: más de 12 archivos se rechazan sin reclamar nada', async () => {
+  const h = harness();
+  const result = await create(h, { uploadId: undefined, uploadIds: Array.from({ length: 13 }, (_, i) => uuid(i + 1)) });
+
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /hasta 12 archivos/);
+  assert.deepEqual(h.events, []);
+});
+
+test('varios adjuntos: una subida repetida o una lista inválida se rechaza sin reclamar nada', async () => {
+  const repeated = harness();
+  assert.equal((await create(repeated, { uploadId: undefined, uploadIds: [uuid(1), uuid(1)] })).status, 400);
+  assert.deepEqual(repeated.events, []);
+
+  const notAList = harness();
+  assert.equal((await create(notAList, { uploadId: undefined, uploadIds: 'x' })).status, 400);
+  assert.deepEqual(notAList.events, []);
+});
+
+test('varios adjuntos: si una subida falla, las demás se devuelven y no se crea el post', async () => {
+  const items = [upload(1), upload(2)];
+  const h = harness({
+    uploads: setOf(...items),
+    db: (call, name) => {
+      if (call.table === 'attachment_uploads' && call.op === 'select') return { data: null, error: null };
+    },
+  });
+  // La segunda subida no existe: el reclamo falla con 404 y la primera se compensa.
+  const result = await create(h, { uploadId: undefined, uploadIds: [uuid(1), uuid(99)] });
+
+  assert.equal(result.status, 404);
+  assert.equal(h.events.includes('db:posts:insert'), false);
+  assert.equal(count(h.events, 'storage:delete:final'), 1);
+  assert.equal(count(h.events, 'db:upload:release'), 1);
+});
+
+test('varios adjuntos: si falla la fila de uno, se borra el post y se compensan todos', async () => {
+  const items = [upload(1), upload(2), upload(3)];
+  let attempts = 0;
+  const h = harness({
+    uploads: setOf(...items),
+    db: (_call, name) => {
+      if (name === 'attachments:insert') { attempts += 1; if (attempts === 2) return { data: null, error: { message: 'duplicate key' } }; }
+    },
+  });
+  const result = await create(h, { uploadId: undefined, uploadIds: items.map((item) => item.id) });
+
+  assert.equal(result.status, 400);
+  assert.equal(count(h.events, 'db:posts:delete'), 1);
+  assert.equal(count(h.events, 'storage:delete:final'), 3);
+  assert.equal(count(h.events, 'db:upload:release'), 3);
+  assert.equal(h.events.includes('db:upload:complete'), false);
+});
+
+test('varios adjuntos: upload_id (uno solo) sigue funcionando como antes', async () => {
+  const h = harness();
+  const result = await create(h);
+
+  assert.equal(result.status, 201);
+  assert.equal(count(h.events, 'db:attachments:insert'), 1);
 });

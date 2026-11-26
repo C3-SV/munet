@@ -4,6 +4,7 @@ import { POST_SELECT, type PostRow } from '../types/posts.types';
 import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug, mapPost } from '../utils/posts.utils';
 import { isAdminRole } from '../utils/rbac.utils';
+import { MAX_ATTACHMENTS_PER_POST, validateAttachmentSet } from '../utils/attachments.utils';
 import type { ReactionSummary } from '../utils/reactions.utils';
 import {
   abortClaim,
@@ -488,12 +489,43 @@ export const getPostsByWall = async (params: {
 };
 
 // Crea publicaciones de texto o encuesta validando permisos del muro destino.
+// Identificadores de subida del cuerpo: `upload_ids` (varios) o `upload_id` (uno, clientes
+// anteriores). Valida cantidad y repetidos; el formato de cada id lo valida el reclamo.
+const normalizeUploadIds = (payload: {
+  uploadIds?: unknown;
+  uploadId?: unknown;
+}): { ids: unknown[] } | { error: string } => {
+  let ids: unknown[] = [];
+
+  if (payload.uploadIds !== undefined && payload.uploadIds !== null) {
+    if (!Array.isArray(payload.uploadIds)) {
+      return { error: 'upload_ids debe ser una lista' };
+    }
+
+    ids = payload.uploadIds;
+  } else if (payload.uploadId !== undefined && payload.uploadId !== null) {
+    ids = [payload.uploadId];
+  }
+
+  if (ids.length > MAX_ATTACHMENTS_PER_POST) {
+    return { error: `Una publicación admite hasta ${MAX_ATTACHMENTS_PER_POST} archivos.` };
+  }
+
+  if (new Set(ids.map((id) => String(id))).size !== ids.length) {
+    return { error: 'upload_ids no puede repetir una subida' };
+  }
+
+  return { ids };
+};
+
 export const createPostService = async (payload: {
   muro?: string;
   content?: string;
   postType?: string;
   pollOptions?: string[];
-  // Intento de subida iniciado con POST /posts/attachments/init (adjunto opcional).
+  // Intentos de subida iniciados con POST /posts/attachments/init (adjuntos opcionales, hasta 12).
+  uploadIds?: unknown;
+  // Un solo intento (clientes anteriores a los adjuntos múltiples).
   uploadId?: unknown;
   eventId: string;
   membership: AuthMembership;
@@ -554,38 +586,67 @@ export const createPostService = async (payload: {
     };
   }
 
-  // Adjunto: se reclama el intento, se verifica el objeto y se copia a su ruta final ANTES de
+  // Adjuntos: se reclama cada intento, se verifica el objeto y se copia a su ruta final ANTES de
   // crear el post. Así nunca existe una referencia a un objeto que no está.
-  let claim: ClaimedUpload | null = null;
+  const uploadIds = normalizeUploadIds(payload);
 
-  if (payload.uploadId !== undefined && payload.uploadId !== null) {
-    const outcome = await claimUploadForPost({
-      eventId,
-      membership,
-      wallId: matchedWall.id,
-      uploadId: payload.uploadId,
-    });
+  if ('error' in uploadIds) {
+    return { status: 400, body: { error: uploadIds.error } };
+  }
 
-    if (outcome.kind === 'error') {
-      return outcome.result;
+  const claims: ClaimedUpload[] = [];
+
+  if (uploadIds.ids.length > 0) {
+    // Los archivos son independientes: se reclaman a la vez para no sumar sus esperas.
+    const settled = await Promise.allSettled(
+      uploadIds.ids.map((uploadId) =>
+        claimUploadForPost({ eventId, membership, wallId: matchedWall.id, uploadId })
+      )
+    );
+
+    const claimed = settled.flatMap((entry) =>
+      entry.status === 'fulfilled' && entry.value.kind === 'claimed' ? [entry.value.claim] : []
+    );
+    const failed = settled.find(
+      (entry) => entry.status === 'rejected' || (entry.status === 'fulfilled' && entry.value.kind !== 'claimed')
+    );
+
+    if (failed) {
+      // Un archivo falló: los que sí se reclamaron se devuelven para que el cliente reintente.
+      await Promise.all(claimed.map((claim) => abortClaim(claim)));
+
+      if (failed.status === 'rejected') {
+        throw failed.reason;
+      }
+
+      if (failed.value.kind === 'replay') {
+        // Reintento del cliente tras un corte: devuelve el post ya creado en vez de duplicarlo.
+        const existing = await buildPostResponseById({ postId: failed.value.postId, eventId, membership });
+
+        return existing
+          ? { status: 200, body: { post: existing } }
+          : { status: 404, body: { error: 'Post no encontrado' } };
+      }
+
+      return failed.value.kind === 'error'
+        ? failed.value.result
+        : { status: 400, body: { error: 'No se pudieron procesar los archivos' } };
     }
 
-    if (outcome.kind === 'replay') {
-      // Reintento del cliente tras un corte: devuelve el post ya creado en vez de duplicarlo.
-      const existing = await buildPostResponseById({ postId: outcome.postId, eventId, membership });
+    // Cantidades y tamaño total, con el tipo real de cada archivo ya verificado.
+    const setCheck = validateAttachmentSet(claimed.map((claim) => ({ mimeType: claim.mimeType, size: claim.size })));
 
-      return existing
-        ? { status: 200, body: { post: existing } }
-        : { status: 404, body: { error: 'Post no encontrado' } };
+    if (!setCheck.ok) {
+      await Promise.all(claimed.map((claim) => abortClaim(claim)));
+      return { status: 400, body: { error: setCheck.error } };
     }
 
-    claim = outcome.claim;
+    // Se conserva el orden en que la persona los eligió.
+    claims.push(...claimed);
   }
 
   const abortAttachment = async () => {
-    if (claim) {
-      await abortClaim(claim);
-    }
+    await Promise.all(claims.map((claim) => abortClaim(claim)));
   };
 
   const { data: insertedPost, error: insertError } = await supabaseAdmin
@@ -610,11 +671,12 @@ export const createPostService = async (payload: {
     };
   }
 
-  if (claim) {
-    const attachError = await attachClaimedUpload({ claim, postId: insertedPost.id, membership });
+  for (const [position, claim] of claims.entries()) {
+    const attachError = await attachClaimedUpload({ claim, postId: insertedPost.id, membership, position });
 
     if (attachError) {
-      // Compensación: sin adjunto no hay post. Se borra el post y el objeto final, y se libera el intento.
+      // Compensación: sin adjuntos completos no hay post. Se borra el post (sus filas de adjuntos
+      // caen en cascada) y los objetos finales, y se liberan los intentos.
       await supabaseAdmin.from('posts').delete().eq('id', insertedPost.id);
       await abortAttachment();
       return {
@@ -691,10 +753,8 @@ export const createPostService = async (payload: {
     });
   }
 
-  if (claim) {
-    // El post y el adjunto ya existen: se cierra el intento y se limpia el objeto temporal.
-    await completeClaim(claim, insertedPost.id);
-  }
+  // El post y los adjuntos ya existen: se cierran los intentos y se limpian los objetos temporales.
+  await Promise.all(claims.map((claim) => completeClaim(claim, insertedPost.id)));
 
   const post = await buildPostResponseById({
     postId: insertedPost.id,
