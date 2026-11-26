@@ -86,7 +86,7 @@ export default function MainLayout({
             <NotificationsSync />
 
             <main
-                className={`flex-1 relative flex flex-col md:pl-64 ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}
+                className={`flex-1 relative flex flex-col md:pl-[var(--sidebar-w,16rem)] md:transition-[padding] md:duration-200 motion-reduce:md:transition-none ${isChatRoom ? "overflow-hidden" : "overflow-y-auto pt-16 md:pt-0"}`}
                 style={{ backgroundColor: "var(--bg-base)" }}
             >
                 {/* En la sala de chat la altura queda acotada para que solo la lista de mensajes haga scroll. */}

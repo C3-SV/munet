@@ -3,11 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { getEventWalls } from "../../lib/api/events";
 import { getMyProfile } from "../../lib/api/profiles";
 import { selectableMemberships } from "../../lib/event-selection";
 import { formatBadge } from "../../lib/notifications";
+import {
+    DEFAULT_SIDEBAR_PREFERENCE,
+    SIDEBAR_MAX_WIDTH,
+    SIDEBAR_MIN_WIDTH,
+    effectiveSidebarWidth,
+    parseSidebarPreference,
+    serializeSidebarPreference,
+    sidebarStorageKey,
+    widthAfterKey,
+    widthFromPointer,
+    type SidebarPreference,
+} from "../../lib/sidebar-width";
 import { buildWallNav } from "../../lib/wall-nav";
 import { useTheme } from "../../lib/theme-context";
 import { canAccessAdminPanel, isAdminRole, isModeratorRole, useAuthStore } from "../../stores/auth.store";
@@ -57,7 +69,10 @@ const MenuItem = ({ item }: { item: NavItem }) => (
         <Link
             href={item.href}
             aria-current={item.current ? "page" : undefined}
-            className="relative flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading"
+            // Con la barra contraída el texto se oculta: el nombre queda en el atributo accesible y el tooltip.
+            aria-label={item.badge ? `${item.name}, ${item.badge} sin leer` : item.name}
+            title={item.name}
+            className="sb-center relative flex items-center gap-x-3 rounded-xl p-3 text-sm font-semibold font-heading"
             style={{
                 backgroundColor: item.current ? "var(--sidebar-active-bg)" : "transparent",
                 color: item.current ? "var(--sidebar-active-text)" : "var(--text-primary)",
@@ -70,7 +85,7 @@ const MenuItem = ({ item }: { item: NavItem }) => (
             >
                 {item.icon}
             </span>
-            <span className={`flex-1 truncate ${item.badge ? "font-extrabold" : ""}`}>{item.name}</span>
+            <span className={`sb-hide flex-1 truncate ${item.badge ? "font-extrabold" : ""}`}>{item.name}</span>
             {formatBadge(item.badge) && (
                 <span
                     data-nav-badge
@@ -101,7 +116,7 @@ const CommitteeItem = ({ wall, activeSlug }: { wall: EventWall; activeSlug: stri
                 }}
             >
                 {isSelected && <ActiveBar />}
-                <span className="flex-1 truncate">{wall.committeeName ?? wall.name}</span>
+                <span className="flex-1 truncate" title={wall.committeeName ?? wall.name}>{wall.committeeName ?? wall.name}</span>
             </Link>
         </li>
     );
@@ -149,10 +164,82 @@ export const Sidebar = () => {
     const [walls, setWalls] = useState<EventWall[]>([]);
     const [profile, setProfile] = useState<{ name: string; avatar: string | null } | null>(null);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
+    const userId = useAuthStore((state) => state.user?.id);
+    // Ancho y estado de la barra en escritorio; se recuerdan por persona.
+    const [preference, setPreference] = useState<SidebarPreference>(DEFAULT_SIDEBAR_PREFERENCE);
+    const [isResizing, setIsResizing] = useState(false);
+    const asideRef = useRef<HTMLElement>(null);
+    const storageKey = sidebarStorageKey(userId);
+    const sidebarWidth = effectiveSidebarWidth(preference);
 
     const isChatRoom = pathname?.match(/^\/chat\/[a-zA-Z0-9_-]+$/);
     // Slug del muro activo a partir de la ruta /feed/<slug>.
     const activeSlug = pathname?.match(/^\/feed\/([^/]+)$/)?.[1] ?? null;
+
+    useEffect(() => {
+        // Recupera la preferencia guardada de esta persona (si el almacenamiento falla, usa la predeterminada).
+        try {
+            setPreference(parseSidebarPreference(window.localStorage.getItem(storageKey)));
+        } catch {
+            setPreference(DEFAULT_SIDEBAR_PREFERENCE);
+        }
+    }, [storageKey]);
+
+    useEffect(() => {
+        // El contenido principal lee este ancho (variable CSS) para ocupar el espacio restante.
+        document.documentElement.style.setProperty("--sidebar-w", `${sidebarWidth}px`);
+
+        return () => {
+            document.documentElement.style.removeProperty("--sidebar-w");
+        };
+    }, [sidebarWidth]);
+
+    const updatePreference = (next: SidebarPreference) => {
+        setPreference(next);
+
+        try {
+            window.localStorage.setItem(storageKey, serializeSidebarPreference(next));
+        } catch {
+            // Sin almacenamiento (modo privado, bloqueado): el ajuste vale solo durante la sesión.
+        }
+    };
+
+    const toggleCollapsed = () => updatePreference({ ...preference, collapsed: !preference.collapsed });
+
+    const handleResizeStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+        // Arrastrar el borde cambia el ancho en vivo y lo guarda al soltar.
+        event.preventDefault();
+        const handle = event.currentTarget;
+        const left = asideRef.current?.getBoundingClientRect().left ?? 0;
+        let latest = preference;
+        handle.setPointerCapture(event.pointerId);
+        setIsResizing(true);
+
+        const onMove = (moveEvent: PointerEvent) => {
+            latest = { ...preference, width: widthFromPointer(moveEvent.clientX, left) };
+            setPreference(latest);
+        };
+        const onEnd = () => {
+            handle.removeEventListener("pointermove", onMove);
+            handle.removeEventListener("pointerup", onEnd);
+            handle.removeEventListener("pointercancel", onEnd);
+            setIsResizing(false);
+            updatePreference(latest);
+        };
+
+        handle.addEventListener("pointermove", onMove);
+        handle.addEventListener("pointerup", onEnd);
+        handle.addEventListener("pointercancel", onEnd);
+    };
+
+    const handleResizeKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        const next = widthAfterKey(event.key, preference.width, event.shiftKey);
+
+        if (next !== null) {
+            event.preventDefault();
+            updatePreference({ ...preference, width: next });
+        }
+    };
 
     useEffect(() => {
         // Al cambiar de ruta cierra el drawer movil y devuelve el grupo de comites a su estado automatico.
@@ -374,8 +461,11 @@ export const Sidebar = () => {
             )}
 
             <aside
+                ref={asideRef}
                 id="sidebar-drawer"
-                className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col px-5 transition-[transform,visibility] duration-200 ease-out motion-reduce:transition-none md:visible md:translate-x-0 md:left-0 ${
+                className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col px-5 transition-[transform,visibility,width] duration-200 ease-out motion-reduce:transition-none md:visible md:w-[var(--sidebar-w,16rem)] md:translate-x-0 md:left-0 ${
+                    preference.collapsed ? "sb-collapsed md:px-2" : ""
+                } ${isResizing ? "md:transition-none" : ""} ${
                     isMobileMenuOpen ? "visible translate-x-0" : "invisible -translate-x-full"
                 }`}
                 style={{
@@ -385,8 +475,8 @@ export const Sidebar = () => {
                 }}
             >
                 <div className="flex flex-col mt-8 md:mt-10 shrink-0">
-                    <div className="flex items-center justify-between">
-                        <Link href="/feed" className="shrink-0">
+                    <div className="sb-header flex items-center justify-between">
+                        <Link href="/feed" className="sb-hide shrink-0">
                             <Image
                                 alt="MUNET"
                                 src="/logo-munet.png"
@@ -395,8 +485,26 @@ export const Sidebar = () => {
                                 width={954} height={299} unoptimized
                             />
                         </Link>
-                        <div className="hidden md:block">
+                        <div className="hidden items-center gap-1 md:flex sb-header-actions">
                             <NotificationBell align="left" />
+                            <button
+                                type="button"
+                                onClick={toggleCollapsed}
+                                aria-expanded={!preference.collapsed}
+                                aria-controls="sidebar-drawer"
+                                aria-label={preference.collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+                                title={preference.collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg"
+                                style={{
+                                    backgroundColor: "var(--bg-surface-secondary)",
+                                    border: "1px solid var(--border-color)",
+                                    color: "var(--text-secondary)",
+                                }}
+                            >
+                                <span aria-hidden="true" className="text-lg leading-none">
+                                    {preference.collapsed ? "»" : "«"}
+                                </span>
+                            </button>
                         </div>
                         <button
                             ref={closeButtonRef}
@@ -409,6 +517,7 @@ export const Sidebar = () => {
                             <IconClose size={22} />
                         </button>
                     </div>
+                    <div className="sb-hide">
                     <div
                         className="mt-5 h-0.5 w-full rounded-full"
                         style={{ backgroundColor: "var(--text-accent)", opacity: 0.6 }}
@@ -469,6 +578,7 @@ export const Sidebar = () => {
                             )}
                         </div>
                     )}
+                    </div>
                 </div>
 
                 <nav
@@ -481,7 +591,7 @@ export const Sidebar = () => {
                         ))}
 
                         {showCommitteeGroup && (
-                            <li>
+                            <li className="sb-hide">
                                 <button
                                     type="button"
                                     onClick={() => setCommitteesManualOpen(!committeesOpen)}
@@ -572,7 +682,9 @@ export const Sidebar = () => {
                 >
                     <Link
                         href="/profile"
-                        className="flex w-full min-h-11 items-center gap-x-3 rounded-2xl p-2 mb-2"
+                        aria-label={`Mi perfil: ${profileName}`}
+                        title={profileName}
+                        className="sb-center flex w-full min-h-11 items-center gap-x-3 rounded-2xl p-2 mb-2"
                         style={{ color: "var(--text-primary)" }}
                     >
                         {profile?.avatar ? (
@@ -596,7 +708,7 @@ export const Sidebar = () => {
                                 {getInitials(profileName)}
                             </span>
                         )}
-                        <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="sb-hide flex min-w-0 flex-1 flex-col">
                             <span
                                 className="text-sm font-bold font-heading leading-tight truncate"
                                 style={{ color: "var(--text-primary)" }}
@@ -617,7 +729,9 @@ export const Sidebar = () => {
                     <button
                         type="button"
                         onClick={toggleTheme}
-                        className="flex w-full min-h-11 items-center gap-x-3 rounded-xl p-2 mb-1 text-sm font-medium font-heading"
+                        aria-label={isDark ? "Activar modo claro" : "Activar modo oscuro"}
+                        title={isDark ? "Modo claro" : "Modo oscuro"}
+                        className="sb-center flex w-full min-h-11 items-center gap-x-3 rounded-xl p-2 mb-1 text-sm font-medium font-heading"
                         style={{ color: "var(--text-secondary)" }}
                     >
                         <span
@@ -630,14 +744,35 @@ export const Sidebar = () => {
                         >
                             <IconTheme size={16} />
                         </span>
-                        {isDark ? "Modo claro" : "Modo oscuro"}
+                        <span className="sb-hide">{isDark ? "Modo claro" : "Modo oscuro"}</span>
                     </button>
 
-                    <Button variant="ghost" size="sm" href="/guia" className="w-full">
-                        Guía de uso
-                    </Button>
-                    <LogoutButton />
+                    {/* Con la barra contraída estas acciones se ocultan: se vuelven a ver al expandirla. */}
+                    <div className="sb-hide">
+                        <Button variant="ghost" size="sm" href="/guia" className="w-full">
+                            Guía de uso
+                        </Button>
+                        <LogoutButton />
+                    </div>
                 </div>
+
+                {/* Borde ajustable (solo escritorio y con la barra expandida): arrastrar o usar las flechas. */}
+                {!preference.collapsed && (
+                    <div
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label="Ajustar el ancho de la barra lateral"
+                        aria-valuemin={SIDEBAR_MIN_WIDTH}
+                        aria-valuemax={SIDEBAR_MAX_WIDTH}
+                        aria-valuenow={preference.width}
+                        tabIndex={0}
+                        onPointerDown={handleResizeStart}
+                        onKeyDown={handleResizeKey}
+                        onDoubleClick={() => updatePreference({ ...preference, width: DEFAULT_SIDEBAR_PREFERENCE.width })}
+                        title="Arrastra para cambiar el ancho (doble clic: restablecer)"
+                        className="sb-resize-handle absolute inset-y-0 -right-1 z-10 hidden w-2 cursor-col-resize touch-none md:block"
+                    />
+                )}
             </aside>
         </>
     );
