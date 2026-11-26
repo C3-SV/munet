@@ -24,7 +24,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /posts/:postId/poll/vote` | `option_id` | Reemplaza voto vigente. |
 | `POST /posts/:postId/poll/close` | — | El autor cierra la encuesta. |
 | `GET /posts/:postId/comments` | — | Comentarios visibles en el muro autorizado. |
-| `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Un nivel de respuesta. Anuncios solo para administración. |
+| `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Se puede responder a un comentario o a otra respuesta del mismo post (`parent_comment_id`). En anuncios solo comentan administradores y moderadores. |
 | `DELETE /posts/:postId/comments/:commentId` | — | Autor o administración. |
 
 ### Adjuntos (planificado, no implementado)

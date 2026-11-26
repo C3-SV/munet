@@ -12,7 +12,6 @@ const NO_POST = "Post no encontrado en este evento";
 const AVISOS_FORBIDDEN = "No tienes permisos para comentar en avisos";
 const EMPTY = "El comentario no puede estar vacio";
 const PARENT_MISSING = "Comentario padre no encontrado para este post";
-const ONE_LEVEL = "Solo se permite un nivel de respuesta";
 const COMMENT_MISSING = "Comentario no encontrado en este post";
 const DELETE_FORBIDDEN = "No tienes permisos para eliminar este comentario";
 const DELETED_OWN_TEXT = "Este comentario fue eliminado por el autor.";
@@ -106,19 +105,16 @@ test("comentar suma uno al contador del muro y el comentario aparece al final de
     assert.equal(listed.at(-1).id, comment.id);
 });
 
-test("responder a un comentario de primer nivel sembrado funciona y responder a esa respuesta da 400", () => {
+test("se puede responder a un comentario sembrado y también a esa respuesta", () => {
     const reply = ownComment(commentedPost.id, "Respuesta propia", parentComment.id);
     assert.equal(reply.parentCommentId, parentComment.id);
-    assertFails(
-        () => ownComment(commentedPost.id, "Respuesta a la respuesta", reply.id),
-        400,
-        ONE_LEVEL,
-    );
+    const nested = ownComment(commentedPost.id, "Respuesta a la respuesta", reply.id);
+    assert.equal(nested.parentCommentId, reply.id);
 });
 
-test("responder a una respuesta sembrada da 400 sin escribir", () => {
-    assertFails(() => ownComment(commentedPost.id, "Nivel tres", seededReply.id), 400, ONE_LEVEL);
-    unchangedAfter(() => ownComment(commentedPost.id, "Nivel tres", seededReply.id));
+test("responder a una respuesta sembrada funciona y queda asociada a ella", () => {
+    const nested = ownComment(commentedPost.id, "Nivel tres", seededReply.id);
+    assert.equal(nested.parentCommentId, seededReply.id);
 });
 
 test("comentar en una publicación borrada da 404 Post no encontrado", () => {

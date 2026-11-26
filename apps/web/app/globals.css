@@ -185,3 +185,25 @@ body {
         scroll-behavior: auto !important;
     }
 }
+
+/* Resalta un comentario citado al saltar a él desde una respuesta. */
+.comment-highlight {
+    animation: comment-highlight 1.6s ease-out;
+}
+
+@keyframes comment-highlight {
+    0%,
+    60% {
+        background-color: var(--sidebar-active-bg);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .comment-highlight {
+        animation: none;
+        background-color: var(--sidebar-active-bg);
+    }
+}

@@ -22,7 +22,6 @@ const ACCESS_MESSAGE = "No tienes acceso a los comentarios de este post";
 const ANNOUNCEMENTS_MESSAGE = "No tienes permisos para comentar en avisos";
 const CONTENT_MESSAGE = "El comentario no puede estar vacio";
 const PARENT_MESSAGE = "Comentario padre no encontrado para este post";
-const NESTING_MESSAGE = "Solo se permite un nivel de respuesta";
 const COMMENT_MESSAGE = "Comentario no encontrado en este post";
 const DELETE_MESSAGE = "No tienes permisos para eliminar este comentario";
 
@@ -66,10 +65,8 @@ export const handleCommentCreate = (context: PracticeRouteContext): { comment: P
     if (content === "") {
         throw new PracticeRequestError(400, CONTENT_MESSAGE);
     }
+    // Se puede responder a un comentario o a otra respuesta; la interfaz agrupa los hilos.
     const parent = parentOrThrow(state, post.id, input.parent_comment_id);
-    if (parent !== null && parent.parentCommentId !== null) {
-        throw new PracticeRequestError(400, NESTING_MESSAGE);
-    }
     if (ownCommentCount(state) >= PRACTICE_LIMITS.maxOwnComments) {
         throw new PracticeRequestError(400, PRACTICE_LIMIT_MESSAGES.ownComments);
     }

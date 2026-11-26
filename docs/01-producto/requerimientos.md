@@ -17,7 +17,7 @@ Se conservan los identificadores históricos. La última columna refleja la [rev
 | REQ-11 | Ver general/anuncios y solo comité autorizado; cada post tiene un muro. | Parcial |
 | REQ-12 | Publicar texto/enlace en general/comité; tag no cambia visibilidad; solo coordinación publica anuncios. | Parcial |
 | REQ-13 | Autor/moderación retira u oculta post lógicamente, auditable y sin marcador al participante. | Parcial / divergente |
-| REQ-14 | Comentar/responder un nivel; eliminación lógica por autor/moderación, sin edición. | Parcial |
+| REQ-14 | Comentar y responder (también a otras respuestas); eliminación lógica por autor/moderación, sin edición. | Parcial |
 | REQ-15 | Crear encuesta en muro autorizado, voto único reemplazable y cierre por creador auditado. | Parcial |
 | REQ-16 | Un adjunto por post: JPG/PNG ≤5 MB o PDF ≤20 MB, metadata, permisos heredados y retiro. | Parcial: interfaz web sin guardado; sin API ni Storage |
 | REQ-17 | Reutilizar conversación 1:1 entre miembros activos del mismo evento, con bandeja/historial. | Parcial |

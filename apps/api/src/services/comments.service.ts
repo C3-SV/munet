@@ -260,7 +260,7 @@ export const listCommentsByPost = async (params: {
   };
 };
 
-// Crea comentario nuevo (o respuesta de un nivel) en un post permitido.
+// Crea un comentario nuevo, o una respuesta a otro comentario o respuesta, en un post permitido.
 export const createPostComment = async (params: {
   postId: string;
   eventId: string;
@@ -327,13 +327,17 @@ export const createPostComment = async (params: {
       };
     }
 
-    if (parent.parent_comment_id) {
-      // Regla de profundidad máxima 1 (sin anidamiento recursivo).
+    if (parent.status === 'DELETED') {
+      // Un comentario eliminado ya no se muestra: no tiene sentido responderle.
       return {
         status: 400,
-        body: { error: 'Solo se permite un nivel de respuesta' },
+        body: { error: 'No puedes responder a un comentario eliminado' },
       };
     }
+
+    // Se puede responder a un comentario o a otra respuesta. parent_comment_id guarda el
+    // comentario exacto al que se responde; la interfaz agrupa las respuestas por hilo para
+    // que la conversación no se anide de más.
   }
 
   const { data: inserted, error } = await supabaseAdmin

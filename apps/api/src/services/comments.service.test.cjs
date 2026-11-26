@@ -120,3 +120,64 @@ test('canales de comité: respeta el alcance (su comité sí, otro comité no)',
   assert.equal(denied.status, 403);
   assert.equal(other.inserts.length, 0);
 });
+
+const visible = (id, parent = null) => ({ id, post_id: POST, parent_comment_id: parent, status: 'VISIBLE' });
+
+test('respuestas: se puede responder a un comentario raíz', async () => {
+  const { service, inserts } = setup({ wall: GENERAL_WALL, comments: [visible('root')] });
+  const result = await comment(service, member('PARTICIPANT'), { parentCommentId: 'root' });
+
+  assert.equal(result.status, 201);
+  assert.equal(inserts[0].parent_comment_id, 'root');
+});
+
+test('respuestas: se puede responder a una respuesta, sin error por el nivel de anidación', async () => {
+  const { service, inserts } = setup({ wall: GENERAL_WALL, comments: [visible('root'), visible('reply', 'root')] });
+  const result = await comment(service, member('PARTICIPANT'), { parentCommentId: 'reply' });
+
+  assert.equal(result.status, 201);
+  assert.equal(inserts.length, 1);
+  // Queda asociada al comentario exacto al que se responde.
+  assert.equal(inserts[0].parent_comment_id, 'reply');
+  assert.equal(result.body.comment.parentCommentId, 'reply');
+});
+
+test('respuestas: se puede encadenar varios niveles', async () => {
+  const chain = [visible('c1'), visible('c2', 'c1'), visible('c3', 'c2'), visible('c4', 'c3')];
+  const { service } = setup({ wall: GENERAL_WALL, comments: chain });
+
+  assert.equal((await comment(service, member('PARTICIPANT'), { parentCommentId: 'c4' })).status, 201);
+});
+
+test('respuestas: no se responde a un comentario oculto ni a uno eliminado', async () => {
+  const hidden = setup({ wall: GENERAL_WALL, comments: [{ ...visible('h'), status: 'HIDDEN' }] });
+  const h = await comment(hidden.service, member('PARTICIPANT'), { parentCommentId: 'h' });
+  assert.equal(h.status, 404);
+  assert.equal(hidden.inserts.length, 0);
+
+  const deleted = setup({ wall: GENERAL_WALL, comments: [{ ...visible('d'), status: 'DELETED' }] });
+  const d = await comment(deleted.service, member('PARTICIPANT'), { parentCommentId: 'd' });
+  assert.equal(d.status, 400);
+  assert.equal(deleted.inserts.length, 0);
+});
+
+test('respuestas: el padre debe ser del mismo post', async () => {
+  const { service, inserts } = setup({ wall: GENERAL_WALL, comments: [{ ...visible('otro'), post_id: 'post-ajeno' }] });
+  const result = await comment(service, member('PARTICIPANT'), { parentCommentId: 'otro' });
+
+  assert.equal(result.status, 404);
+  assert.equal(inserts.length, 0);
+});
+
+test('respuestas: respetan los permisos del canal (avisos y comités)', async () => {
+  const chain = [visible('root'), visible('reply', 'root')];
+
+  const avisos = setup({ wall: ANNOUNCEMENTS_WALL, comments: chain });
+  assert.equal((await comment(avisos.service, member('PARTICIPANT'), { parentCommentId: 'reply' })).status, 403);
+  assert.equal(avisos.inserts.length, 0);
+  assert.equal((await comment(setup({ wall: ANNOUNCEMENTS_WALL, comments: chain }).service, member('MODERATOR'), { parentCommentId: 'reply' })).status, 201);
+
+  const comite = setup({ wall: COMMITTEE_WALL, comments: chain });
+  assert.equal((await comment(comite.service, member('PARTICIPANT', 'otro'), { parentCommentId: 'reply' })).status, 403);
+  assert.equal(comite.inserts.length, 0);
+});
