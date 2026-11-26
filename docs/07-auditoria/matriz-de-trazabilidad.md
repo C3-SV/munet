@@ -17,7 +17,7 @@ Origen principal: los seis Markdown históricos migrados. “Comprobable” sign
 | REQ-11 | RF-11/23–27; muros autorizados | events/posts/walls | Muros/feed y banderas; evento cerrado ignorado | Parcial | RLS/ocultamiento por verificar |
 | REQ-12 | RF-12/25–27; texto/enlace/tags/anuncios | posts/UI | Texto/encuesta; tags solo leídos; anuncios restringidos | Parcial | UI filtra autor, no tag |
 | REQ-13 | RF-14/28; retiro/ocultación | `deletePostService`; migración 001 | El borrado lógico registra categoría y UUID. Puede quedar un marcador. | Parcial / divergente | Faltan ocultación diferenciada y motivo. |
-| REQ-14 | RF-15; comentarios un nivel | comments service/controller | Un nivel y eliminación; anuncio admin | Parcial | Auditoría no garantizada |
+| REQ-14 | RF-15; comentarios con respuestas encadenadas | comments service/controller | Respuestas encadenadas y eliminación; anuncios para administración y moderación | Parcial | Auditoría no garantizada |
 | REQ-15 | RF-12.1; encuesta/voto/cierre | posts controller/service | 2–10, reemplazo y cierre | Parcial | Unicidad/transacción/auditoría inciertas |
 | REQ-16 | RF-47–51; adjunto de post | Migración 001 | Tabla `attachments` existe en la base (0 filas). Interfaz en `PostEditor`/`PostCard` y validación en `lib/attachments.ts` (con pruebas); sin API ni bucket privado. | Parcial | Contrato de API, bucket privado, carga, lectura y retiro. |
 | REQ-17 | RF-17/21; DM 1:1 reutilizable | dm routes/services/pages | Mismo evento, conversaciones/historial/realtime | Parcial | Sin paginación ni unicidad demostrada |

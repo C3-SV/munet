@@ -91,6 +91,39 @@ const findConversationForMembership = async (params: {
   };
 };
 
+// Mensajes recibidos sin leer por conversación (de la contraparte, visibles, aún sin read_at).
+// Si la consulta falla, la lista de conversaciones sigue funcionando sin contadores.
+export const loadUnreadCountsByConversation = async (
+  conversationIds: string[],
+  membershipId: string
+) => {
+  const counts = new Map<string, number>();
+
+  if (conversationIds.length === 0) {
+    return counts;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('dm_messages')
+    .select('conversation_id')
+    .in('conversation_id', conversationIds)
+    .neq('author_membership_id', membershipId)
+    .eq('status', 'VISIBLE')
+    .is('read_at', null)
+    .is('deleted_at', null);
+
+  if (error) {
+    console.error('No se pudo contar los mensajes sin leer:', error.message);
+    return counts;
+  }
+
+  ((data ?? []) as { conversation_id: string }[]).forEach((row) => {
+    counts.set(row.conversation_id, (counts.get(row.conversation_id) ?? 0) + 1);
+  });
+
+  return counts;
+};
+
 // Obtiene el ultimo mensaje visible por conversacion para armar previews.
 const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
   if (conversationIds.length === 0) {
@@ -141,9 +174,9 @@ export const listDmConversations = async (params: {
   }
 
   const conversations = (data ?? []) as DmConversationRow[];
-  const latestMessages = await loadLatestMessagesByConversation(
-    conversations.map((conversation) => conversation.id)
-  );
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  const latestMessages = await loadLatestMessagesByConversation(conversationIds);
+  const unreadCounts = await loadUnreadCountsByConversation(conversationIds, params.membership.id);
 
   return {
     status: 200,
@@ -152,7 +185,8 @@ export const listDmConversations = async (params: {
         mapDmConversation(
           conversation,
           params.membership.id,
-          latestMessages.get(conversation.id)
+          latestMessages.get(conversation.id),
+          unreadCounts.get(conversation.id) ?? 0
         )
       ),
     },
@@ -336,7 +370,7 @@ export const listDmMessages = async (params: {
 
   const { data, error } = await supabaseAdmin
     .from('dm_messages')
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
     .eq('conversation_id', params.conversationId)
     .eq('event_id', params.eventId)
     .eq('status', 'VISIBLE')
@@ -396,7 +430,7 @@ export const createDmMessage = async (params: {
       updated_at: new Date().toISOString(),
       updated_by_membership_id: params.membership.id,
     })
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
     .single();
 
   if (error || !inserted) {
@@ -534,4 +568,133 @@ export const deleteDmMessage = async (params: {
     status: 200,
     body: { success: true },
   };
+};
+
+// Marca como leídos los mensajes que la otra persona envió en esta conversación.
+// Solo cambia los mensajes de la contraparte que siguen sin leer; nunca los propios. La pantalla
+// lo pide cuando la persona tiene la conversación abierta y visible, para no marcar como leído
+// un mensaje solo por haberlo recibido.
+export const markDmConversationRead = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  conversationId: string;
+}) => {
+  const access = await findConversationForMembership({
+    conversationId: params.conversationId,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
+  if (!access.allowed) {
+    return {
+      status: access.status,
+      body: { error: access.error },
+    };
+  }
+
+  const readAt = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('dm_messages')
+    .update({ read_at: readAt })
+    .eq('conversation_id', params.conversationId)
+    .eq('event_id', params.eventId)
+    .neq('author_membership_id', params.membership.id)
+    .eq('status', 'VISIBLE')
+    .is('read_at', null)
+    .is('deleted_at', null)
+    .select('id');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    status: 200,
+    body: {
+      readCount: (data ?? []).length,
+      readAt: (data ?? []).length > 0 ? readAt : null,
+    },
+  };
+};
+
+// Edita el contenido de un mensaje propio. Conserva su posición en la conversación (created_at no
+// cambia) y deja constancia en edited_at. No se editan mensajes ajenos ni eliminados.
+export const editDmMessage = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  conversationId: string;
+  messageId: string;
+  content?: string;
+}) => {
+  const content = typeof params.content === 'string' ? params.content.trim() : '';
+
+  if (!content) {
+    return { status: 400, body: { error: 'El mensaje no puede estar vacio' } };
+  }
+
+  const access = await findConversationForMembership({
+    conversationId: params.conversationId,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
+  if (!access.allowed) {
+    return { status: access.status, body: { error: access.error } };
+  }
+
+  const { data: message, error: messageError } = await supabaseAdmin
+    .from('dm_messages')
+    .select('id, author_membership_id, content, status')
+    .eq('id', params.messageId)
+    .eq('conversation_id', params.conversationId)
+    .eq('event_id', params.eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (messageError) {
+    throw new Error(messageError.message);
+  }
+
+  if (!message || message.status !== 'VISIBLE') {
+    return { status: 404, body: { error: 'Mensaje no encontrado' } };
+  }
+
+  if (message.author_membership_id !== params.membership.id) {
+    return { status: 403, body: { error: 'Solo puedes editar tus propios mensajes' } };
+  }
+
+  if (message.content === content) {
+    // Sin cambios: no se marca como editado.
+    return { status: 200, body: { message: mapDmMessage(message as DmMessageRow) } };
+  }
+
+  const editedAt = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
+    .from('dm_messages')
+    .update({
+      content,
+      edited_at: editedAt,
+      updated_at: editedAt,
+      updated_by_membership_id: params.membership.id,
+    })
+    .eq('id', params.messageId)
+    .eq('author_membership_id', params.membership.id)
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
+    .single();
+
+  if (error || !updated) {
+    return { status: 400, body: { error: error?.message ?? 'No se pudo editar el mensaje' } };
+  }
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'EDIT_DM_MESSAGE',
+    entityType: 'DM_MESSAGE',
+    entityId: params.messageId,
+    outcome: 'SUCCESS',
+    reason: `Mensaje editado en conversacion ${params.conversationId}`,
+  });
+
+  return { status: 200, body: { message: mapDmMessage(updated as DmMessageRow) } };
 };

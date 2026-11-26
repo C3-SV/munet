@@ -245,6 +245,7 @@ const Directory = () => {
                                                 person={{
                                                     name: fullName,
                                                     alias: participant.alias,
+                                                    avatar: participant.avatar,
                                                     committeeName: participant.committee?.name ?? null,
                                                 }}
                                             />

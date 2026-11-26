@@ -36,6 +36,9 @@ function loadModule(file, requireFn) {
   return module.exports;
 }
 
+// Utilidad real de avatares: el directorio la usa para elegir la foto o el predeterminado.
+const avatarUtils = loadModule(path.join(__dirname, '../utils/avatar.utils.ts'), () => { throw new Error('sin imports'); });
+
 const getPath = (row, dotted) => dotted.split('.').reduce((value, key) => (value == null ? undefined : value[key]), row);
 
 const compareRows = orders => (a, b) => {
@@ -94,12 +97,13 @@ const RETIRED = { id: COMMITTEE_DELETED, name: 'Comite retirado', deleted_at: '2
 // Fila de profiles con la membership embebida, igual que devuelve el !inner.
 // Incluye participant_code y email para comprobar que nunca salen en la respuesta.
 const row = (id, first, last, options = {}) => {
-  const { alias = null, eventId = 'event', status = 'ACTIVE', deletedAt = null, committee = null, delegation = null } = options;
+  const { alias = null, photo = null, eventId = 'event', status = 'ACTIVE', deletedAt = null, committee = null, delegation = null } = options;
   return {
     event_membership_id: id,
     first_name: first,
     last_name: last,
     alias,
+    profile_image_path: photo,
     event_memberships: {
       id,
       event_id: eventId,
@@ -118,6 +122,7 @@ const directory = async (profiles, overrides = {}, options) => {
   const db = fakeDb({ committees, profiles }, options);
   const service = loadModule(serviceFile, name => {
     if (name === '../lib/supabase') return { supabaseAdmin: db.client };
+    if (name === '../utils/avatar.utils') return avatarUtils;
     throw new Error(`Import inesperado: ${name}`);
   });
   const result = await service.listParticipantDirectory({
@@ -278,11 +283,12 @@ test('nunca expone participant_code, email ni datos de administracion', async ()
   assert.equal(serialized.includes('@example.test'), false);
   assert.deepEqual(Object.keys(result.body).sort(), ['hasMore', 'limit', 'page', 'participants']);
   for (const item of result.body.participants) {
-    assert.deepEqual(Object.keys(item).sort(), ['alias', 'committee', 'delegationCode', 'firstName', 'lastName', 'membershipId']);
+    assert.deepEqual(Object.keys(item).sort(), ['alias', 'avatar', 'committee', 'delegationCode', 'firstName', 'lastName', 'membershipId']);
   }
   const byId = Object.fromEntries(result.body.participants.map(item => [item.membershipId, item]));
   assert.deepEqual(byId['m-1'], {
     membershipId: 'm-1', firstName: 'Ana', lastName: 'Perez', alias: 'Anita',
+    avatar: 'https://ui-avatars.com/api/?name=Ana%20Perez&background=E5E7EB&color=111827',
     committee: { id: COMMITTEE_CSNU, name: 'CSNU' }, delegationCode: '#001',
   });
   // El comite retirado no se muestra aunque la membresia lo siga apuntando.
@@ -309,10 +315,12 @@ function controllerHarness(profiles) {
   const db = fakeDb({ committees, profiles });
   const requireDb = name => {
     if (name === '../lib/supabase') return { supabaseAdmin: db.client };
+    if (name === '../utils/avatar.utils') return avatarUtils;
     throw new Error(`Import inesperado: ${name}`);
   };
   const controller = loadModule(controllerFile, name => {
     if (name === '../lib/supabase') return { supabaseAdmin: db.client };
+    if (name === '../utils/avatar.utils') return avatarUtils;
     if (name === '../services/walls.service') return { loadWallsByEvent: async () => [], mapWallForMembership: () => ({}) };
     if (name === '../utils/rbac.utils') return loadModule(rbacFile, () => { throw new Error('Import inesperado'); });
     if (name === '../services/participant-directory.service') return loadModule(serviceFile, requireDb);
@@ -384,6 +392,7 @@ test('el controlador responde 200 con el contrato y sin codigo ni correo', async
   const body = plain(res.body);
   assert.deepEqual(body, {
     participants: [{ membershipId: 'm-1', firstName: 'Ana', lastName: 'Perez', alias: null,
+      avatar: 'https://ui-avatars.com/api/?name=Ana%20Perez&background=E5E7EB&color=111827',
       committee: { id: COMMITTEE_CSNU, name: 'CSNU' }, delegationCode: '#001' }],
     page: 1, limit: 20, hasMore: false,
   });
@@ -403,4 +412,21 @@ test('el controlador rechaza un comite de otro evento con 400 y sin listar parti
 test('la ruta exige autenticacion antes de llegar al controlador', () => {
   const source = fs.readFileSync(routesFile, 'utf8');
   assert.match(source, /router\.get\('\/:eventId\/participants', requireAuth, listEventParticipants\)/);
+});
+
+test('el directorio devuelve la foto de perfil cuando existe y un avatar predeterminado cuando no', async () => {
+  const photo = 'https://proyecto.supabase.co/storage/v1/object/public/profile-images/e/m/123-foto.png';
+  const { result } = await directory([
+    row('m-1', 'Ana', 'Perez', { photo }),
+    row('m-2', 'Beto', 'Rios'),
+    row('m-3', 'Cris', 'Soto', { photo: '   ' }),
+    row('m-4', 'Dana', 'Vega', { photo: 'ruta/sin/url.png' }),
+  ]);
+  const byId = Object.fromEntries(result.body.participants.map(item => [item.membershipId, item]));
+
+  assert.equal(byId['m-1'].avatar, photo);
+  for (const id of ['m-2', 'm-3', 'm-4']) {
+    assert.match(byId[id].avatar, /^https:\/\/ui-avatars\.com\/api\/\?name=/, id);
+  }
+  assert.match(byId['m-2'].avatar, /name=Beto%20Rios/);
 });

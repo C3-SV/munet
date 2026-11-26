@@ -1,3 +1,5 @@
+import { formatBadge } from "../../lib/notifications";
+import { AvatarImage } from "../ui/AvatarImage";
 import React from "react";
 import Link from "next/link";
 import type { Delegate } from "../../types/common";
@@ -26,29 +28,26 @@ export const ChatItem = ({
     const content = (
         <>
             <div className="relative shrink-0">
-                {delegate.avatar ? (
-                    // Avatar remoto de tamaño fijo; next/image exigiría dominios configurados.
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar de URL dinamica: next/image exige hosts remotos en next.config
-                    <img
-                        src={delegate.avatar}
-                        alt={delegate.name}
-                        className="size-11 rounded-full object-cover"
-                        style={{ border: "2px solid var(--border-color)" }}
-                    />
-                ) : (
-                    <div
-                        role="img"
-                        aria-label={delegate.name}
-                        className="size-11 rounded-full flex items-center justify-center font-heading font-bold text-[13px]"
-                        style={{
-                            backgroundColor: "var(--bg-surface-secondary)",
-                            border: "2px solid var(--border-color)",
-                            color: "var(--text-primary)",
-                        }}
-                    >
-                        {buildInitials(delegate.name)}
-                    </div>
-                )}
+                <AvatarImage
+                    src={delegate.avatar}
+                    alt={delegate.name}
+                    className="size-11 rounded-full object-cover"
+                    style={{ border: "2px solid var(--border-color)" }}
+                    fallback={
+                        <div
+                            role="img"
+                            aria-label={delegate.name}
+                            className="size-11 rounded-full flex items-center justify-center font-heading font-bold text-[13px]"
+                            style={{
+                                backgroundColor: "var(--bg-surface-secondary)",
+                                border: "2px solid var(--border-color)",
+                                color: "var(--text-primary)",
+                            }}
+                        >
+                            {buildInitials(delegate.name)}
+                        </div>
+                    }
+                />
             </div>
 
             <div className="flex-1 min-w-0">
@@ -73,8 +72,10 @@ export const ChatItem = ({
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p
-                        className="text-[13px] truncate font-body"
-                        style={{ color: "var(--text-secondary)" }}
+                        className={`text-[13px] truncate font-body ${unreadCount && unreadCount > 0 ? "font-semibold" : ""}`}
+                        style={{
+                            color: unreadCount && unreadCount > 0 ? "var(--text-primary)" : "var(--text-secondary)",
+                        }}
                     >
                         {lastMessage ? (
                             <>
@@ -91,13 +92,15 @@ export const ChatItem = ({
                     </p>
                     {unreadCount && unreadCount > 0 ? (
                         <span
-                            className="shrink-0 flex items-center justify-center size-5 rounded-full text-xs font-bold"
+                            data-unread-badge
+                            aria-label={`${unreadCount} sin leer`}
+                            className="shrink-0 flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold leading-5"
                             style={{
                                 backgroundColor: "var(--bubble-me-bg)",
                                 color: "var(--text-on-accent)",
                             }}
                         >
-                            {unreadCount}
+                            {formatBadge(unreadCount)}
                         </span>
                     ) : null}
                 </div>

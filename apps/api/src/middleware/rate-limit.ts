@@ -27,6 +27,11 @@ export const authParticipantLimiter = limiter(10, (req) => {
 const userKey = (req: Request) => req.auth!.userId;
 export const createPostLimiter = limiter(10, userKey);
 export const createCommentLimiter = limiter(20, userKey);
-export const attachmentInitLimiter = limiter(10, userKey);
+// Una publicación puede llevar hasta 12 archivos y cada uno inicia su propia subida.
+export const attachmentInitLimiter = limiter(30, userKey);
 export const sendDmLimiter = limiter(30, userKey);
 export const moderationWriteLimiter = limiter(60, userKey);
+// Estado de lectura y resumen de pendientes: la pantalla los consulta con frecuencia moderada.
+export const editDmLimiter = limiter(30, userKey);
+export const readStateLimiter = limiter(120, userKey);
+export const reactionLimiter = limiter(60, userKey);

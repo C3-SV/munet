@@ -5,6 +5,7 @@ import { createPostComment, deletePostComment, getPostComments } from "../../lib
 import { isPracticeEvent } from "../../lib/practice/constants";
 import { realtimeEnabled, supabaseBrowser } from "../../lib/supabase";
 import { formatDateTime } from "../../lib/format-datetime";
+import { buildThreads, excerpt } from "../../lib/comment-threads";
 import { Button } from "../ui/Button";
 import { IconChat, IconChevronDown } from "../ui/icons";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -18,6 +19,8 @@ type PostCommentsProps = {
     token: string;
     eventId: string;
     disabled?: boolean;
+    // Explica por qué no se puede comentar (por ejemplo, avisos para participantes).
+    disabledReason?: string;
     showAuthorCommittee?: boolean;
     defaultOpen?: boolean;
     // Total inicial que entrega la API; el panel abierto lo mantiene al día.
@@ -35,6 +38,7 @@ export const PostComments = ({
     token,
     eventId,
     disabled = false,
+    disabledReason,
     showAuthorCommittee = true,
     defaultOpen = false,
     initialCount,
@@ -77,6 +81,7 @@ export const PostComments = ({
                     token={token}
                     eventId={eventId}
                     disabled={disabled}
+                    disabledReason={disabledReason}
                     showAuthorCommittee={showAuthorCommittee}
                     onCountChange={setCount}
                 />
@@ -96,6 +101,7 @@ const CommentsPanel = ({
     token,
     eventId,
     disabled = false,
+    disabledReason,
     showAuthorCommittee = true,
     onCountChange,
 }: CommentsPanelProps) => {
@@ -240,13 +246,21 @@ const CommentsPanel = ({
         };
     }, [openMenuId]);
 
-    const byId = useMemo(
-        () =>
-            new Map<string, PostComment>(
-                comments.map((comment) => [comment.id, comment]),
-            ),
-        [comments],
-    );
+    // Hilos de un solo nivel visual: cada respuesta queda bajo su comentario raíz.
+    const threads = useMemo(() => buildThreads(comments), [comments]);
+
+    // Lleva a un comentario citado y lo resalta un momento.
+    const jumpToComment = (commentId: string) => {
+        const element = document.getElementById(`comment-${commentId}`);
+
+        if (!element) {
+            return;
+        }
+
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.classList.add("comment-highlight");
+        window.setTimeout(() => element.classList.remove("comment-highlight"), 1600);
+    };
 
     const submitComment = async () => {
         // Aplica debounce/cooldown para evitar doble envio por doble click.
@@ -342,6 +356,157 @@ const CommentsPanel = ({
         }
     };
 
+    // Un comentario con su menú, la cita de a quién responde y el botón de responder.
+    const renderComment = (comment: PostComment, replyTo: PostComment | null, isReply: boolean) => {
+        const menuOpen = openMenuId === comment.id;
+        const showMenu = comment.canDelete && !comment.isDeleted;
+
+        return (
+            <div id={`comment-${comment.id}`} className="scroll-mt-24 rounded-[var(--radius-sm)]">
+                        <div className="flex items-start gap-3">
+                            <div className="min-w-0 flex-1">
+                                <PersonLabel
+                                    size="sm"
+                                    person={{
+                                        name: comment.user.name,
+                                        alias: comment.user.alias,
+                                        committeeName: comment.user.committeeName,
+                                        avatar: comment.user.avatar,
+                                    }}
+                                    showSecondary={showAuthorCommittee}
+                                />
+                            </div>
+
+                            <time
+                                dateTime={comment.createdAt}
+                                className="shrink-0 pt-1 text-xs font-body"
+                                style={{ color: "var(--text-muted)" }}
+                            >
+                                {formatDateTime(comment.createdAt)}
+                            </time>
+
+                            {showMenu && (
+                                <div
+                                    data-comment-menu
+                                    className="relative shrink-0 -mr-2 -mt-2"
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Escape") {
+                                            setOpenMenuId(null);
+                                        }
+                                    }}
+                                    onBlur={(event) => {
+                                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                            setOpenMenuId(null);
+                                        }
+                                    }}
+                                >
+                                    <button
+                                        ref={(element) => {
+                                            if (element) {
+                                                menuButtonRefs.current.set(comment.id, element);
+                                            } else {
+                                                menuButtonRefs.current.delete(comment.id);
+                                            }
+                                        }}
+                                        type="button"
+                                        aria-label="Más acciones del comentario"
+                                        aria-haspopup="menu"
+                                        aria-expanded={menuOpen}
+                                        onClick={() => setOpenMenuId(menuOpen ? null : comment.id)}
+                                        className="inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] enabled:hover:bg-[var(--bg-surface-secondary)]"
+                                        style={{ color: "var(--text-secondary)" }}
+                                    >
+                                        <svg
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                            aria-hidden="true"
+                                            focusable="false"
+                                        >
+                                            <circle cx="5" cy="12" r="1.75" />
+                                            <circle cx="12" cy="12" r="1.75" />
+                                            <circle cx="19" cy="12" r="1.75" />
+                                        </svg>
+                                    </button>
+
+                                    {menuOpen && (
+                                        <div
+                                            role="menu"
+                                            className="absolute right-0 top-11 z-10 min-w-40 rounded-[var(--radius-sm)] p-1"
+                                            style={{
+                                                backgroundColor: "var(--bg-surface)",
+                                                border: "1px solid var(--border-color)",
+                                            }}
+                                        >
+                                            <Button
+                                                role="menuitem"
+                                                variant="danger-text"
+                                                size="sm"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                    // El ítem se desmonta al cerrar el menú: el foco pasa al "⋯" antes.
+                                                    menuButtonRefs.current.get(comment.id)?.focus();
+                                                    setOpenMenuId(null);
+                                                    requestDeleteComment(comment);
+                                                }}
+                                            >
+                                                Eliminar
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {isReply && (
+                            <p className="mt-1.5 pl-11 text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                {replyTo && !replyTo.isDeleted ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => jumpToComment(replyTo.id)}
+                                        className="max-w-full truncate text-left underline-offset-2 hover:underline"
+                                        style={{ color: "var(--text-secondary)" }}
+                                        title="Ir al comentario"
+                                    >
+                                        ↳ En respuesta a <strong>{replyTo.user.name}</strong>
+                                        {replyTo.user.alias ? ` “${replyTo.user.alias}”` : ""}: “{excerpt(replyTo.content, 70)}”
+                                    </button>
+                                ) : (
+                                    <span>↳ En respuesta a un comentario que ya no está disponible</span>
+                                )}
+                            </p>
+                        )}
+
+                        <p
+                            className="mt-1.5 pl-11 text-sm font-body whitespace-pre-wrap"
+                            style={{
+                                color: comment.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
+                                fontStyle: comment.isDeleted ? "italic" : "normal",
+                                overflowWrap: "anywhere",
+                            }}
+                        >
+                            {comment.content}
+                        </p>
+
+                        {!comment.isDeleted && !disabled && (
+                            <div className="pl-8">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setReplyTo(comment);
+                                        textareaRef.current?.focus();
+                                    }}
+                                >
+                                    Responder
+                                </Button>
+                            </div>
+                        )}
+            </div>
+        );
+    };
+
     return (
         <div id={id} className="mt-3">
             {loading ? (
@@ -350,150 +515,25 @@ const CommentsPanel = ({
                 </p>
             ) : comments.length > 0 ? (
                 <ul className="space-y-4" aria-label="Comentarios">
-                    {comments.map((comment) => {
-                        const isReply = Boolean(comment.parentCommentId);
-                        const parent = comment.parentCommentId
-                            ? byId.get(comment.parentCommentId)
-                            : undefined;
-                        const menuOpen = openMenuId === comment.id;
-                        const showMenu = comment.canDelete && !comment.isDeleted;
+                    {threads.map((thread) => (
+                        <li key={thread.root.id}>
+                            {renderComment(thread.root, null, thread.rootReplyToMissing)}
 
-                        return (
-                            <li
-                                key={comment.id}
-                                className={isReply ? "ml-4 border-l-2 pl-3 md:ml-8" : undefined}
-                                style={isReply ? { borderLeftColor: "var(--border-color)" } : undefined}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <PersonLabel
-                                            size="sm"
-                                            person={{
-                                                name: comment.user.name,
-                                                alias: comment.user.alias,
-                                                committeeName: comment.user.committeeName,
-                                                avatar: comment.user.avatar,
-                                            }}
-                                            showSecondary={showAuthorCommittee}
-                                        />
-                                    </div>
-
-                                    <time
-                                        dateTime={comment.createdAt}
-                                        className="shrink-0 pt-1 text-xs font-body"
-                                        style={{ color: "var(--text-muted)" }}
-                                    >
-                                        {formatDateTime(comment.createdAt)}
-                                    </time>
-
-                                    {showMenu && (
-                                        <div
-                                            data-comment-menu
-                                            className="relative shrink-0 -mr-2 -mt-2"
-                                            onKeyDown={(event) => {
-                                                if (event.key === "Escape") {
-                                                    setOpenMenuId(null);
-                                                }
-                                            }}
-                                            onBlur={(event) => {
-                                                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                                                    setOpenMenuId(null);
-                                                }
-                                            }}
-                                        >
-                                            <button
-                                                ref={(element) => {
-                                                    if (element) {
-                                                        menuButtonRefs.current.set(comment.id, element);
-                                                    } else {
-                                                        menuButtonRefs.current.delete(comment.id);
-                                                    }
-                                                }}
-                                                type="button"
-                                                aria-label="Más acciones del comentario"
-                                                aria-haspopup="menu"
-                                                aria-expanded={menuOpen}
-                                                onClick={() => setOpenMenuId(menuOpen ? null : comment.id)}
-                                                className="inline-flex size-11 items-center justify-center rounded-[var(--radius-sm)] enabled:hover:bg-[var(--bg-surface-secondary)]"
-                                                style={{ color: "var(--text-secondary)" }}
-                                            >
-                                                <svg
-                                                    width="20"
-                                                    height="20"
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                    aria-hidden="true"
-                                                    focusable="false"
-                                                >
-                                                    <circle cx="5" cy="12" r="1.75" />
-                                                    <circle cx="12" cy="12" r="1.75" />
-                                                    <circle cx="19" cy="12" r="1.75" />
-                                                </svg>
-                                            </button>
-
-                                            {menuOpen && (
-                                                <div
-                                                    role="menu"
-                                                    className="absolute right-0 top-11 z-10 min-w-40 rounded-[var(--radius-sm)] p-1"
-                                                    style={{
-                                                        backgroundColor: "var(--bg-surface)",
-                                                        border: "1px solid var(--border-color)",
-                                                    }}
-                                                >
-                                                    <Button
-                                                        role="menuitem"
-                                                        variant="danger-text"
-                                                        size="sm"
-                                                        className="w-full justify-start"
-                                                        onClick={() => {
-                                                            // El ítem se desmonta al cerrar el menú: el foco pasa al "⋯" antes.
-                                                            menuButtonRefs.current.get(comment.id)?.focus();
-                                                            setOpenMenuId(null);
-                                                            requestDeleteComment(comment);
-                                                        }}
-                                                    >
-                                                        Eliminar
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {isReply && (
-                                    <p className="mt-1.5 pl-11 text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                        En respuesta a {parent ? parent.user.name : "un comentario"}
-                                    </p>
-                                )}
-
-                                <p
-                                    className="mt-1.5 pl-11 text-sm font-body whitespace-pre-wrap"
-                                    style={{
-                                        color: comment.isDeleted ? "var(--text-muted)" : "var(--text-primary)",
-                                        fontStyle: comment.isDeleted ? "italic" : "normal",
-                                        overflowWrap: "anywhere",
-                                    }}
+                            {thread.replies.length > 0 && (
+                                <ul
+                                    className="mt-3 ml-4 space-y-3 border-l-2 pl-3 md:ml-8"
+                                    style={{ borderLeftColor: "var(--border-color)" }}
+                                    aria-label="Respuestas"
                                 >
-                                    {comment.content}
-                                </p>
-
-                                {!comment.isDeleted && !disabled && (
-                                    <div className="pl-8">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setReplyTo(comment);
-                                                textareaRef.current?.focus();
-                                            }}
-                                        >
-                                            Responder
-                                        </Button>
-                                    </div>
-                                )}
-                            </li>
-                        );
-                    })}
+                                    {thread.replies.map((reply) => (
+                                        <li key={reply.comment.id}>
+                                            {renderComment(reply.comment, reply.replyTo, true)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </li>
+                    ))}
                 </ul>
             ) : error ? null : (
                 <p className="text-sm font-body" style={{ color: "var(--text-muted)" }}>
@@ -518,11 +558,21 @@ const CommentsPanel = ({
                     >
                         <p className="min-w-0 truncate text-xs font-body" style={{ color: "var(--text-secondary)" }}>
                             Respondiendo a <strong>{replyTo.user.name}</strong>
+                            {replyTo.user.alias ? ` “${replyTo.user.alias}”` : ""}: “{excerpt(replyTo.content, 60)}”
                         </p>
                         <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)}>
                             Cancelar
                         </Button>
                     </div>
+                )}
+
+                {disabled && disabledReason && (
+                    <p
+                        className="mb-2 text-xs font-body"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        {disabledReason}
+                    </p>
                 )}
 
                 <div className="flex items-end gap-2">
@@ -535,7 +585,7 @@ const CommentsPanel = ({
                         disabled={disabled}
                         readOnly={isSubmitting}
                         aria-label="Escribe un comentario"
-                        placeholder="Escribe un comentario..."
+                        placeholder={disabled && disabledReason ? disabledReason : "Escribe un comentario..."}
                         className="max-h-40 min-h-11 flex-1 resize-none overflow-y-auto whitespace-pre-wrap rounded-lg px-3 py-2.5 text-sm font-body"
                         style={{
                             backgroundColor: "var(--bg-input)",

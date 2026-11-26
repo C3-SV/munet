@@ -11,7 +11,8 @@ test('roles exactos normalizados y compatibilidad de administradores', () => {
     assert.equal(rbac.isModeratorRole(role), true);
     assert.equal(rbac.canModerateRole(role), true);
     assert.equal(rbac.isAdminRole(role), false);
-    assert.equal(rbac.canPublishInAnnouncements(role), false);
+    // Los moderadores publican y comentan en avisos, igual que la administración.
+    assert.equal(rbac.canPublishInAnnouncements(role), true);
   }
   for (const role of [null, undefined, '', 'MODERADOR', 'XMODERATOR', 'PARTICIPANT']) {
     assert.equal(rbac.isModeratorRole(role), false);
@@ -30,7 +31,7 @@ test('roles exactos normalizados y compatibilidad de administradores', () => {
   for (const role of ['ADMIN_MUN', 'XADMIN_TECH', 'MODERATOR', null]) assert.equal(rbac.isSuperAdminRole(role), false);
 });
 
-test('moderador ve todos los muros del evento y no publica en Avisos', () => {
+test('moderador ve todos los muros del evento y publica también en Avisos', () => {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(__dirname + '/../services/walls.service.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -45,7 +46,7 @@ test('moderador ve todos los muros del evento y no publica en Avisos', () => {
     const wall = { id: 'wall', event_id: 'event', name: 'Muro', wall_type: wallType, committee_id: wallType === 'COMMITTEE' ? 'otro' : null };
     const view = module.exports.mapWallForMembership(wall, { role: 'MODERATOR', eventId: 'event', committeeId: 'propio' });
     assert.equal(view.canAccess, true);
-    assert.equal(view.canPublish, wallType !== 'ANNOUNCEMENTS');
+    assert.equal(view.canPublish, true);
   }
   for (const [membershipCommitteeId, wallCommitteeId, expected] of [['propio', 'otro', false], ['propio', 'propio', true], [null, 'otro', false], [null, null, true]]) {
     assert.equal(rbac.canAccessCommitteeWall({ role: 'PARTICIPANT', membershipCommitteeId, wallCommitteeId }), expected);

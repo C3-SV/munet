@@ -185,3 +185,74 @@ body {
         scroll-behavior: auto !important;
     }
 }
+
+/* Resalta un comentario citado al saltar a él desde una respuesta. */
+.comment-highlight {
+    animation: comment-highlight 1.6s ease-out;
+}
+
+@keyframes comment-highlight {
+    0%,
+    60% {
+        background-color: var(--sidebar-active-bg);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .comment-highlight {
+        animation: none;
+        background-color: var(--sidebar-active-bg);
+    }
+}
+
+/* Barra lateral ajustable (escritorio): contraída muestra solo iconos; el móvil conserva el cajón. */
+@media (min-width: 768px) {
+    .sb-collapsed .sb-hide {
+        display: none !important;
+    }
+
+    .sb-collapsed .sb-center {
+        justify-content: center;
+    }
+
+    .sb-collapsed .sb-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .sb-collapsed .sb-header-actions {
+        flex-direction: column;
+    }
+
+    /* Los indicadores de no leídos siguen visibles sobre el icono. */
+    .sb-collapsed [data-nav-badge] {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        min-width: 1rem;
+        padding: 0 0.25rem;
+        font-size: 10px;
+        line-height: 1rem;
+    }
+}
+
+.sb-resize-handle::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 0 50%;
+    width: 2px;
+    background-color: transparent;
+    transition: background-color 120ms ease-out;
+}
+
+.sb-resize-handle:hover::after,
+.sb-resize-handle:focus-visible::after {
+    background-color: var(--text-accent);
+}
+
+.sb-resize-handle:focus-visible {
+    outline: none;
+}

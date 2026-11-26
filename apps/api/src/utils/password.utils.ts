@@ -5,7 +5,9 @@ export function generateInitialPassword(): string {
     'ABCDEFGHJKLMNPQRSTUVWXYZ',
     'abcdefghijkmnopqrstuvwxyz',
     '23456789',
-    '!@#$%&*?'
+    // Sin '@': una celda que empieza con '@' se interpreta como fórmula al abrir el CSV de
+    // credenciales en Excel y la contraseña se mostraría alterada.
+    '!#$%&*?'
   ];
   const alphabet = groups.join('');
   const characters = groups.map((group) => group[randomInt(group.length)]!);

@@ -88,6 +88,20 @@ export const getConversationMessages = async (
     return payload.messages;
 };
 
+// Marca como leídos los mensajes recibidos en la conversación (la persona la tiene abierta).
+export const markConversationRead = async (
+    conversationId: string,
+    context: ChatContext,
+): Promise<{ readCount: number; readAt: string | null }> =>
+    requestApi<{ readCount: number; readAt: string | null }>(
+        `/dm/conversations/${conversationId}/read`,
+        {
+            method: "POST",
+            token: context.token,
+            eventId: context.eventId,
+        },
+    );
+
 export const sendConversationMessage = async (
     conversationId: string,
     content: string,
@@ -98,6 +112,26 @@ export const sendConversationMessage = async (
         `/dm/conversations/${conversationId}/messages`,
         {
             method: "POST",
+            token: context.token,
+            eventId: context.eventId,
+            body: { content },
+        },
+    );
+
+    return payload.message;
+};
+
+// Edita el contenido de un mensaje propio y devuelve el mensaje actualizado.
+export const editConversationMessage = async (
+    conversationId: string,
+    messageId: string,
+    content: string,
+    context: ChatContext,
+): Promise<DirectMessage> => {
+    const payload = await requestApi<{ message: DirectMessage }>(
+        `/dm/conversations/${conversationId}/messages/${messageId}`,
+        {
+            method: "PATCH",
             token: context.token,
             eventId: context.eventId,
             body: { content },

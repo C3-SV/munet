@@ -22,7 +22,7 @@ Las entidades siguientes reflejan el contrato usado por el código. Consulta el 
 | Tablas | Relación y uso |
 |---|---|
 | `walls`, `posts`, `post_committee_tags` | Muros `GENERAL`, `ANNOUNCEMENTS` o `COMMITTEE` y publicaciones de una membresía. El código lee los tags. SQL contiene columnas para fijar posts. |
-| `post_comments` | Post, autor y comentario padre opcional, con un nivel de respuesta. |
+| `post_comments` | Post, autor y comentario padre opcional (el comentario o respuesta al que se responde). |
 | `polls`, `poll_options`, `poll_votes` | Encuesta de un post, opciones ordenadas y voto por membresía. El snapshot documenta unicidad por encuesta y votante. |
 | `dm_conversations`, `dm_messages` | Pareja de membresías del evento y mensajes. El borrado usa `DELETED`. |
 | `attachments` | Tabla definida por migración 001. Carga, lectura y retiro todavía pendientes en la aplicación. La migración 003 (redactada, sin aplicar) añade un índice único por `post_id` y por `storage_path`, y `retention_hold`. |

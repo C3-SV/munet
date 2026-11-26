@@ -18,7 +18,7 @@ El sitio participante ofrece comunicación y acceso por evento. El panel incorpo
 - Activación inicial, inicio de sesión y recuperación del contexto autenticado.
 - Selección de una membresía/evento activo.
 - Muros general, anuncios y comités; publicaciones de texto y encuestas.
-- Comentarios de un nivel, voto y cierre de encuestas, eliminación lógica de contenido.
+- Comentarios y respuestas (también a otras respuestas, agrupadas por hilo), voto y cierre de encuestas, eliminación lógica de contenido.
 - Perfil propio y público; carga de avatar.
 - Mensajería directa individual dentro del evento.
 - Listado y configuración de eventos, alta y edición de comités, alta y mantenimiento individual de participantes y cambio de comité. CSV disponible en API.

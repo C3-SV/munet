@@ -296,6 +296,7 @@ export const toDirectoryEntry = (state: PracticeState, person: PracticePerson): 
         firstName: person.firstName,
         lastName: person.lastName,
         alias: person.alias,
+        avatar: avatarOf(state, person, displayNameOf(state, person)),
         committee: committee ? { id: committee.id, name: committee.name } : null,
         delegationCode: person.delegationCode,
     };

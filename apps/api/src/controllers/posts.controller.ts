@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { createPostComment, deletePostComment, listCommentsByPost } from '../services/comments.service';
+import { listReactionsForPosts, removePostReaction, setPostReaction } from '../services/reactions.service';
 import {
   closePollService,
   createPostService,
@@ -55,12 +56,13 @@ export const createPost = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'No perteneces a este evento' });
     }
 
-    const { muro, content, post_type, poll_options, upload_id } = req.body as {
+    const { muro, content, post_type, poll_options, upload_id, upload_ids } = req.body as {
       muro?: string;
       content?: string;
       post_type?: string;
       poll_options?: string[];
       upload_id?: unknown;
+      upload_ids?: unknown;
     };
 
     const result = await createPostService({
@@ -69,6 +71,7 @@ export const createPost = async (req: Request, res: Response) => {
       postType: post_type,
       pollOptions: poll_options,
       uploadId: upload_id,
+      uploadIds: upload_ids,
       eventId,
       membership,
     });
@@ -252,6 +255,87 @@ export const closePoll = async (req: Request, res: Response) => {
       postId: String(req.params.postId),
       eventId,
       membership,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// Contexto común de las rutas de reacciones: evento activo y membresía en él.
+const reactionContext = (req: Request, res: Response) => {
+  const eventId = readEventId(req);
+
+  if (!eventId) {
+    res.status(400).json({ error: 'x-event-id es requerido' });
+    return null;
+  }
+
+  const membership = resolveMembership(req, eventId);
+
+  if (!membership) {
+    res.status(403).json({ error: 'No perteneces a este evento' });
+    return null;
+  }
+
+  return { eventId, membership };
+};
+
+// PUT /posts/:postId/reaction -> agrega o cambia la reacción de la persona.
+export const reactToPost = async (req: Request, res: Response) => {
+  try {
+    const ctx = reactionContext(req, res);
+
+    if (!ctx) {
+      return;
+    }
+
+    const result = await setPostReaction({
+      ...ctx,
+      postId: String(req.params.postId),
+      reaction: req.body?.reaction,
+    });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// DELETE /posts/:postId/reaction -> retira la reacción de la persona.
+export const unreactToPost = async (req: Request, res: Response) => {
+  try {
+    const ctx = reactionContext(req, res);
+
+    if (!ctx) {
+      return;
+    }
+
+    const result = await removePostReaction({ ...ctx, postId: String(req.params.postId) });
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// GET /posts/reactions?ids=a,b,c -> reacciones de varias publicaciones.
+export const listReactions = async (req: Request, res: Response) => {
+  try {
+    const ctx = reactionContext(req, res);
+
+    if (!ctx) {
+      return;
+    }
+
+    const rawIds = typeof req.query.ids === 'string' ? req.query.ids : '';
+    const result = await listReactionsForPosts({
+      ...ctx,
+      postIds: rawIds.split(',').map((id) => id.trim()).filter(Boolean),
     });
 
     return res.status(result.status).json(result.body);

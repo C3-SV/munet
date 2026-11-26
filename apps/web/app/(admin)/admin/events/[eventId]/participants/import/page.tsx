@@ -17,6 +17,7 @@ import {
     type ParticipantImportRow,
 } from "../../../../../../../lib/api/participants";
 import { buildCsv, downloadCsv } from "../../../../../../../lib/csv";
+import { buildCredentialsCsv } from "../../../../../../../lib/credentials-csv";
 import { useAuthStore } from "../../../../../../../stores/auth.store";
 import { IconCheck, IconDownload, IconRefresh } from "../../../../../../../components/ui/icons";
 
@@ -38,16 +39,6 @@ const TEMPLATE_EXAMPLE = [
     "México",
     "participante",
     "Anita",
-];
-
-const CREDENTIAL_HEADERS = [
-    "Nombre",
-    "Apellido",
-    "Alias",
-    "Comité",
-    "Código de login",
-    "Código #",
-    "Contraseña inicial",
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -418,21 +409,11 @@ export default function ImportParticipantsPage() {
             return;
         }
 
-        const rows = createdRows.map((row) => [
-            row.first_name,
-            row.last_name,
-            row.alias ?? "",
-            row.committee_label ?? "",
-            row.participant_code,
-            row.delegation_code ?? "Sin código",
-            row.initial_password,
-        ]);
-
         downloadCsv(
             `credenciales-participantes-${new Date()
                 .toISOString()
                 .slice(0, 10)}.csv`,
-            buildCsv(CREDENTIAL_HEADERS, rows),
+            buildCredentialsCsv(createdRows),
         );
         setCredentialsDownloaded(true);
     };
@@ -1184,6 +1165,26 @@ export default function ImportParticipantsPage() {
                                 type="warning"
                                 message="Descarga las credenciales ahora. Las contraseñas iniciales no se pueden volver a obtener."
                             />
+                            <div
+                                className="rounded-xl p-3 text-xs space-y-1"
+                                style={{
+                                    backgroundColor: "var(--bg-surface-secondary)",
+                                    border: "1px solid var(--border-color)",
+                                    color: "var(--text-secondary)",
+                                }}
+                            >
+                                <p>
+                                    <strong>Cómo entra cada persona:</strong> en la pantalla de
+                                    inicio de sesión toca «¿Es tu primera vez? Activa tu cuenta
+                                    aquí» y usa el <strong>código para iniciar sesión</strong> y la{" "}
+                                    <strong>contraseña temporal</strong> del archivo, escritos tal
+                                    cual (respetando mayúsculas).
+                                </p>
+                                <p>
+                                    El <strong>número de delegación (#)</strong> es solo un
+                                    identificador público; no sirve para iniciar sesión.
+                                </p>
+                            </div>
                             <AdminButton
                                 type="button"
                                 onClick={handleDownloadCredentials}

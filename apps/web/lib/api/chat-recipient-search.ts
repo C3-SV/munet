@@ -98,8 +98,8 @@ export const directoryEntryToRecipient = (entry: ParticipantDirectoryEntry): Cha
         id: entry.membershipId,
         name: fullName || entry.alias?.trim() || "Participante",
         alias: entry.alias?.trim() || null,
-        // Sin avatar: el directorio no lo expone y la lista dibuja iniciales.
-        avatar: "",
+        // Foto del directorio; si falla al cargar, la lista dibuja iniciales.
+        avatar: entry.avatar ?? "",
         role: "Delegado",
         committee: entry.committee?.name ?? "Sin comité",
         lastActive: "Activo",

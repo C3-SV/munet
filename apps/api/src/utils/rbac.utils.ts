@@ -42,6 +42,7 @@ export const canAccessCommitteeWall = (params: {
   return params.membershipCommitteeId === params.wallCommitteeId;
 };
 
-// Reglas de publicacion para muro de avisos (solo staff/admin).
+// Reglas de publicacion y comentarios en el muro de avisos: administradores y moderadores.
+// Los participantes regulares solo leen. Comentar en avisos usa esta misma regla.
 export const canPublishInAnnouncements = (role: string) =>
-  isAdminRole(role);
+  canModerateRole(role);

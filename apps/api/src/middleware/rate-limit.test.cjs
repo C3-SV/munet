@@ -26,7 +26,7 @@ async function attempt(limiter, { userId = 'user', ip = '127.0.0.1', code = 'ABC
 
 test('cada limitador permite N intentos y devuelve 429 JSON con headers draft-7 en N+1', async () => {
   const { limiters } = harness();
-  for (const [name, limit] of [['authParticipantLimiter', 10], ['authIpLimiter', 30], ['createPostLimiter', 10], ['createCommentLimiter', 20], ['attachmentInitLimiter', 10], ['sendDmLimiter', 30], ['moderationWriteLimiter', 60]]) {
+  for (const [name, limit] of [['authParticipantLimiter', 10], ['authIpLimiter', 30], ['createPostLimiter', 10], ['createCommentLimiter', 20], ['attachmentInitLimiter', 30], ['sendDmLimiter', 30], ['moderationWriteLimiter', 60]]) {
     for (let i = 0; i < limit; i++) assert.equal((await attempt(limiters[name])).passed, true, name);
     const { res, passed } = await attempt(limiters[name]);
     assert.equal(passed, false, name);

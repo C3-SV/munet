@@ -24,3 +24,16 @@ test("buildCsv agrega BOM y usa CRLF", () => {
     assert.ok(csv.startsWith("\uFEFF"));
     assert.equal(csv, '\uFEFF"nombre","apellido"\r\n"Ana","Pérez"\r\n');
 });
+
+test("escapeCsvCell literal no antepone apóstrofe", () => {
+    assert.equal(escapeCsvCell("@Abc123", { literal: true }), '"@Abc123"');
+    assert.equal(escapeCsvCell("-codigo", { literal: true }), '"-codigo"');
+});
+
+test("buildCsv: las columnas literales no se neutralizan pero los encabezados y el resto sí", () => {
+    const csv = buildCsv(["=cabecera", "clave"], [["=1+1", "@Abc"]], {
+        literalColumns: [1],
+    });
+
+    assert.equal(csv, `\uFEFF"'=cabecera","clave"\r\n"'=1+1","@Abc"\r\n`);
+});

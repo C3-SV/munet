@@ -25,7 +25,7 @@ const NO_ATTACHMENTS = {
 
 test('feed selecciona y expone fijados y ordena antes de los posts recientes', async () => {
   const types = load(__dirname + '/../types/posts.types.ts', {});
-  const utils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } });
+  const utils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}) });
   const steps = [];
   const query = new Proxy({}, { get(_, method) {
     if (method === 'then') return resolve => resolve({ data: [{ id: 'p', post_type: 'TEXT', content: 'Hola', status: 'VISIBLE', created_at: '2026-11-18', is_pinned: true, pinned_at: '2026-11-18T10:00:00Z' }] });
@@ -38,6 +38,8 @@ test('feed selecciona y expone fijados y ordena antes de los posts recientes', a
     '../utils/posts.utils': utils,
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
+    './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });
@@ -51,7 +53,7 @@ test('feed selecciona y expone fijados y ordena antes de los posts recientes', a
 
 test('feed incluye commentCount con comentarios visibles por post', async () => {
   const types = load(__dirname + '/../types/posts.types.ts', {});
-  const utils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } });
+  const utils = load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}) });
   const filters = [];
   const dataByTable = {
     posts: [{ id: 'a', post_type: 'TEXT', content: 'A', status: 'VISIBLE', created_at: '2026-11-18' },
@@ -71,6 +73,8 @@ test('feed incluye commentCount con comentarios visibles por post', async () => 
     '../utils/posts.utils': utils,
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
+    './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': { loadWallsByEvent: async () => [{ id: 'wall' }], mapWallForMembership: () => ({ canAccess: true }) },
   });
   const result = await service.getPostsByWall({ eventId: 'event', membership: { id: 'author' } });
@@ -102,9 +106,11 @@ function loadPostsService(dataByTable, log) {
     '../lib/supabase': { supabaseAdmin: simpleDb(dataByTable, log) },
     '../types/posts.types': load(__dirname + '/../types/posts.types.ts', {}),
     '../utils/audit.logger': { logAudit() { assert.fail(); } },
-    '../utils/posts.utils': load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } }),
+    '../utils/posts.utils': load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}) }),
     '../utils/rbac.utils': { isAdminRole: () => false },
     './attachments.service': NO_ATTACHMENTS,
+    './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': WALLS,
   });
 }
@@ -113,8 +119,11 @@ function loadCommentsService(dataByTable, log) {
   return load(__dirname + '/comments.service.ts', {
     '../lib/supabase': { supabaseAdmin: simpleDb(dataByTable, log) },
     '../utils/audit.logger': { logAudit() { assert.fail(); } },
-    '../utils/posts.utils': load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } }),
+    '../utils/avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}),
+    '../utils/posts.utils': load(__dirname + '/../utils/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': load(__dirname + '/../utils/avatar.utils.ts', {}) }),
     '../utils/rbac.utils': { isAdminRole: () => false },
+    './reactions.service': { attachReactions: async ({ posts }) => posts },
+    '../utils/attachments.utils': load(__dirname + '/../utils/attachments.utils.ts', {}),
     './walls.service': WALLS,
   });
 }

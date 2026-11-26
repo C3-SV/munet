@@ -88,9 +88,9 @@ test("un moderador accede a los muros de todos los comités", () => {
   }
 });
 
-test("solo los admins publican en avisos", () => {
+test("administradores y moderadores publican en avisos; los participantes no", () => {
   assert.equal(canPublishInAnnouncements("PARTICIPANT"), false);
-  assert.equal(canPublishInAnnouncements("MODERATOR"), false);
+  assert.equal(canPublishInAnnouncements("MODERATOR"), true);
   assert.equal(canPublishInAnnouncements("ADMIN_MUN"), true);
   assert.equal(canPublishInAnnouncements("ADMIN_TECH"), true);
 });

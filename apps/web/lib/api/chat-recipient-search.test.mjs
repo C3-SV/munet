@@ -158,3 +158,17 @@ test("buildInitials uses the first letter of the first two words", () => {
     assert.equal(buildInitials("  Ñandú  "), "Ñ");
     assert.equal(buildInitials(""), "");
 });
+
+test("directoryEntryToRecipient conserva la foto del directorio y deja vacío si no hay", () => {
+    const base = {
+        membershipId: "m-9",
+        firstName: "Eva",
+        lastName: "Ruiz",
+        alias: null,
+        committee: null,
+        delegationCode: null,
+    };
+
+    assert.equal(directoryEntryToRecipient({ ...base, avatar: "https://cdn.test/eva.png" }).avatar, "https://cdn.test/eva.png");
+    assert.equal(directoryEntryToRecipient(base).avatar, "");
+});

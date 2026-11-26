@@ -40,7 +40,7 @@ type ModerationPostCardProps = {
 // Acciones que piden motivo; comparten el mismo diálogo.
 type ReasonTarget =
     | { kind: "post" }
-    | { kind: "attachment" }
+    | { kind: "attachment"; attachmentId: string }
     | { kind: "comment"; comment: ModerationComment }
     | { kind: "hidePost" }
     | { kind: "unhidePost" }
@@ -258,7 +258,7 @@ export const ModerationPostCard = ({
                 setReasonTarget(null);
                 onChanged("Publicación eliminada.");
             } else if (reasonTarget.kind === "attachment") {
-                await removeModerationAttachment(token, post.id, reason);
+                await removeModerationAttachment(token, post.id, reason, reasonTarget.attachmentId);
                 setReasonTarget(null);
                 onChanged("Adjunto retirado.");
             } else if (reasonTarget.kind === "comment") {
@@ -325,8 +325,9 @@ export const ModerationPostCard = ({
                 {post.content}
             </p>
 
-            {post.attachment && (
+            {(post.attachments ?? (post.attachment ? [post.attachment] : [])).map((attachment) => (
                 <div
+                    key={attachment.id}
                     className="mt-3 flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5"
                     style={{ border: "1px solid var(--border-color)" }}
                 >
@@ -337,13 +338,13 @@ export const ModerationPostCard = ({
                         <span
                             className="block truncate text-sm font-semibold font-heading"
                             style={{ color: "var(--text-primary)" }}
-                            title={post.attachment.name}
+                            title={attachment.name}
                         >
-                            {post.attachment.name}
+                            {attachment.name}
                         </span>
                         <span className="block text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                            {isImageAttachment(post.attachment.mimeType) ? "Imagen" : "PDF"} ·{" "}
-                            {formatFileSize(post.attachment.size)}
+                            {isImageAttachment(attachment.mimeType) ? "Imagen" : "PDF"} ·{" "}
+                            {formatFileSize(attachment.size)}
                         </span>
                     </span>
                     <Button
@@ -351,15 +352,15 @@ export const ModerationPostCard = ({
                         size="sm"
                         onClick={() => {
                             setDialogError(null);
-                            setReasonTarget({ kind: "attachment" });
+                            setReasonTarget({ kind: "attachment", attachmentId: attachment.id });
                         }}
                         disabled={busy || actionsBlocked}
-                        aria-label={`Retirar adjunto ${post.attachment.name}`}
+                        aria-label={`Retirar adjunto ${attachment.name}`}
                     >
                         Retirar adjunto
                     </Button>
                 </div>
-            )}
+            ))}
 
             {isDeleted && (
                 <DeletionInfo

@@ -12,6 +12,7 @@ import {
 } from '../utils/attachments.utils';
 import { logAudit } from '../utils/audit.logger';
 import { findWallBySlug } from '../utils/posts.utils';
+import { checkUploadQuota } from './storage-quota.service';
 import { loadWallsByEvent, mapWallForMembership } from './walls.service';
 
 // Adjuntos de publicaciones (ADR-006). La API autoriza; el navegador sube y descarga
@@ -22,8 +23,10 @@ export type ServiceResult = { status: number; body: Record<string, unknown> };
 export const UPLOAD_URL_SECONDS = 300;
 export const UPLOAD_VALID_MINUTES = 15;
 export const DOWNLOAD_URL_SECONDS = 60;
-export const MAX_PENDING_UPLOADS = 3;
-export const MAX_UPLOADS_PER_HOUR = 20;
+// Una publicación puede llevar hasta 12 archivos (10 imágenes y 2 PDF): los límites lo permiten
+// con holgura para un segundo intento.
+export const MAX_PENDING_UPLOADS = 14;
+export const MAX_UPLOADS_PER_HOUR = 60;
 
 // Reintentos de la copia a la ruta final. Se puede sustituir en pruebas.
 export const attachmentSettings = { copyRetryDelaysMs: [150, 500] };
@@ -81,6 +84,13 @@ export const initAttachmentUpload = async (params: {
 
   if (!wallView.canPublish) {
     return fail(403, 'No tienes permisos para publicar en este muro');
+  }
+
+  // Protección de la cuota de almacenamiento: al 95 % no se aceptan cargas nuevas.
+  const quota = await checkUploadQuota(meta.value.size);
+
+  if (quota.level === 'blocked') {
+    return fail(507, 'El almacenamiento de archivos está casi lleno. Por ahora no se pueden subir archivos nuevos.');
   }
 
   const now = new Date();
@@ -385,6 +395,8 @@ export const attachClaimedUpload = async (params: {
   claim: ClaimedUpload;
   postId: string;
   membership: AuthMembership;
+  // Orden del archivo dentro de la publicación (carrusel y lista de PDF).
+  position?: number;
 }): Promise<string | null> => {
   const { claim } = params;
   const { data, error } = await supabaseAdmin
@@ -397,6 +409,7 @@ export const attachClaimedUpload = async (params: {
       file_name: claim.fileName,
       mime_type: claim.mimeType,
       size_bytes: claim.size,
+      position: params.position ?? 0,
     })
     .select('id')
     .single();
@@ -462,48 +475,74 @@ export type AttachmentView = {
   canRemove: boolean;
 };
 
-// Añade `attachment` (sin URL) a cada post con una sola consulta por lote.
+type AttachmentRow = {
+  id: string;
+  post_id: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  position?: number | null;
+  created_at?: string | null;
+};
+
+// Orden estable de los archivos de una publicación: por posición y, a igualdad, por alta.
+export const sortAttachmentRows = <T extends { id: string; position?: number | null; created_at?: string | null }>(
+  rows: T[],
+): T[] =>
+  [...rows].sort(
+    (a, b) =>
+      (a.position ?? 0) - (b.position ?? 0) ||
+      (a.created_at ?? '').localeCompare(b.created_at ?? '') ||
+      a.id.localeCompare(b.id),
+  );
+
+// Añade los adjuntos (sin URL) a cada post con una sola consulta por lote:
+//   * `attachments`: todos, en orden (imágenes para el carrusel, PDF para la lista).
+//   * `attachment`: el primero, o null; se conserva para clientes anteriores a los adjuntos múltiples.
 export const attachAttachmentsToPosts = async <
   T extends { id: string; isDeleted?: boolean; user?: { id: string } },
 >(params: {
   posts: T[];
   eventId: string;
   membershipId: string;
-}): Promise<(T & { attachment: AttachmentView | null })[]> => {
+}): Promise<(T & { attachment: AttachmentView | null; attachments: AttachmentView[] })[]> => {
   if (params.posts.length === 0) {
     return [];
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('attachments')
-    .select('id, post_id, file_name, mime_type, size_bytes')
-    .eq('event_id', params.eventId)
-    .in('post_id', params.posts.map((post) => post.id));
+  const postIds = params.posts.map((post) => post.id);
+  const readRows = (columns: string) =>
+    supabaseAdmin.from('attachments').select(columns).eq('event_id', params.eventId).in('post_id', postIds);
+
+  let { data, error } = await readRows('id, post_id, file_name, mime_type, size_bytes, position, created_at');
+
+  // Mientras la migración 007 no esté aplicada, la columna position no existe: el feed no debe
+  // caer por eso. Se reintenta sin ella y el orden sale por fecha de alta.
+  if (error && /position/i.test(error.message)) {
+    ({ data, error } = await readRows('id, post_id, file_name, mime_type, size_bytes, created_at'));
+  }
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const byPost = new Map<string, Omit<AttachmentView, 'canRemove'>>();
-  ((data ?? []) as { id: string; post_id: string; file_name: string; mime_type: string; size_bytes: number }[]).forEach(
-    (row) => {
-      byPost.set(row.post_id, {
-        id: row.id,
-        name: row.file_name,
-        mimeType: row.mime_type,
-        size: Number(row.size_bytes),
-      });
-    },
-  );
+  const byPost = new Map<string, AttachmentRow[]>();
+  ((data ?? []) as unknown as AttachmentRow[]).forEach((row) => {
+    byPost.set(row.post_id, [...(byPost.get(row.post_id) ?? []), row]);
+  });
 
-  // Un post eliminado no sirve su adjunto.
+  // Un post eliminado no sirve sus adjuntos.
   return params.posts.map((post) => {
-    const found = post.isDeleted ? undefined : byPost.get(post.id);
+    const rows = post.isDeleted ? [] : sortAttachmentRows(byPost.get(post.id) ?? []);
+    const attachments = rows.map((row) => ({
+      id: row.id,
+      name: row.file_name,
+      mimeType: row.mime_type,
+      size: Number(row.size_bytes),
+      canRemove: post.user?.id === params.membershipId,
+    }));
 
-    return {
-      ...post,
-      attachment: found ? { ...found, canRemove: post.user?.id === params.membershipId } : null,
-    };
+    return { ...post, attachment: attachments[0] ?? null, attachments };
   });
 };
 
@@ -533,25 +572,60 @@ const loadPost = async (postId: string, eventId: string): Promise<PostAccess | n
   return { id: row.id, wallId: row.wall_id, status: row.status, authorMembershipId: row.author_membership_id };
 };
 
-const loadAttachmentByPost = async (postId: string, eventId: string) => {
+type StoredAttachment = { id: string; storage_path: string; file_name: string; mime_type: string };
+
+const loadAttachmentsByPost = async (postId: string, eventId: string): Promise<StoredAttachment[]> => {
   const { data, error } = await supabaseAdmin
     .from('attachments')
-    .select('id, storage_path, file_name, mime_type')
+    .select('id, storage_path, file_name, mime_type, position, created_at')
     .eq('post_id', postId)
-    .eq('event_id', eventId)
-    .maybeSingle();
+    .eq('event_id', eventId);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data as { id: string; storage_path: string; file_name: string; mime_type: string } | null) ?? null;
+  return sortAttachmentRows((data ?? []) as (StoredAttachment & { position?: number | null; created_at?: string | null })[]);
+};
+
+type ResolvedAttachment = { attachment: StoredAttachment } | { error: ServiceResult };
+
+// Elige el adjunto del post: el indicado por id o, sin id, el único (o el primero al descargar).
+// Sin id y con varios, retirar exige indicar cuál para no borrar uno por error.
+const resolveAttachment = async (params: {
+  postId: string;
+  eventId: string;
+  attachmentId?: string | null;
+  requireIdWhenSeveral: boolean;
+}): Promise<ResolvedAttachment> => {
+  if (params.attachmentId && !isUuid(params.attachmentId)) {
+    return { error: fail(404, 'Adjunto no encontrado en este post') };
+  }
+
+  const all = await loadAttachmentsByPost(params.postId, params.eventId);
+
+  if (all.length === 0) {
+    return { error: fail(404, 'El post no tiene adjunto') };
+  }
+
+  if (params.attachmentId) {
+    const found = all.find((item) => item.id === params.attachmentId);
+    return found ? { attachment: found } : { error: fail(404, 'Adjunto no encontrado en este post') };
+  }
+
+  if (all.length > 1 && params.requireIdWhenSeveral) {
+    return { error: fail(400, 'La publicación tiene varios adjuntos: indica cuál (attachment_id).') };
+  }
+
+  return { attachment: all[0] };
 };
 
 export const getAttachmentDownload = async (params: {
   postId: string;
   eventId: string;
   membership: AuthMembership;
+  // Sin id se entrega el primero (compatibilidad con publicaciones de un solo adjunto).
+  attachmentId?: string | null;
 }): Promise<ServiceResult> => {
   const post = await loadPost(params.postId, params.eventId);
 
@@ -570,11 +644,18 @@ export const getAttachmentDownload = async (params: {
     return fail(403, 'No tienes acceso a este post');
   }
 
-  const attachment = await loadAttachmentByPost(post.id, params.eventId);
+  const resolved = await resolveAttachment({
+    postId: post.id,
+    eventId: params.eventId,
+    attachmentId: params.attachmentId,
+    requireIdWhenSeveral: false,
+  });
 
-  if (!attachment) {
-    return fail(404, 'El post no tiene adjunto');
+  if ('error' in resolved) {
+    return resolved.error;
   }
+
+  const { attachment } = resolved;
 
   try {
     const download = await getFileStorage().presignDownload({
@@ -606,6 +687,8 @@ export const removeAttachment = async (params: {
   // AUTHOR: solo el autor, con el post visible. MODERATION: ya autorizado por la ruta; exige motivo.
   mode: 'AUTHOR' | 'MODERATION';
   reason?: string;
+  // Obligatorio si la publicación tiene varios adjuntos.
+  attachmentId?: string | null;
 }): Promise<ServiceResult> => {
   const post = await loadPost(params.postId, params.eventId);
 
@@ -623,11 +706,18 @@ export const removeAttachment = async (params: {
     }
   }
 
-  const attachment = await loadAttachmentByPost(post.id, params.eventId);
+  const resolved = await resolveAttachment({
+    postId: post.id,
+    eventId: params.eventId,
+    attachmentId: params.attachmentId,
+    requireIdWhenSeveral: true,
+  });
 
-  if (!attachment) {
-    return fail(404, 'El post no tiene adjunto');
+  if ('error' in resolved) {
+    return resolved.error;
   }
+
+  const { attachment } = resolved;
 
   try {
     // Primero el objeto y luego la fila: nunca queda una referencia a un objeto inexistente.

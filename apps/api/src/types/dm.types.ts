@@ -62,6 +62,10 @@ export type DmMessageRow = {
   content: string;
   status: string;
   created_at: string;
+  // Cuándo la otra persona leyó el mensaje; null mientras no lo haya leído.
+  read_at?: string | null;
+  // Cuándo se editó el contenido; null si nunca se editó.
+  edited_at?: string | null;
 };
 
 export type DmConversationLatestMessage = {

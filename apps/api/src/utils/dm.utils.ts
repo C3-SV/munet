@@ -1,3 +1,4 @@
+import { avatarFor } from './avatar.utils';
 import type {
   DmConversationLatestMessage,
   DmConversationRow,
@@ -6,9 +7,6 @@ import type {
 } from '../types/dm.types';
 import { firstItem, getProfileName } from './posts.utils';
 
-// Fallback de avatar cuando el perfil no tiene imagen cargada.
-const avatarForName = (name: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=E5E7EB&color=111827`;
 
 export const DM_MEMBERSHIP_SELECT = `
   id,
@@ -61,7 +59,7 @@ export const mapDmParticipant = (membership: DmMembershipRecord | null) => {
     id: membership?.id ?? 'unknown',
     name,
     alias: profile?.alias?.trim() || null,
-    avatar: profile?.profile_image_path ?? avatarForName(name),
+    avatar: avatarFor(profile?.profile_image_path, name),
     role: membership?.role ?? 'PARTICIPANT',
     committee: visibleCommittee?.name ?? visibleCommittee?.code ?? 'Sin comite',
     lastActive: 'Activo',
@@ -77,6 +75,8 @@ export const mapDmMessage = (message: DmMessageRow) => ({
   text: message.content,
   senderId: message.author_membership_id,
   createdAt: message.created_at,
+  readAt: message.read_at ?? null,
+  editedAt: message.edited_at ?? null,
   timestamp: new Date(message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -87,7 +87,8 @@ export const mapDmMessage = (message: DmMessageRow) => ({
 export const mapDmConversation = (
   conversation: DmConversationRow,
   currentMembershipId: string,
-  latestMessage?: DmConversationLatestMessage
+  latestMessage?: DmConversationLatestMessage,
+  unreadCount = 0
 ) => {
   const participantA = firstItem(conversation.participant_a);
   const participantB = firstItem(conversation.participant_b);
@@ -105,5 +106,7 @@ export const mapDmConversation = (
     otherParticipant: mapDmParticipant(otherParticipant),
     lastMessage: latestMessage?.content ?? null,
     lastMessageAuthorId: latestMessage?.author_membership_id ?? null,
+    // Mensajes de la otra persona que esta membresía todavía no ha leído.
+    unreadCount,
   };
 };

@@ -10,14 +10,18 @@ import { groupMessages } from "../../../../lib/chat-groups";
 import {
     createConversation,
     deleteConversationMessage,
+    editConversationMessage,
     getConversationMessages,
     getConversations,
+    markConversationRead,
     sendConversationMessage,
 } from "../../../../lib/api/chat";
 import { formatDayLabel, formatTime } from "../../../../lib/format-datetime";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
+import { hasUnreadIncoming, markIncomingReadLocally, shouldMarkRead } from "../../../../lib/read-receipts";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { useNotificationsStore } from "../../../../stores/notifications.store";
 import type { ConversationSummary, DirectMessage } from "../../../../types/chat";
 import type { Delegate } from "../../../../types/common";
 
@@ -48,6 +52,7 @@ const ChatRoomPage = () => {
     const initialScrollDoneRef = useRef(false);
     const knownMessageIdsRef = useRef<Set<string>>(new Set());
     const practiceRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const markingReadRef = useRef(false);
     const [showNewMessagesChip, setShowNewMessagesChip] = useState(false);
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [conversation, setConversation] = useState<ConversationSummary | null>(null);
@@ -262,6 +267,61 @@ const ChatRoomPage = () => {
         };
     }, [conversationId, eventId, refreshConversation, refreshMessages, token]);
 
+    // Confirma la lectura de los mensajes recibidos, pero solo si la persona los está viendo:
+    // pestaña visible, ventana activa y conversación al final. Recibir un mensaje no basta.
+    const markReadIfViewing = useCallback(async () => {
+        if (!token || !eventId || !conversationId || isPracticeEvent(eventId) || markingReadRef.current) {
+            return;
+        }
+
+        const ready = shouldMarkRead({
+            hasUnread: hasUnreadIncoming(messages, activeMembershipId),
+            tabVisible: document.visibilityState === "visible",
+            windowFocused: document.hasFocus(),
+            nearBottom: nearBottomRef.current,
+            loaded: !isLoading,
+        });
+
+        if (!ready) {
+            return;
+        }
+
+        markingReadRef.current = true;
+
+        try {
+            const result = await markConversationRead(conversationId, { token, eventId });
+
+            if (result.readCount > 0) {
+                const readAt = result.readAt ?? new Date().toISOString();
+                setMessages((current) => markIncomingReadLocally(current, activeMembershipId, readAt));
+                // El indicador de pendientes baja al instante, sin esperar al siguiente ciclo.
+                useNotificationsStore.getState().conversationRead(conversationId);
+            }
+        } catch {
+            // Es solo una confirmación: si falla (por ejemplo, evento cerrado) no se interrumpe el chat.
+        } finally {
+            markingReadRef.current = false;
+        }
+    }, [activeMembershipId, conversationId, eventId, isLoading, messages, token]);
+
+    useEffect(() => {
+        // Al cargar la conversación y cada vez que llegan mensajes, confirma lo que ya se ve.
+        void markReadIfViewing();
+    }, [markReadIfViewing]);
+
+    useEffect(() => {
+        // Al volver a la pestaña o a la ventana se confirma lo recibido mientras estaba en segundo plano.
+        const confirm = () => void markReadIfViewing();
+
+        document.addEventListener("visibilitychange", confirm);
+        window.addEventListener("focus", confirm);
+
+        return () => {
+            document.removeEventListener("visibilitychange", confirm);
+            window.removeEventListener("focus", confirm);
+        };
+    }, [markReadIfViewing]);
+
     const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
         const element = scrollRef.current;
         if (!element) {
@@ -283,6 +343,8 @@ const ChatRoomPage = () => {
         nearBottomRef.current = distance < NEAR_BOTTOM_PX;
         if (nearBottomRef.current) {
             setShowNewMessagesChip(false);
+            // Al desplazarse hasta el final se leen los mensajes que habían quedado más arriba.
+            void markReadIfViewing();
         }
     };
 
@@ -365,6 +427,17 @@ const ChatRoomPage = () => {
         }
 
         setPendingDeleteMessageId(messageId);
+    };
+
+    // Guarda el texto editado y actualiza el mensaje en su lugar (la posición no cambia).
+    const handleEditMessage = async (messageId: string, content: string) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const updated = await editConversationMessage(conversationId, messageId, content, { token, eventId });
+
+        setMessages((current) => current.map((message) => (message.id === messageId ? { ...message, ...updated } : message)));
     };
 
     const handleDeleteMessage = async (messageId: string) => {
@@ -478,6 +551,8 @@ const ChatRoomPage = () => {
                                                     isNew={newMessageIds.has(message.id)}
                                                     isLastInRun={indexInRun === run.messageIds.length - 1}
                                                     onDelete={isMe ? requestDeleteMessage : undefined}
+                                                    // En la práctica no se edita: el simulador no tiene ese endpoint.
+                                                    onEdit={isMe && eventId && !isPracticeEvent(eventId) ? handleEditMessage : undefined}
                                                     isDeleting={deletingMessageIds.has(message.id)}
                                                 />
                                             );

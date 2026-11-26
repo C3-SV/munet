@@ -12,7 +12,7 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `GET /auth/context` | JWT | Usuario y membresías activas. |
 | `GET /events/:eventId/walls` | Membresía activa del evento | Metadatos y banderas de acceso/publicación. |
 | `GET /events/:eventId/committees` | Membresía activa del evento | Comités del evento. |
-| `GET /events/:eventId/participants?q=&committee_id=&page=&limit=` | JWT y membresía activa del evento; `x-event-id`, si se envía, debe coincidir | Directorio paginado: `{ participants, page, limit, hasMore }`. Filas con `membershipId`, nombres, `alias`, `committee` (`{id, name}` o `null`) y `delegationCode`. `page` ≥ 1 (por defecto 1); `limit` 1–100 (por defecto 20); `committee_id` debe ser un comité no borrado del mismo evento. Búsqueda sin distinguir tildes ni mayúsculas. Sin `participant_code` ni correo. 400 en parámetros inválidos, 403 sin membresía activa, 500 genérico si falla la base. Filtra en memoria por lotes de 500; el coste se mide en Q03. |
+| `GET /events/:eventId/participants?q=&committee_id=&page=&limit=` | JWT y membresía activa del evento; `x-event-id`, si se envía, debe coincidir | Directorio paginado: `{ participants, page, limit, hasMore }`. Filas con `membershipId`, nombres, `alias`, `avatar` (la foto de perfil o, si no tiene, un avatar predeterminado con su nombre; siempre una URL), `committee` (`{id, name}` o `null`) y `delegationCode`. `page` ≥ 1 (por defecto 1); `limit` 1–100 (por defecto 20); `committee_id` debe ser un comité no borrado del mismo evento. Búsqueda sin distinguir tildes ni mayúsculas. Sin `participant_code` ni correo. 400 en parámetros inválidos, 403 sin membresía activa, 500 genérico si falla la base. Filtra en memoria por lotes de 500; el coste se mide en Q03. |
 
 ## Publicaciones y comentarios
 
@@ -24,7 +24,10 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /posts/:postId/poll/vote` | `option_id` | Reemplaza voto vigente. |
 | `POST /posts/:postId/poll/close` | — | El autor cierra la encuesta. |
 | `GET /posts/:postId/comments` | — | Comentarios visibles en el muro autorizado. |
-| `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Un nivel de respuesta. Anuncios solo para administración. |
+| `PUT /posts/:postId/reaction` | `reaction`: `LIKE`, `LOVE`, `LAUGH` o `CLAP` | Agrega o cambia la reacción de la persona (una por publicación). Solo en canales (general y de comité), no en avisos. 400 si el tipo no existe; 403 sin acceso al muro o en avisos; 404 si la publicación está oculta, eliminada o es de otro evento. Responde `{ reactions: { counts, mine } }`. Se rechaza en evento cerrado. Requiere la migración 006. |
+| `DELETE /posts/:postId/reaction` | — | Retira la reacción de la persona. Mismas reglas de acceso. |
+| `GET /posts/reactions?ids=a,b,c` | hasta 100 ids | Reacciones de varias publicaciones, solo de muros accesibles: `{ reactions: { [postId]: { counts, mine } } }`. |
+| `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Se puede responder a un comentario o a otra respuesta del mismo post (`parent_comment_id`). En anuncios solo comentan administradores y moderadores. |
 | `DELETE /posts/:postId/comments/:commentId` | — | Autor o administración. |
 
 ### Adjuntos (planificado, no implementado)
@@ -33,13 +36,13 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 
 | Método y ruta | Entrada | Regla principal |
 |---|---|---|
-| `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 5 MB o PDF ≤ 20 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 3 intentos sin consumir o más de 20 por hora. |
-| `POST /posts` con `upload_id` | Los campos actuales más `upload_id` | Verifica el objeto, lo copia a su ruta final y crea post y adjunto. Un intento solo se usa una vez; un reintento devuelve el mismo post. |
-| `GET /posts/:postId/attachment/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. |
-| `DELETE /posts/:postId/attachment` | — | El autor retira su adjunto. |
-| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
+| `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Una llamada por archivo. Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 15 MB o PDF ≤ 30 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 14 intentos sin consumir o más de 60 por hora; 30 por minuto por persona. 507 si el almacenamiento llegó al 95 % de la cuota (`STORAGE_QUOTA_BYTES`); al 90 % solo queda una alerta en los registros. |
+| `POST /posts` con `upload_ids` | Los campos actuales más `upload_ids` (hasta 12; también se acepta `upload_id` con uno) | Reclama y verifica cada objeto, lo copia a su ruta final y crea el post con sus adjuntos en el orden dado. Hasta 10 imágenes y 2 PDF; 400 si se excede, con tamaño total o ids repetidos. Si algo falla se compensan todos los archivos y no se crea el post. Un reintento devuelve el mismo post. Requiere la migración 007. |
+| `GET /posts/:postId/attachments/:attachmentId/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. La ruta anterior `/attachment/download` (sin id) entrega el primer adjunto. |
+| `DELETE /posts/:postId/attachments/:attachmentId` | — | El autor retira un adjunto. La ruta anterior `DELETE /posts/:postId/attachment` solo sirve si hay uno; con varios responde 400. |
+| `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500), `attachment_id` (obligatorio si hay varios) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
 
-`GET /posts` incluirá `attachment` (`id`, `name`, `mimeType`, `size`, `canRemove`) sin URL. `canRemove` es verdadero solo para el autor del post.
+`GET /posts` incluye `attachments` (lista en orden; cada uno con `id`, `name`, `mimeType`, `size`, `canRemove`) y `attachment` (el primero) sin URL. `canRemove` es verdadero solo para el autor del post.
 
 ## Perfiles
 
@@ -59,9 +62,14 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /dm/conversations` | — | Conversaciones de la membresía activa. |
 | `GET /dm/participants?search=` | Búsqueda | Participantes activos del mismo evento. Cada participante, y `otherParticipant` en las conversaciones, incluye `alias` (o `null`). |
 | `POST /dm/conversations` | `targetMembershipId` | Crea o reutiliza conversación 1:1. |
-| `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. |
+| `GET /dm/conversations/:conversationId/messages` | — | Solo integrante. Cada mensaje incluye `readAt` (cuándo la otra persona lo leyó; `null` si no). |
 | `POST /dm/conversations/:conversationId/messages` | `content` | Solo integrante activo. |
+| `POST /dm/conversations/:conversationId/read` | — | Solo integrante. Marca como leídos los mensajes que envió la otra persona y siguen sin leer; nunca los propios. Responde `{ readCount, readAt }`. Lo pide la pantalla solo cuando la conversación está abierta, visible y al final. Se rechaza en evento cerrado. Requiere la migración 004. |
+| `GET /dm/conversations` (campo `unreadCount`) | — | Cada conversación incluye `unreadCount`: mensajes de la otra persona sin leer. Requiere la migración 004. |
+| `PATCH /dm/conversations/:conversationId/messages/:messageId` | `content` | Edita un mensaje propio, visible y no eliminado. 400 si el texto está vacío; 403 si es de otra persona o la conversación es ajena; 404 si no existe. Conserva `created_at` (misma posición) y fija `edited_at`; el mensaje incluye `editedAt`. Si el texto no cambia no se marca como editado. Se rechaza en evento cerrado, con límite de frecuencia y auditoría `EDIT_DM_MESSAGE`. Solo mensajes directos: publicaciones y comentarios no se editan. Requiere la migración 009. |
 | `DELETE /dm/conversations/:conversationId/messages/:messageId` | — | Solo autor. Borrado lógico. |
+| `GET /notifications/summary` | — (`x-event-id`) | Pendientes de lectura: `{ unread: { total, dms, announcements }, announcements, dms, conversationIds }`. `announcements` trae el muro de avisos, `lastReadAt`, `unreadCount` y los últimos 5 avisos nuevos (de otras personas, visibles, posteriores a la última lectura); `dms`, las conversaciones con mensajes sin leer. Requiere las migraciones 004 y 005. |
+| `POST /notifications/announcements/read` | — (`x-event-id`) | Marca el muro de avisos como leído hasta ahora (`{ readAt }`). 404 si el evento no tiene muro de avisos. Se rechaza en evento cerrado. |
 
 ## Administración
 

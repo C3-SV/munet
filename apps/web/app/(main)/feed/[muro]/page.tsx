@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FeedFilters } from "../../../../components/feed/FeedFilters";
@@ -10,12 +10,16 @@ import { Button } from "../../../../components/ui/Button";
 import { ApiError } from "../../../../lib/api/client";
 import { getEventCommittees, getEventWalls } from "../../../../lib/api/events";
 import { getFeedPosts, publishFeedPost, type FeedResponse } from "../../../../lib/api/feed";
-import { AttachmentUploadError } from "../../../../lib/attachment-upload";
+import { markAnnouncementsRead } from "../../../../lib/api/notifications";
+import { getPostReactions } from "../../../../lib/api/reactions";
+import { isNewAnnouncement } from "../../../../lib/notifications";
+import { AttachmentUploadError, type UploadProgress } from "../../../../lib/attachment-upload";
 import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
 import { supabaseBrowser } from "../../../../lib/supabase";
 import { useAuthStore } from "../../../../stores/auth.store";
+import { useNotificationsStore } from "../../../../stores/notifications.store";
 import type { EventWall, Post } from "../../../../types/common";
 
 // Mensajes humanos: el detalle técnico no llega al participante.
@@ -29,7 +33,7 @@ const publishErrorMessage = (error: unknown, hasAttachment: boolean) => {
         return error.message;
     }
 
-    // El modo práctica responde 501 o 507 con un texto claro; la API real nunca devuelve ninguno de los dos.
+    // 501: el modo práctica sin adjuntos. 507: el almacenamiento está casi lleno (práctica o API real).
     if (error instanceof ApiError && (error.status === 501 || error.status === 507)) {
         return error.message;
     }
@@ -58,6 +62,8 @@ const Feed = () => {
     const [error, setError] = useState<string | null>(null);
     // Error al publicar: no se reintenta recargando; el borrador del editor se conserva.
     const [publishError, setPublishError] = useState<string | null>(null);
+    // Avance de la subida de archivos al publicar.
+    const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
     const [isForbidden, setIsForbidden] = useState(false);
     const [allEventCommittees, setAllEventCommittees] = useState<string[]>([]);
     const [walls, setWalls] = useState<EventWall[]>([]);
@@ -141,6 +147,63 @@ const Feed = () => {
             cancelled = true;
         };
     }, [eventId, muroParam, token, reloadKey]);
+
+    // Ids de las publicaciones en pantalla: sirven para refrescar solo sus reacciones.
+    const postIdsKey = posts.map((post) => post.id).join(",");
+    const postIdsRef = useRef(postIdsKey);
+    useEffect(() => {
+        postIdsRef.current = postIdsKey;
+    }, [postIdsKey]);
+
+    useEffect(() => {
+        // Consulta la API mientras el muro está visible para reflejar también las eliminaciones.
+        if (
+            !activeWall?.id ||
+            activeWall.kind === "announcements" ||
+            !token ||
+            !eventId ||
+            isForbidden ||
+            isPracticeEvent(eventId)
+        ) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const refreshReactions = async () => {
+            const ids = postIdsRef.current.split(",").filter(Boolean).slice(0, 100);
+
+            if (ids.length === 0) {
+                return;
+            }
+
+            try {
+                const reactions = await getPostReactions(ids, { token, eventId });
+
+                if (!cancelled) {
+                    setPosts((current) =>
+                        current.map((post) => (reactions[post.id] ? { ...post, reactions: reactions[post.id] } : post)),
+                    );
+                }
+            } catch {
+                // Se reintenta en la próxima consulta.
+            }
+        };
+
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === "visible") void refreshReactions();
+        }, 10000);
+        const onVisibilityChange = () => {
+            if (document.visibilityState === "visible") void refreshReactions();
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
+    }, [activeWall?.id, activeWall?.kind, eventId, isForbidden, token]);
 
     // Ids de encuestas del muro: poll_votes no tiene wall_id, así que se escucha cada una.
     const pollIdsKey = posts
@@ -296,8 +359,8 @@ const Feed = () => {
         content: string;
         postType: "TEXT" | "POLL";
         pollOptions?: string[];
-        // Adjunto elegido en el editor: se sube a almacenamiento y luego se crea el post.
-        attachment?: File;
+        // Archivos elegidos en el editor: se suben a almacenamiento y luego se crea el post.
+        attachments?: File[];
     }) => {
         // Publica y actualiza estado local optimistamente con el post retornado.
         if (!token || !eventId) {
@@ -311,7 +374,8 @@ const Feed = () => {
                 content: draft.content,
                 postType: draft.postType,
                 pollOptions: draft.pollOptions,
-                attachment: draft.attachment,
+                attachments: draft.attachments,
+                onUploadProgress: setUploadProgress,
                 token,
                 eventId,
             });
@@ -319,8 +383,10 @@ const Feed = () => {
             // Mezcla sin duplicar: el refresco por Realtime puede traer la publicación antes que esta respuesta.
             setPosts((currentPosts) => mergeFeedPosts(currentPosts, [newPost]));
         } catch (submitError) {
-            setPublishError(publishErrorMessage(submitError, Boolean(draft.attachment)));
+            setPublishError(publishErrorMessage(submitError, Boolean(draft.attachments?.length)));
             throw submitError;
+        } finally {
+            setUploadProgress(null);
         }
     };
 
@@ -391,6 +457,52 @@ const Feed = () => {
             ? activeWall.canPublish
             : activeWall.canAccess
         : false;
+    // En avisos solo administradores y moderadores comentan; se explica a los demás.
+    const commentsDisabledReason =
+        activeWall?.kind === "announcements" && !canCommentInWall
+            ? "En avisos solo pueden comentar administradores y moderadores."
+            : undefined;
+
+    // Avisos: se recuerda cuál era la última lectura al entrar (para marcar lo «Nuevo» durante la
+    // visita) y, cuando hay pendientes, se marcan como leídos tras un instante en pantalla.
+    const activeMembershipId = useAuthStore((state) => state.activeMembershipId);
+    const lastReadAt = useNotificationsStore((state) => state.summary?.announcements?.lastReadAt ?? null);
+    const unreadAnnouncements = useNotificationsStore((state) => state.summary?.announcements?.unreadCount ?? 0);
+    const announcementsRead = useNotificationsStore((state) => state.announcementsRead);
+    const [announcementsSnapshot, setAnnouncementsSnapshot] = useState<string | null>(null);
+    const onAnnouncements = activeWall?.kind === "announcements";
+
+    useEffect(() => {
+        if (!onAnnouncements) {
+            setAnnouncementsSnapshot(null);
+        } else if (announcementsSnapshot === null && lastReadAt) {
+            setAnnouncementsSnapshot(lastReadAt);
+        }
+    }, [announcementsSnapshot, lastReadAt, onAnnouncements]);
+
+    useEffect(() => {
+        if (!onAnnouncements || announcementsSnapshot === null || unreadAnnouncements === 0) {
+            return;
+        }
+
+        if (!token || !eventId || isPracticeEvent(eventId)) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            if (document.visibilityState !== "visible") {
+                return;
+            }
+
+            markAnnouncementsRead({ token, eventId })
+                .then(() => announcementsRead())
+                .catch(() => {
+                    // Solo es una marca de lectura: si falla, el indicador se corrige en el siguiente ciclo.
+                });
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    }, [announcementsRead, announcementsSnapshot, eventId, onAnnouncements, token, unreadAnnouncements]);
 
     // Selector rapido de muros para movil: mismos muros que el menu lateral, en orden.
     const wallNav = useMemo(() => buildWallNav(walls, muroParam), [walls, muroParam]);
@@ -463,6 +575,7 @@ const Feed = () => {
                         key={`${eventId ?? "sin-evento"}:${muroParam}`}
                         draftKey={isPracticeEvent(eventId) ? undefined : `${eventId ?? "sin-evento"}:${muroParam}`}
                         onPublish={handlePublishPost}
+                        uploadProgress={uploadProgress}
                         disabled={isLoading}
                     />
                 )}
@@ -595,6 +708,11 @@ const Feed = () => {
                                         token={token}
                                         eventId={eventId}
                                         canComment={canCommentInWall}
+                                        commentsDisabledReason={commentsDisabledReason}
+                                        isNew={
+                                            activeWall?.kind === "announcements" &&
+                                            isNewAnnouncement(post, announcementsSnapshot, activeMembershipId)
+                                        }
                                         showAuthorCommittee={activeWall?.kind !== "committee"}
                                         variant={cardVariant}
                                         onPostUpdated={handlePostUpdated}

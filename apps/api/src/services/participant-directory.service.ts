@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../lib/supabase';
+import { avatarFor } from '../utils/avatar.utils';
 
 // Directorio paginado de participantes activos de un evento (W02).
 // Contrato: GET /events/:eventId/participants?q=&committee_id=&page=&limit=
@@ -29,7 +30,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 // Columnas que salen del servicio. No incluir participant_code, email ni datos de auth.
 const DIRECTORY_SELECT =
-  'event_membership_id, first_name, last_name, alias, event_memberships!inner(delegation_code, committees(id, name, deleted_at))';
+  'event_membership_id, first_name, last_name, alias, profile_image_path, event_memberships!inner(delegation_code, committees(id, name, deleted_at))';
 
 type DirectoryCommitteeRow = { id: string; name: string; deleted_at: string | null };
 type DirectoryMembershipRow = {
@@ -41,6 +42,7 @@ type DirectoryRow = {
   first_name: string | null;
   last_name: string | null;
   alias: string | null;
+  profile_image_path: string | null;
   event_memberships: DirectoryMembershipRow | DirectoryMembershipRow[] | null;
 };
 
@@ -56,6 +58,8 @@ export type DirectoryParticipant = {
   firstName: string;
   lastName: string;
   alias: string | null;
+  // Foto de perfil o, si no tiene, un avatar predeterminado con su nombre. Siempre es una URL.
+  avatar: string;
   committee: { id: string; name: string } | null;
   delegationCode: string | null;
 };
@@ -120,6 +124,7 @@ const toParticipant = (row: DirectoryRow): DirectoryParticipant => {
     firstName: row.first_name ?? '',
     lastName: row.last_name ?? '',
     alias: row.alias ?? null,
+    avatar: avatarFor(row.profile_image_path, `${row.first_name ?? ''} ${row.last_name ?? ''}`),
     committee: committee && !committee.deleted_at ? { id: committee.id, name: committee.name } : null,
     delegationCode: membership?.delegation_code ?? null,
   };

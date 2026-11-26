@@ -14,8 +14,9 @@ function load(file, imports) {
   return module.exports;
 }
 
-const posts = load(__dirname + '/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' } });
-const dm = load(__dirname + '/dm.utils.ts', { './posts.utils': posts });
+const avatar = load(__dirname + '/avatar.utils.ts', {});
+const posts = load(__dirname + '/posts.utils.ts', { './walls.utils': { buildWallSlug: () => 'general' }, './avatar.utils': avatar });
+const dm = load(__dirname + '/dm.utils.ts', { './posts.utils': posts, './avatar.utils': avatar });
 
 test('el select de mensajes directos pide el alias del perfil', () => {
   assert.match(dm.DM_MEMBERSHIP_SELECT, /alias/);

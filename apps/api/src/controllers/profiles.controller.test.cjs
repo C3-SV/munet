@@ -39,6 +39,7 @@ function harness(results = []) {
       if (name === '../lib/supabase') return { supabaseAdmin: client };
       if (name === '../utils/audit.logger') return { logAudit: async value => audits.push(value) };
       if (name === '../utils/profile.utils') return utils;
+      if (name === '../utils/avatar.utils') return require('../utils/avatar.utils.ts');
       if (name === '../utils/rbac.utils') return require('../utils/rbac.utils.ts');
       throw new Error(`Import inesperado: ${name}`);
     },
