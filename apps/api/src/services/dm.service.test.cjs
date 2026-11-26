@@ -165,3 +165,66 @@ test('la conversación incluye unreadCount (0 por defecto)', async () => {
   assert.equal(dmUtils.mapDmConversation(conversation, 'ana').unreadCount, 0);
   assert.equal(dmUtils.mapDmConversation(conversation, 'ana', undefined, 4).unreadCount, 4);
 });
+
+// ---- Edición de mensajes ----
+const MSG = { id: 'm1', author_membership_id: 'ana', content: 'Hola', status: 'VISIBLE', conversation_id: 'conv-1', created_at: '2026-11-25T10:00:00Z' };
+const editMsg = (service, membershipId, content, over = {}) =>
+  service.editDmMessage({ eventId: EVENT, membership: me(membershipId), conversationId: 'conv-1', messageId: 'm1', content, ...over });
+const updateOf = (operations) => operations.flat().find((op) => op[0] === 'update')?.[1];
+
+test('editar: el autor cambia su mensaje, queda editado y no se toca created_at', async () => {
+  const { service, operations } = setup({ messages: MSG, updatedRows: { ...MSG, content: 'Hola corregido', edited_at: '2026-11-25T11:00:00Z' } });
+  const result = await editMsg(service, 'ana', '  Hola corregido  ');
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.message.text, 'Hola corregido');
+  assert.equal(result.body.message.editedAt, '2026-11-25T11:00:00Z');
+  assert.equal(result.body.message.createdAt, '2026-11-25T10:00:00Z');
+
+  const update = updateOf(operations);
+  assert.deepEqual(Object.keys(update).sort(), ['content', 'edited_at', 'updated_at', 'updated_by_membership_id']);
+  assert.equal(update.content, 'Hola corregido');
+  assert.equal(update.updated_by_membership_id, 'ana');
+});
+
+test('editar: nunca modifica mensajes ajenos (403) y no escribe', async () => {
+  const { service, operations } = setup({ messages: MSG });
+  const result = await editMsg(service, 'beto', 'Cambio');
+
+  assert.equal(result.status, 403);
+  assert.equal(updateOf(operations), undefined);
+});
+
+test('editar: mensaje inexistente, eliminado u oculto responde 404', async () => {
+  for (const messages of [null, { ...MSG, status: 'DELETED' }]) {
+    const { service, operations } = setup({ messages });
+    assert.equal((await editMsg(service, 'ana', 'Cambio')).status, 404);
+    assert.equal(updateOf(operations), undefined);
+  }
+});
+
+test('editar: contenido vacío o solo espacios responde 400', async () => {
+  for (const content of ['', '   ', undefined, 5]) {
+    const { service, operations } = setup({ messages: MSG });
+    assert.equal((await editMsg(service, 'ana', content)).status, 400);
+    assert.equal(operations.length, 0);
+  }
+});
+
+test('editar: en una conversación ajena o inexistente no se edita', async () => {
+  const foreign = setup({ messages: MSG });
+  assert.equal((await editMsg(foreign.service, 'intruso', 'Cambio')).status, 403);
+  assert.equal(foreign.operations.length, 0);
+
+  const missing = setup({ conversation: null, messages: MSG });
+  assert.equal((await editMsg(missing.service, 'ana', 'Cambio')).status, 404);
+});
+
+test('editar: si el texto no cambia no se marca como editado', async () => {
+  const { service, operations } = setup({ messages: MSG });
+  const result = await editMsg(service, 'ana', 'Hola');
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.message.editedAt, null);
+  assert.equal(updateOf(operations), undefined);
+});

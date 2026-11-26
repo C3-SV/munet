@@ -121,6 +121,26 @@ export const sendConversationMessage = async (
     return payload.message;
 };
 
+// Edita el contenido de un mensaje propio y devuelve el mensaje actualizado.
+export const editConversationMessage = async (
+    conversationId: string,
+    messageId: string,
+    content: string,
+    context: ChatContext,
+): Promise<DirectMessage> => {
+    const payload = await requestApi<{ message: DirectMessage }>(
+        `/dm/conversations/${conversationId}/messages/${messageId}`,
+        {
+            method: "PATCH",
+            token: context.token,
+            eventId: context.eventId,
+            body: { content },
+        },
+    );
+
+    return payload.message;
+};
+
 export const deleteConversationMessage = async (
     conversationId: string,
     messageId: string,

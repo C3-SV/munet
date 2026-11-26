@@ -10,6 +10,7 @@ import { groupMessages } from "../../../../lib/chat-groups";
 import {
     createConversation,
     deleteConversationMessage,
+    editConversationMessage,
     getConversationMessages,
     getConversations,
     markConversationRead,
@@ -428,6 +429,17 @@ const ChatRoomPage = () => {
         setPendingDeleteMessageId(messageId);
     };
 
+    // Guarda el texto editado y actualiza el mensaje en su lugar (la posición no cambia).
+    const handleEditMessage = async (messageId: string, content: string) => {
+        if (!token || !eventId || !conversationId) {
+            return;
+        }
+
+        const updated = await editConversationMessage(conversationId, messageId, content, { token, eventId });
+
+        setMessages((current) => current.map((message) => (message.id === messageId ? { ...message, ...updated } : message)));
+    };
+
     const handleDeleteMessage = async (messageId: string) => {
         // Elimina mensaje propio y refresca la conversacion.
         if (!token || !eventId || !conversationId) {
@@ -539,6 +551,8 @@ const ChatRoomPage = () => {
                                                     isNew={newMessageIds.has(message.id)}
                                                     isLastInRun={indexInRun === run.messageIds.length - 1}
                                                     onDelete={isMe ? requestDeleteMessage : undefined}
+                                                    // En la práctica no se edita: el simulador no tiene ese endpoint.
+                                                    onEdit={isMe && eventId && !isPracticeEvent(eventId) ? handleEditMessage : undefined}
                                                     isDeleting={deletingMessageIds.has(message.id)}
                                                 />
                                             );

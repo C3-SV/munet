@@ -24,4 +24,6 @@ export type DirectMessage = Omit<Message, "timestamp"> & {
     createdAt: string;
     // Cuándo la otra persona lo leyó; null o ausente mientras no lo haya leído.
     readAt?: string | null;
+    // Cuándo se editó el contenido; null o ausente si nunca se editó.
+    editedAt?: string | null;
 };

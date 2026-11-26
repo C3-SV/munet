@@ -370,7 +370,7 @@ export const listDmMessages = async (params: {
 
   const { data, error } = await supabaseAdmin
     .from('dm_messages')
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
     .eq('conversation_id', params.conversationId)
     .eq('event_id', params.eventId)
     .eq('status', 'VISIBLE')
@@ -430,7 +430,7 @@ export const createDmMessage = async (params: {
       updated_at: new Date().toISOString(),
       updated_by_membership_id: params.membership.id,
     })
-    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at')
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
     .single();
 
   if (error || !inserted) {
@@ -615,4 +615,86 @@ export const markDmConversationRead = async (params: {
       readAt: (data ?? []).length > 0 ? readAt : null,
     },
   };
+};
+
+// Edita el contenido de un mensaje propio. Conserva su posición en la conversación (created_at no
+// cambia) y deja constancia en edited_at. No se editan mensajes ajenos ni eliminados.
+export const editDmMessage = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  conversationId: string;
+  messageId: string;
+  content?: string;
+}) => {
+  const content = typeof params.content === 'string' ? params.content.trim() : '';
+
+  if (!content) {
+    return { status: 400, body: { error: 'El mensaje no puede estar vacio' } };
+  }
+
+  const access = await findConversationForMembership({
+    conversationId: params.conversationId,
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+  });
+
+  if (!access.allowed) {
+    return { status: access.status, body: { error: access.error } };
+  }
+
+  const { data: message, error: messageError } = await supabaseAdmin
+    .from('dm_messages')
+    .select('id, author_membership_id, content, status')
+    .eq('id', params.messageId)
+    .eq('conversation_id', params.conversationId)
+    .eq('event_id', params.eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (messageError) {
+    throw new Error(messageError.message);
+  }
+
+  if (!message || message.status !== 'VISIBLE') {
+    return { status: 404, body: { error: 'Mensaje no encontrado' } };
+  }
+
+  if (message.author_membership_id !== params.membership.id) {
+    return { status: 403, body: { error: 'Solo puedes editar tus propios mensajes' } };
+  }
+
+  if (message.content === content) {
+    // Sin cambios: no se marca como editado.
+    return { status: 200, body: { message: mapDmMessage(message as DmMessageRow) } };
+  }
+
+  const editedAt = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
+    .from('dm_messages')
+    .update({
+      content,
+      edited_at: editedAt,
+      updated_at: editedAt,
+      updated_by_membership_id: params.membership.id,
+    })
+    .eq('id', params.messageId)
+    .eq('author_membership_id', params.membership.id)
+    .select('id, event_id, conversation_id, author_membership_id, content, status, created_at, read_at, edited_at')
+    .single();
+
+  if (error || !updated) {
+    return { status: 400, body: { error: error?.message ?? 'No se pudo editar el mensaje' } };
+  }
+
+  await logAudit({
+    eventId: params.eventId,
+    membership: params.membership,
+    actionType: 'EDIT_DM_MESSAGE',
+    entityType: 'DM_MESSAGE',
+    entityId: params.messageId,
+    outcome: 'SUCCESS',
+    reason: `Mensaje editado en conversacion ${params.conversationId}`,
+  });
+
+  return { status: 200, body: { message: mapDmMessage(updated as DmMessageRow) } };
 };
