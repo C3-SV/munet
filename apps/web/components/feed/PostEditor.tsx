@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ATTACHMENT_ACCEPT, formatFileSize, validateAttachment } from "../../lib/attachments";
+import {
+    ATTACHMENT_ACCEPT,
+    ATTACHMENT_LIMITS_TEXT,
+    MAX_IMAGES_PER_POST,
+    MAX_PDFS_PER_POST,
+    addAttachments,
+    countAttachments,
+    formatFileSize,
+    isImageAttachment,
+    removeAttachmentAt,
+} from "../../lib/attachments";
+import type { UploadProgress } from "../../lib/attachment-upload";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { IconClose, IconFile, IconPaperclip } from "../ui/icons";
@@ -8,12 +19,15 @@ type PostDraft = {
     content: string;
     postType: "TEXT" | "POLL";
     pollOptions?: string[];
-    attachment?: File;
+    // Hasta 10 imágenes y 2 PDF, en el orden elegido.
+    attachments?: File[];
 };
 
 interface PostEditorProps {
     onPublish: (draft: PostDraft) => Promise<void> | void;
     disabled?: boolean;
+    // Avance de la subida de archivos mientras se publica.
+    uploadProgress?: UploadProgress | null;
     // Identifica el borrador guardado en sessionStorage (un borrador por evento y muro).
     draftKey?: string;
 }
@@ -68,9 +82,44 @@ const writeDraft = (draftKey: string, draft: StoredDraft) => {
     }
 };
 
+const STATUS_TEXT = {
+    waiting: "en espera",
+    uploading: "subiendo",
+    done: "subido",
+    error: "con error",
+} as const;
+
+// Miniatura de una imagen elegida (o el icono de archivo para un PDF). La URL local se libera al quitar el archivo.
+const SelectedFilePreview = ({ file }: { file: File }) => {
+    const [url, setUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isImageAttachment(file.type)) {
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setUrl(objectUrl);
+
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [file]);
+
+    if (url) {
+        // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:): next/image no aplica
+        return <img src={url} alt="" className="size-10 shrink-0 rounded-[var(--radius-sm)] object-cover" />;
+    }
+
+    return (
+        <span className="flex size-10 shrink-0 items-center justify-center" style={{ color: "var(--text-accent)" }}>
+            <IconFile size={22} />
+        </span>
+    );
+};
+
 export const PostEditor = ({
     onPublish,
     disabled = false,
+    uploadProgress = null,
     draftKey,
 }: PostEditorProps) => {
     const [postType, setPostType] = useState<"TEXT" | "POLL">("TEXT");
@@ -78,9 +127,9 @@ export const PostEditor = ({
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [isPublishing, setIsPublishing] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
-    // Un adjunto como máximo; no se guarda en el borrador (un File no es serializable).
-    const [attachment, setAttachment] = useState<File | null>(null);
-    const [attachmentError, setAttachmentError] = useState<string | null>(null);
+    // Hasta 10 imágenes y 2 PDF; no se guardan en el borrador (un File no es serializable).
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const [attachmentErrors, setAttachmentErrors] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     // Evita escribir el borrador antes de haber leído el guardado.
     const [draftReady, setDraftReady] = useState(false);
@@ -126,30 +175,28 @@ export const PostEditor = ({
         setPostText("");
         setPollOptions(["", ""]);
         setValidationError(null);
-        setAttachment(null);
-        setAttachmentError(null);
+        setAttachments([]);
+        setAttachmentErrors([]);
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        // Valida tipo y tamaño al elegir; un archivo inválido no reemplaza al actual.
-        const file = event.target.files?.[0];
+        // Valida tipo, tamaño y cantidad al elegir; los archivos que no caben se omiten con un
+        // mensaje y los demás se agregan a los ya elegidos.
+        const picked = Array.from(event.target.files ?? []);
         event.target.value = "";
 
-        if (!file) {
+        if (picked.length === 0) {
             return;
         }
 
-        const error = validateAttachment(file);
-        setAttachmentError(error);
-
-        if (!error) {
-            setAttachment(file);
-        }
+        const result = addAttachments(attachments, picked);
+        setAttachments(result.files);
+        setAttachmentErrors(result.errors);
     };
 
-    const removeAttachment = () => {
-        setAttachment(null);
-        setAttachmentError(null);
+    const removeAttachment = (index: number) => {
+        setAttachments((current) => removeAttachmentAt(current, index));
+        setAttachmentErrors([]);
     };
 
     const handlePublish = async () => {
@@ -171,7 +218,7 @@ export const PostEditor = ({
                 content: postText.trim(),
                 postType,
                 pollOptions: postType === "POLL" ? normalizedPollOptions : undefined,
-                attachment: attachment ?? undefined,
+                attachments: attachments.length > 0 ? attachments : undefined,
             });
             resetEditor();
         } finally {
@@ -205,6 +252,7 @@ export const PostEditor = ({
     };
 
     const showCounter = postText.length >= MAX_POST_LENGTH * COUNTER_THRESHOLD;
+    const counts = countAttachments(attachments);
 
     return (
         <Card className="mb-8 overflow-hidden">
@@ -298,46 +346,100 @@ export const PostEditor = ({
                 </div>
             )}
 
-            {(attachment || attachmentError) && (
+            {(attachments.length > 0 || attachmentErrors.length > 0) && (
                 <div className="px-5 pb-4 space-y-2">
-                    {attachment && (
-                        <div
-                            className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2"
-                            style={{
-                                border: "1px solid var(--border-color)",
-                                backgroundColor: "var(--bg-surface-secondary)",
-                            }}
-                        >
-                            <span style={{ color: "var(--text-accent)" }}>
-                                <IconFile size={20} />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                                <p
-                                    className="truncate text-sm font-semibold font-heading"
-                                    style={{ color: "var(--text-primary)" }}
-                                    title={attachment.name}
-                                >
-                                    {attachment.name}
-                                </p>
-                                <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
-                                    {formatFileSize(attachment.size)}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={removeAttachment}
-                                disabled={isPublishing}
-                                aria-label={`Quitar adjunto ${attachment.name}`}
-                                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] md:min-h-9 md:min-w-9"
+                    {attachments.length > 0 && (
+                        <>
+                            <p className="text-xs font-semibold font-heading" style={{ color: "var(--text-secondary)" }}>
+                                {`${counts.images}/${MAX_IMAGES_PER_POST} imágenes · ${counts.pdfs}/${MAX_PDFS_PER_POST} PDF`}
+                            </p>
+                            <ul className="space-y-2" aria-label="Archivos adjuntos">
+                                {attachments.map((file, index) => {
+                                    const progress = uploadProgress?.files[index];
+
+                                    return (
+                                        <li
+                                            key={`${file.name}-${file.size}-${file.lastModified}`}
+                                            className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2"
+                                            style={{
+                                                border: "1px solid var(--border-color)",
+                                                backgroundColor: "var(--bg-surface-secondary)",
+                                            }}
+                                        >
+                                            <SelectedFilePreview file={file} />
+                                            <div className="min-w-0 flex-1">
+                                                <p
+                                                    className="truncate text-sm font-semibold font-heading"
+                                                    style={{ color: "var(--text-primary)" }}
+                                                    title={file.name}
+                                                >
+                                                    {file.name}
+                                                </p>
+                                                <p className="text-xs font-body" style={{ color: "var(--text-muted)" }}>
+                                                    {formatFileSize(file.size)}
+                                                    {isPublishing && progress ? ` · ${STATUS_TEXT[progress.status]}` : ""}
+                                                </p>
+                                                {isPublishing && progress && progress.status !== "waiting" && (
+                                                    <div
+                                                        className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                                        style={{ backgroundColor: "var(--border-color)" }}
+                                                        aria-hidden="true"
+                                                    >
+                                                        <div
+                                                            className="h-full rounded-full transition-[width]"
+                                                            style={{
+                                                                width: `${progress.size ? Math.min(100, Math.round((progress.loaded / progress.size) * 100)) : 0}%`,
+                                                                backgroundColor:
+                                                                    progress.status === "error" ? "var(--danger)" : "var(--text-accent)",
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAttachment(index)}
+                                                disabled={isPublishing}
+                                                aria-label={`Quitar adjunto ${file.name}`}
+                                                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 md:min-h-9 md:min-w-9"
+                                            >
+                                                <IconClose size={16} />
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </>
+                    )}
+
+                    {isPublishing && uploadProgress && (
+                        <div role="status" aria-live="polite" className="text-xs font-semibold font-heading" style={{ color: "var(--text-secondary)" }}>
+                            {uploadProgress.stage === "publishing"
+                                ? "Publicando..."
+                                : `Subiendo archivos: ${uploadProgress.percent}%`}
+                            <div
+                                role="progressbar"
+                                aria-label="Progreso de la subida"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={uploadProgress.percent}
+                                className="mt-1 h-2 overflow-hidden rounded-full"
+                                style={{ backgroundColor: "var(--border-color)" }}
                             >
-                                <IconClose size={16} />
-                            </button>
+                                <div
+                                    className="h-full rounded-full transition-[width]"
+                                    style={{ width: `${uploadProgress.percent}%`, backgroundColor: "var(--text-accent)" }}
+                                />
+                            </div>
                         </div>
                     )}
-                    {attachmentError && (
-                        <p role="alert" className="text-xs font-body" style={{ color: "var(--danger)" }}>
-                            {attachmentError}
-                        </p>
+
+                    {attachmentErrors.length > 0 && (
+                        <ul role="alert" className="space-y-0.5 text-xs font-body" style={{ color: "var(--danger)" }}>
+                            {attachmentErrors.map((message) => (
+                                <li key={message}>{message}</li>
+                            ))}
+                        </ul>
                     )}
                 </div>
             )}
@@ -354,6 +456,7 @@ export const PostEditor = ({
                         ref={fileInputRef}
                         type="file"
                         accept={ATTACHMENT_ACCEPT}
+                        multiple
                         onChange={handleFileChange}
                         disabled={disabled || isPublishing}
                         className="sr-only"
@@ -366,7 +469,7 @@ export const PostEditor = ({
                         leadingIcon={<IconPaperclip size={16} />}
                         onClick={() => fileInputRef.current?.click()}
                         disabled={disabled || isPublishing}
-                        aria-label="Adjuntar archivo, JPG o PNG hasta 5 MB, o PDF hasta 20 MB"
+                        aria-label={`Adjuntar archivos. ${ATTACHMENT_LIMITS_TEXT}`}
                     >
                         Adjuntar
                     </Button>

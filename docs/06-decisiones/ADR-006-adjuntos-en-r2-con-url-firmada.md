@@ -45,3 +45,13 @@ ADR-002 deja Realtime como única comunicación directa del navegador con un ser
 ## Evidencia
 
 Documentación de Cloudflare R2 consultada el 20 de noviembre de 2026: URL firmadas, tokens con alcance por bucket, CORS, límites y precios. Estado del repositorio y de la base real comprobado con consultas de solo lectura el mismo día.
+
+## Actualización del 26 de noviembre de 2026 (mejora 10 de «Mejoras y correcciones»)
+
+Se amplía la decisión sin cambiar la arquitectura (R2 privado, subida directa con URL firmada, descarga a demanda):
+
+- **Cantidad y tamaño.** Hasta 10 imágenes JPG/PNG de 15 MB y hasta 2 PDF de 30 MB por publicación, combinables. Sustituye al punto 7 («un adjunto por post»): la migración `007_adjuntos_multiples.sql` quita el índice único `uq_attachments_post` y agrega `attachments.position`. Las cantidades las valida la API.
+- **Un intento por archivo.** Cada archivo conserva su propio intento y URL firmada; `POST /posts` recibe `upload_ids`, los reclama a la vez y, si uno falla, compensa todos.
+- **Cuota.** `STORAGE_QUOTA_BYTES` (opcional) activa la protección acordada: alerta en los registros al 90 % y rechazo de cargas nuevas al 95 %, medido con los adjuntos guardados más los intentos vigentes.
+- **Imágenes.** Se evaluó optimizarlas en el navegador antes de subir. No se hizo: la subida ya es directa (no pasa por el servidor de aplicación) y recomprimir cambia los bytes declarados y puede degradar los PNG. Queda como mejora futura si el consumo de almacenamiento lo exige.
+- **Pendiente de definir.** Un tope total de tamaño por publicación: hoy es el máximo teórico (210 MB).
