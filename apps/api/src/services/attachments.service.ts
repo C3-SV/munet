@@ -510,18 +510,24 @@ export const attachAttachmentsToPosts = async <
     return [];
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('attachments')
-    .select('id, post_id, file_name, mime_type, size_bytes, position, created_at')
-    .eq('event_id', params.eventId)
-    .in('post_id', params.posts.map((post) => post.id));
+  const postIds = params.posts.map((post) => post.id);
+  const readRows = (columns: string) =>
+    supabaseAdmin.from('attachments').select(columns).eq('event_id', params.eventId).in('post_id', postIds);
+
+  let { data, error } = await readRows('id, post_id, file_name, mime_type, size_bytes, position, created_at');
+
+  // Mientras la migración 007 no esté aplicada, la columna position no existe: el feed no debe
+  // caer por eso. Se reintenta sin ella y el orden sale por fecha de alta.
+  if (error && /position/i.test(error.message)) {
+    ({ data, error } = await readRows('id, post_id, file_name, mime_type, size_bytes, created_at'));
+  }
 
   if (error) {
     throw new Error(error.message);
   }
 
   const byPost = new Map<string, AttachmentRow[]>();
-  ((data ?? []) as AttachmentRow[]).forEach((row) => {
+  ((data ?? []) as unknown as AttachmentRow[]).forEach((row) => {
     byPost.set(row.post_id, [...(byPost.get(row.post_id) ?? []), row]);
   });
 
