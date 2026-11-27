@@ -9,6 +9,7 @@ import { putFileWithProgress } from "../attachment-xhr";
 import type { Post } from "../../types/common";
 import { isPracticeEvent } from "../practice/constants";
 import { stashPracticeFile } from "../practice/uploads";
+import { createAttachmentPreviewUrlLoader } from "../attachment-preview-urls";
 import { ApiError, requestApi } from "./client";
 
 export type FeedResponse = {
@@ -162,6 +163,30 @@ export const getAttachmentDownloadUrl = async (
 
     return payload.url;
 };
+
+const getBatchedAttachmentPreviewUrl = createAttachmentPreviewUrlLoader({
+    requestBatch: async (context, items) => {
+        const payload = await requestApi<{ items: { index: number; url?: string; expiresAt?: string; error?: string }[] }>(
+            "/posts/attachments/downloads",
+            {
+                method: "POST",
+                token: context.token,
+                eventId: context.eventId,
+                body: { items: items.map(({ postId, attachmentId }) => ({ post_id: postId, attachment_id: attachmentId })) },
+                cache: "no-store",
+            },
+        );
+        return payload.items;
+    },
+    // Solo para clientes web que coincidan con un despliegue de API anterior sin la ruta batch.
+    requestSingle: (context, item) => getAttachmentDownloadUrl(item.postId, context, item.attachmentId),
+});
+
+// Solo las previews reales usan lote; práctica y descargas explícitas conservan la ruta individual.
+export const getAttachmentPreviewUrl = (postId: string, context: FeedRequestContext, attachmentId: string, refresh = false) =>
+    isPracticeEvent(context.eventId)
+        ? getAttachmentDownloadUrl(postId, context, attachmentId)
+        : getBatchedAttachmentPreviewUrl(context, { postId, attachmentId }, refresh);
 
 // El autor retira un adjunto de su publicación.
 export const removeOwnAttachment = async (

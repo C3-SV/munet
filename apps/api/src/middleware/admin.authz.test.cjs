@@ -5,9 +5,10 @@ const vm = require('node:vm');
 const ts = require('typescript');
 require('ts-node').register({ project: 'apps/api/tsconfig.json' });
 
-function harness({ memberships = [], invalidToken = false, token = 'Bearer valido', resource = { data: null }, auditError = null } = {}) {
+function harness({ memberships = [], invalidToken = false, token = 'Bearer valido', resource = { data: null }, auditError = null, authContextResult = undefined, authContextError = null } = {}) {
   const calls = [];
   const queries = [];
+  const authContextCalls = [];
   const audits = [];
   const errors = [];
   const module = { exports: {} };
@@ -28,8 +29,12 @@ function harness({ memberships = [], invalidToken = false, token = 'Bearer valid
       return invalidToken ? { data: { user: null }, error: { message: 'invalido' } } : { data: { user: { id: 'auth-user' } }, error: null };
     } } } };
     if (name === '../services/auth-context.service') return {
-      async getUserBySupabaseAuthId(id) { assert.equal(id, 'auth-user'); return { id: 'user' }; },
-      async getMembershipsByUserId(id) { assert.equal(id, 'user'); return memberships; },
+      async getAuthContextBySupabaseAuthId(id) {
+        authContextCalls.push(id);
+        assert.equal(id, 'auth-user');
+        if (authContextError) throw authContextError;
+        return authContextResult === undefined ? { user: { id: 'user' }, memberships } : authContextResult;
+      },
     };
     if (name === '../utils/rbac.utils') return require('../utils/rbac.utils.ts');
     if (name === '../utils/audit.logger') return { async logAudit(entry) { audits.push(entry); if (auditError) throw auditError; } };
@@ -38,7 +43,7 @@ function harness({ memberships = [], invalidToken = false, token = 'Bearer valid
   const req = { header: name => name === 'authorization' ? token : undefined };
   const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   let nextCalls = 0;
-  return { middleware: module.exports, req, res, calls, queries, audits, errors, get nextCalls() { return nextCalls; }, async run(resolver = () => 'event', options) {
+  return { middleware: module.exports, req, res, calls, queries, audits, errors, authContextCalls, get nextCalls() { return nextCalls; }, async run(resolver = () => 'event', options) {
     let authenticated = false;
     await module.exports.requireAuth(req, res, () => { authenticated = true; });
     if (authenticated) await module.exports.requireEventAdmin(resolver, options)(req, res, () => { nextCalls++; });
@@ -292,4 +297,29 @@ test('un usuario sin membresia activa (suspendido) recibe 401 en requireAuth y n
   assert.equal(h.res.statusCode, 401);
   assert.match(h.res.body.error, /suspendida o sin membresia activa/);
   assert.equal(h.nextCalls, 0);
+  assert.equal(h.calls.length, 1);
+  assert.deepEqual(h.authContextCalls, ['auth-user']);
+});
+
+test('requireAuth consulta Auth y contexto MUNET en cada solicitud antes de avanzar', async () => {
+  const h = harness({ memberships: [{ id: 'm1', userId: 'user', eventId: 'event', role: 'PARTICIPANT', accountStatus: 'ACTIVE' }] });
+  await h.run();
+  assert.equal(h.res.statusCode, 403);
+  assert.equal(h.calls.length, 1);
+  assert.deepEqual(h.authContextCalls, ['auth-user']);
+  assert.equal(h.req.auth.userId, 'user');
+});
+
+test('requireAuth conserva 401 para usuario ausente y 500 para fallo de lectura del contexto', async () => {
+  const missing = harness({ authContextResult: null });
+  await missing.middleware.requireAuth(missing.req, missing.res, () => { throw new Error('no debe avanzar'); });
+  assert.equal(missing.res.statusCode, 401);
+  assert.match(missing.res.body.error, /Usuario no registrado/);
+
+  const failed = harness({ authContextError: new Error('db fallo') });
+  await failed.middleware.requireAuth(failed.req, failed.res, () => { throw new Error('no debe avanzar'); });
+  assert.equal(failed.res.statusCode, 500);
+  assert.match(failed.res.body.error, /No se pudo validar la sesion/);
+  assert.equal(failed.calls.length, 1);
+  assert.deepEqual(failed.authContextCalls, ['auth-user']);
 });

@@ -18,6 +18,18 @@ test("al publicar se envían upload_ids y upload_id (el primero) para la prácti
     assert.match(source, /upload_ids: uploadIds, upload_id: uploadIds\[0\]/);
 });
 
+test("las previews usan lote y la descarga explícita sigue usando la ruta individual", () => {
+    const carousel = readFileSync(new URL("../../components/feed/AttachmentCarousel.tsx", import.meta.url), "utf8");
+    const image = readFileSync(new URL("../../components/feed/AttachmentImage.tsx", import.meta.url), "utf8");
+    assert.match(source, /"\/posts\/attachments\/downloads"/);
+    assert.match(source, /isPracticeEvent\(context\.eventId\)[\s\S]*?getAttachmentDownloadUrl/);
+    assert.match(carousel, /position === index \?/);
+    assert.doesNotMatch(carousel, /nearbyIndexes|eager=\{position === index\}/);
+    assert.match(image, /new IntersectionObserver/);
+    assert.match(image, /getAttachmentPreviewUrl/);
+    assert.match(image, /eager\s*\?\s*await getAttachmentDownloadUrl/);
+});
+
 test("la práctica solo admite un archivo por publicación", () => {
     assert.match(source, /isPracticeEvent\(eventId\) && files\.length > 1/);
     assert.match(source, /En la práctica solo puedes adjuntar un archivo/);

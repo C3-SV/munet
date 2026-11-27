@@ -12,6 +12,10 @@ El cliente conserva el token y la selección en `localStorage`. Cerrar sesión l
 
 `requireAuth` valida el bearer token en Supabase Auth, resuelve el usuario interno, carga las membresías activas y adjunta el contexto a `req.auth`. Eventos usa su parámetro de ruta. Posts, comentarios, perfiles y DM usan `x-event-id`. El slug de muro identifica el muro dentro del evento. Los controladores y servicios comprueban permisos adicionales sobre el recurso.
 
+Para resolver el contexto de cada solicitud, la API consulta Auth y luego usa `get_auth_context_by_supabase_auth_user_id` (migración 012) para leer usuario y membresías en un solo viaje a Postgres. El JWT y la autorización se validan en cada solicitud; el resultado no se memoiza. Si la RPC aún no existe en el caché de esquema de PostgREST (`PGRST202`), se usa temporalmente la lectura anterior de usuario y membresías. Otros errores no activan ese fallback. La RPC solo se ejecuta con el rol `service_role`.
+
+El canal privado de invalidación de reacciones valida al suscribirse el usuario activo, su membresía del evento y el acceso al muro. La autorización del socket puede quedar vigente tras un cambio de membresía mientras la conexión siga abierta; no se usa como autorización de datos. Cada `GET /posts/reactions` vuelve a validar el contexto y el acceso antes de leer.
+
 ## Administración
 
 Las rutas administrativas con evento objetivo usan `requireEventAdmin`. Las dos rutas de colección de eventos usan `requireAdmin`, y el listado filtra solo eventos administrados. Consulta [roles y permisos](../01-producto/roles-y-permisos.md) y [ADR-005](../06-decisiones/ADR-005-autorizacion-administrativa-por-evento.md).

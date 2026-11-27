@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getAttachmentDownloadUrl } from "../../lib/api/feed";
+import { getAttachmentDownloadUrl, getAttachmentPreviewUrl } from "../../lib/api/feed";
 
 interface AttachmentImageProps {
     postId: string;
@@ -35,12 +35,14 @@ export const AttachmentImage = ({
 
     const load = useCallback(async () => {
         try {
-            const url = await getAttachmentDownloadUrl(postId, { token, eventId }, attachmentId);
+            const url = eager
+                ? await getAttachmentDownloadUrl(postId, { token, eventId }, attachmentId)
+                : await getAttachmentPreviewUrl(postId, { token, eventId }, attachmentId, attempt > 0);
             setSrc(url);
         } catch {
             setFailed(true);
         }
-    }, [attachmentId, eventId, postId, token]);
+    }, [attachmentId, attempt, eager, eventId, postId, token]);
 
     useEffect(() => {
         const node = containerRef.current;

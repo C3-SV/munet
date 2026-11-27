@@ -68,6 +68,66 @@ export const getUserBySupabaseAuthId = async (supabaseAuthUserId: string) => {
   return user;
 };
 
+export const getAuthContextBySupabaseAuthId = async (supabaseAuthUserId: string) => {
+  const { data, error } = await supabaseAdmin.rpc(
+    'get_auth_context_by_supabase_auth_user_id',
+    { p_supabase_auth_user_id: supabaseAuthUserId }
+  );
+
+  if (error?.code === 'PGRST202') {
+    const user = await getUserBySupabaseAuthId(supabaseAuthUserId);
+    if (!user) return null;
+    return { user, memberships: await getMembershipsByUserId(user.id) };
+  }
+
+  if (error) throw new Error(error.message);
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { id: string; supabase_auth_user_id: string; email: string | null; memberships: MembershipRow[] | null }
+    | null;
+
+  if (!row) return null;
+
+  return {
+    user: { id: row.id, supabase_auth_user_id: row.supabase_auth_user_id, email: row.email },
+    memberships: mapMembershipRows(row.memberships ?? []),
+  };
+};
+
+const mapMembershipRows = (rows: MembershipRow[]) => rows
+  .map((row) => {
+    const event = firstItem(row.events);
+    const committee = firstItem(row.committees);
+    const visibleCommittee = committee?.deleted_at ? null : committee;
+
+    if (!event || event.deleted_at) {
+      return null;
+    }
+
+    // Un evento archivado sale del selector de participantes y moderadores;
+    // los administradores lo siguen viendo para consultarlo o reabrirlo.
+    if (event.status === 'ARCHIVED' && !isAdminRole(row.role)) {
+      return null;
+    }
+
+    return {
+      id: row.id,
+      userId: row.user_id,
+      eventId: row.event_id,
+      eventName: event.name ?? 'Evento',
+      eventSlug: event.slug ?? '',
+      eventStatus: event.status ?? 'UNKNOWN',
+      role: row.role,
+      committeeId: row.committee_id,
+      committeeName: visibleCommittee?.name ?? null,
+      committeeCode: visibleCommittee?.code ?? null,
+      participantCode: row.participant_code,
+      accountStatus: row.account_status,
+      createdAt: row.created_at ?? null,
+    } satisfies AuthMembership;
+  })
+  .filter((membership): membership is AuthMembership => Boolean(membership));
+
 // Devuelve memberships activas y no eliminadas para construir sesión frontend.
 export const getMembershipsByUserId = async (userId: string) => {
   const { data, error } = await supabaseAdmin
@@ -105,38 +165,6 @@ export const getMembershipsByUserId = async (userId: string) => {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as MembershipRow[])
-    .map((row) => {
-      const event = firstItem(row.events);
-      const committee = firstItem(row.committees);
-      const visibleCommittee = committee?.deleted_at ? null : committee;
-
-      if (!event || event.deleted_at) {
-        return null;
-      }
-
-      // Un evento archivado sale del selector de participantes y moderadores;
-      // los administradores lo siguen viendo para consultarlo o reabrirlo.
-      if (event.status === 'ARCHIVED' && !isAdminRole(row.role)) {
-        return null;
-      }
-
-      return {
-        id: row.id,
-        userId: row.user_id,
-        eventId: row.event_id,
-        eventName: event.name ?? 'Evento',
-        eventSlug: event.slug ?? '',
-        eventStatus: event.status ?? 'UNKNOWN',
-        role: row.role,
-        committeeId: row.committee_id,
-        committeeName: visibleCommittee?.name ?? null,
-        committeeCode: visibleCommittee?.code ?? null,
-        participantCode: row.participant_code,
-        accountStatus: row.account_status,
-        createdAt: row.created_at ?? null,
-      } satisfies AuthMembership;
-    })
-    .filter((membership): membership is AuthMembership => Boolean(membership));
+  return mapMembershipRows((data ?? []) as MembershipRow[]);
 };
 

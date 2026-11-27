@@ -14,6 +14,7 @@ import { markAnnouncementsRead } from "../../../../lib/api/notifications";
 import { getPostReactions } from "../../../../lib/api/reactions";
 import { isNewAnnouncement } from "../../../../lib/notifications";
 import { AttachmentUploadError, type UploadProgress } from "../../../../lib/attachment-upload";
+import { createDebouncedRefresh } from "../../../../lib/reaction-refresh";
 import { mergeFeedPosts, orderFeedPosts } from "../../../../lib/feed-order";
 import { buildWallNav } from "../../../../lib/wall-nav";
 import { isPracticeEvent } from "../../../../lib/practice/constants";
@@ -151,9 +152,7 @@ const Feed = () => {
     // Ids de las publicaciones en pantalla: sirven para refrescar solo sus reacciones.
     const postIdsKey = posts.map((post) => post.id).join(",");
     const postIdsRef = useRef(postIdsKey);
-    useEffect(() => {
-        postIdsRef.current = postIdsKey;
-    }, [postIdsKey]);
+    postIdsRef.current = postIdsKey;
 
     useEffect(() => {
         // Consulta la API mientras el muro está visible para reflejar también las eliminaciones.
@@ -169,8 +168,8 @@ const Feed = () => {
         }
 
         let cancelled = false;
-
         const refreshReactions = async () => {
+            if (document.visibilityState !== "visible") return;
             const ids = postIdsRef.current.split(",").filter(Boolean).slice(0, 100);
 
             if (ids.length === 0) {
@@ -189,18 +188,84 @@ const Feed = () => {
                 // Se reintenta en la próxima consulta.
             }
         };
+        const refresh = createDebouncedRefresh(refreshReactions);
+        const fallbackIntervalMs = 30000;
+        const realtimeReconcileIntervalMs = 120000;
+        let fallbackTimer: number | null = null;
+        let reconcileTimer: number | null = null;
+        let realtimeReady = false;
 
-        const timer = window.setInterval(() => {
-            if (document.visibilityState === "visible") void refreshReactions();
-        }, 10000);
+        const stopFallback = () => {
+            if (fallbackTimer !== null) {
+                window.clearInterval(fallbackTimer);
+                fallbackTimer = null;
+            }
+        };
+        const stopReconciliation = () => {
+            if (reconcileTimer !== null) {
+                window.clearInterval(reconcileTimer);
+                reconcileTimer = null;
+            }
+        };
+        const startReconciliation = () => {
+            if (!realtimeReady || reconcileTimer !== null || document.visibilityState !== "visible") return;
+            reconcileTimer = window.setInterval(() => refresh.schedule(), realtimeReconcileIntervalMs);
+        };
+        const startFallback = () => {
+            if (cancelled || realtimeReady || fallbackTimer !== null || document.visibilityState !== "visible") return;
+            refresh.schedule();
+            fallbackTimer = window.setInterval(() => refresh.schedule(), fallbackIntervalMs);
+        };
+
         const onVisibilityChange = () => {
-            if (document.visibilityState === "visible") void refreshReactions();
+            if (document.visibilityState === "visible") {
+                refresh.schedule();
+                startFallback();
+                startReconciliation();
+            } else {
+                stopFallback();
+                stopReconciliation();
+            }
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
 
+        if (supabaseBrowser) {
+            const realtimeClient = supabaseBrowser;
+            realtimeClient.realtime.setAuth(token);
+            const reactionChannel = realtimeClient.channel(`feed-reactions:${eventId}:${activeWall.id}`, {
+                config: { private: true },
+            });
+            reactionChannel
+                .on("broadcast", { event: "post_reaction_changed" }, () => refresh.schedule())
+                .subscribe((status) => {
+                    if (cancelled) return;
+                    realtimeReady = status === "SUBSCRIBED";
+                    if (realtimeReady) {
+                        stopFallback();
+                        startReconciliation();
+                        refresh.schedule();
+                    } else {
+                        stopReconciliation();
+                        startFallback();
+                    }
+                });
+
+            return () => {
+                cancelled = true;
+                refresh.cancel();
+                stopFallback();
+                stopReconciliation();
+                document.removeEventListener("visibilitychange", onVisibilityChange);
+                void realtimeClient.removeChannel(reactionChannel);
+            };
+        }
+
+        startFallback();
         return () => {
             cancelled = true;
-            window.clearInterval(timer);
+            refresh.cancel();
+            stopFallback();
+            stopReconciliation();
             document.removeEventListener("visibilitychange", onVisibilityChange);
         };
     }, [activeWall?.id, activeWall?.kind, eventId, isForbidden, token]);
@@ -244,6 +309,7 @@ const Feed = () => {
                 }
             }
         };
+        const refresh = createDebouncedRefresh(refreshPosts);
 
         // Un filtro por encuesta: evita reconsultar por votos de otros eventos o muros.
         pollIds.forEach((pollId) => {
@@ -256,7 +322,7 @@ const Feed = () => {
                     filter: `poll_id=eq.${pollId}`,
                 },
                 () => {
-                    void refreshPosts();
+                    refresh.schedule();
                 },
             );
         });
@@ -271,7 +337,7 @@ const Feed = () => {
                     filter: `wall_id=eq.${activeWall.id}`,
                 },
                 () => {
-                    void refreshPosts();
+                    refresh.schedule();
                 },
             )
             .on(
@@ -283,18 +349,19 @@ const Feed = () => {
                     filter: `wall_id=eq.${activeWall.id}`,
                 },
                 () => {
-                    void refreshPosts();
+                    refresh.schedule();
                 },
             )
             .subscribe((status) => {
                 // Relee al reconectar para recuperar cambios perdidos sin socket.
                 if (status !== "SUBSCRIBED") return;
-                if (hasJoined) void refreshPosts();
+                if (hasJoined) refresh.schedule();
                 hasJoined = true;
             });
 
         return () => {
             cancelled = true;
+            refresh.cancel();
             void realtimeClient.removeChannel(channel);
         };
     }, [activeWall?.id, eventId, isForbidden, muroParam, pollIdsKey, token]);

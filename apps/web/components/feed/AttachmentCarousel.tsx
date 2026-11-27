@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { indexFromScroll, keyToDelta, nearbyIndexes, stepIndex } from "../../lib/carousel";
+import { indexFromScroll, keyToDelta, stepIndex } from "../../lib/carousel";
 import type { PostAttachment } from "../../types/common";
 import { Button } from "../ui/Button";
 import { IconChevronLeft, IconChevronRight } from "../ui/icons";
@@ -63,8 +63,6 @@ export const AttachmentCarousel = ({
         }
     };
 
-    const nearby = new Set(nearbyIndexes(index, images.length));
-
     return (
         <div
             role={several ? "group" : undefined}
@@ -101,15 +99,14 @@ export const AttachmentCarousel = ({
                             aria-label={`Ver imagen ${image.name} ampliada`}
                             className="block w-full"
                         >
-                            {/* Solo la diapositiva visible y sus vecinas piden su URL firmada. */}
-                            {nearby.has(position) ? (
+                            {/* Solo la diapositiva activa observa el viewport y pide su URL firmada. */}
+                            {position === index ? (
                                 <AttachmentImage
                                     postId={postId}
                                     attachmentId={image.id}
                                     name={image.name}
                                     token={token}
                                     eventId={eventId}
-                                    eager={position === index}
                                     className="w-full"
                                 />
                             ) : (

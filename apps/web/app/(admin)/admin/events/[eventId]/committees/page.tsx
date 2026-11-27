@@ -213,7 +213,7 @@ export default function CommitteesPage() {
         setDeleteError(null);
 
         try {
-            await deleteCommittee(token, target.id);
+            await deleteCommittee(token, target.id, target.event_id);
             setCommittees((previous) => previous.filter((item) => item.id !== target.id));
             setCommitteeToDelete(null);
             setToast({ type: "success", message: `Comité «${target.name}» eliminado.` });

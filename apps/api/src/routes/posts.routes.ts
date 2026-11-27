@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { deleteOwnAttachment, downloadAttachment, initUpload } from '../controllers/attachments.controller';
+import { deleteOwnAttachment, downloadAttachment, downloadAttachments, initUpload } from '../controllers/attachments.controller';
 import {
   closePoll,
   createComment,
@@ -24,6 +24,7 @@ const router = Router();
 router.get('/', requireAuth, listPosts);
 router.post('/', requireAuth, requireEventOpenForWrites, createPostLimiter, createPost);
 router.post('/attachments/init', requireAuth, requireEventOpenForWrites, attachmentInitLimiter, initUpload);
+router.post('/attachments/downloads', requireAuth, downloadAttachments);
 // Reacciones: se consultan por lote y se agregan, cambian o retiran por publicación.
 router.get('/reactions', requireAuth, listReactions);
 router.put('/:postId/reaction', requireAuth, requireEventOpenForWrites, reactionLimiter, reactToPost);

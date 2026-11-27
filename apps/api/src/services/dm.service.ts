@@ -153,6 +153,61 @@ const loadLatestMessagesByConversation = async (conversationIds: string[]) => {
   return latestByConversation;
 };
 
+const loadDmConversationSummaries = async (params: {
+  eventId: string;
+  membershipId: string;
+  conversationIds: string[];
+}) => {
+  if (params.conversationIds.length === 0) {
+    return new Map<string, { latestMessage?: DmConversationLatestMessage; unreadCount: number }>();
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('get_dm_conversation_summaries', {
+    p_event_id: params.eventId,
+    p_membership_id: params.membershipId,
+    p_conversation_ids: params.conversationIds,
+  });
+
+  if (error?.code === 'PGRST202') {
+    const [latestMessages, unreadCounts] = await Promise.all([
+      loadLatestMessagesByConversation(params.conversationIds),
+      loadUnreadCountsByConversation(params.conversationIds, params.membershipId),
+    ]);
+
+    return new Map(params.conversationIds.map((id) => [id, {
+      latestMessage: latestMessages.get(id),
+      unreadCount: unreadCounts.get(id) ?? 0,
+    }]));
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const summaries = new Map<string, { latestMessage?: DmConversationLatestMessage; unreadCount: number }>();
+  ((data ?? []) as {
+    conversation_id: string;
+    unread_count: number;
+    last_message_id: string | null;
+    last_message_author_membership_id: string | null;
+    last_message_content: string | null;
+    last_message_at: string | null;
+  }[]).forEach((row) => {
+    summaries.set(row.conversation_id, {
+      latestMessage: row.last_message_id ? {
+        id: row.last_message_id,
+        conversation_id: row.conversation_id,
+        author_membership_id: row.last_message_author_membership_id!,
+        content: row.last_message_content!,
+        created_at: row.last_message_at!,
+      } : undefined,
+      unreadCount: row.unread_count,
+    });
+  });
+
+  return summaries;
+};
+
 // Lista conversaciones DM del usuario en el evento activo.
 export const listDmConversations = async (params: {
   eventId: string;
@@ -175,8 +230,11 @@ export const listDmConversations = async (params: {
 
   const conversations = (data ?? []) as DmConversationRow[];
   const conversationIds = conversations.map((conversation) => conversation.id);
-  const latestMessages = await loadLatestMessagesByConversation(conversationIds);
-  const unreadCounts = await loadUnreadCountsByConversation(conversationIds, params.membership.id);
+  const summaries = await loadDmConversationSummaries({
+    eventId: params.eventId,
+    membershipId: params.membership.id,
+    conversationIds,
+  });
 
   return {
     status: 200,
@@ -185,8 +243,8 @@ export const listDmConversations = async (params: {
         mapDmConversation(
           conversation,
           params.membership.id,
-          latestMessages.get(conversation.id),
-          unreadCounts.get(conversation.id) ?? 0
+          summaries.get(conversation.id)?.latestMessage,
+          summaries.get(conversation.id)?.unreadCount ?? 0
         )
       ),
     },

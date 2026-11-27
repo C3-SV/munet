@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { getNotificationSummary } from "../../lib/api/notifications";
 import { conversationIdsToWatch } from "../../lib/notifications";
+import { createNotificationRefresh, notificationRequestKey } from "../../lib/notifications-sync";
 import { isPracticeEvent } from "../../lib/practice/constants";
 import { supabaseBrowser } from "../../lib/supabase";
 import { useAuthStore } from "../../stores/auth.store";
 import { useNotificationsStore } from "../../stores/notifications.store";
 
 // Cada cuánto se recalculan los pendientes aunque no llegue ningún evento en tiempo real.
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 60_000;
 // Agrupa ráfagas de eventos en una sola consulta.
 const REFRESH_DEBOUNCE_MS = 700;
 
@@ -23,20 +24,21 @@ export const NotificationsSync = () => {
     const setSummary = useNotificationsStore((state) => state.setSummary);
     const reset = useNotificationsStore((state) => state.reset);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+    const requestKeyRef = useRef<string | null>(null);
+    const contextRef = useRef({ token, eventId });
     const enabled = Boolean(token && eventId && !isPracticeEvent(eventId));
+    const requestKey = notificationRequestKey(token, eventId, enabled);
+    requestKeyRef.current = requestKey;
+    contextRef.current = { token, eventId };
 
-    const refresh = useCallback(async () => {
-        if (!token || !eventId || isPracticeEvent(eventId)) {
-            return;
-        }
-
-        try {
-            setSummary(await getNotificationSummary({ token, eventId }));
-        } catch {
-            // Un fallo puntual no debe molestar: se reintenta en el siguiente ciclo.
-        }
-    }, [eventId, setSummary, token]);
+    const refresh = useMemo(() => createNotificationRefresh({
+        getSummary: () => {
+            const context = contextRef.current;
+            return getNotificationSummary({ token: context.token!, eventId: context.eventId! });
+        },
+        getKey: () => requestKeyRef.current,
+        setSummary,
+    }), [setSummary]);
 
     const refreshSoon = useCallback(() => {
         if (timerRef.current) {
@@ -57,12 +59,12 @@ export const NotificationsSync = () => {
         void refresh();
         const interval = setInterval(() => {
             if (document.visibilityState === "visible") {
-                void refresh();
+                refreshSoon();
             }
         }, POLL_INTERVAL_MS);
         const onVisible = () => {
             if (document.visibilityState === "visible") {
-                void refresh();
+                refreshSoon();
             }
         };
 
@@ -78,7 +80,7 @@ export const NotificationsSync = () => {
                 clearTimeout(timerRef.current);
             }
         };
-    }, [enabled, refresh, reset]);
+    }, [enabled, refresh, refreshSoon, requestKey, reset]);
 
     // Realtime: avisos nuevos y mensajes en las conversaciones de la persona. Los eventos solo
     // avisan de que algo cambió; el resumen se vuelve a pedir a la API, que aplica los permisos.
@@ -100,6 +102,7 @@ export const NotificationsSync = () => {
         const realtimeClient = supabaseBrowser;
         realtimeClient.realtime.setAuth(token);
         const channel = realtimeClient.channel("notifications");
+        let connected = false;
 
         if (wallId) {
             channel.on(
@@ -117,7 +120,12 @@ export const NotificationsSync = () => {
             );
         }
 
-        channel.subscribe();
+        channel.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+                if (connected) refreshSoon();
+                connected = true;
+            }
+        });
 
         return () => {
             void realtimeClient.removeChannel(channel);
