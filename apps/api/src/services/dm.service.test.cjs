@@ -18,21 +18,28 @@ const EVENT = 'event-1';
 const CONVERSATION = { id: 'conv-1', event_id: EVENT, participant_a_membership_id: 'ana', participant_b_membership_id: 'beto', status: 'ACTIVE' };
 
 // Supabase simulado: anota las operaciones sobre dm_messages y devuelve lo configurado.
-function setup({ conversation = CONVERSATION, updatedRows = [], insertedRow = null, messages = [] } = {}) {
+function setup({ conversation = CONVERSATION, conversations = [CONVERSATION], updatedRows = [], insertedRow = null, messages = [], summaries = [], rpcError = null } = {}) {
   const operations = [];
+  const rpcCalls = [];
   const supabaseAdmin = {
+    rpc(name, args) {
+      rpcCalls.push({ name, args });
+      return Promise.resolve({ data: summaries, error: rpcError });
+    },
     from(table) {
       const ops = [];
       const result = (terminal) => {
         if (table === 'dm_conversations') {
           if (ops.some((op) => op[0] === 'update')) return { data: null, error: null };
+          if (terminal === 'then') return { data: conversations, error: null };
           return { data: conversation, error: null };
         }
         if (table === 'dm_messages') {
           operations.push(ops);
           if (ops.some((op) => op[0] === 'insert')) return { data: insertedRow, error: null };
           if (ops.some((op) => op[0] === 'update')) return { data: updatedRows, error: null };
-          return { data: messages, error: null };
+          const authorFilter = ops.find((op) => op[0] === 'neq' && op[1] === 'author_membership_id');
+          return { data: authorFilter ? messages.filter((message) => message.author_membership_id !== authorFilter[2]) : messages, error: null };
         }
         throw new Error(`Tabla inesperada: ${table}`);
       };
@@ -53,7 +60,7 @@ function setup({ conversation = CONVERSATION, updatedRows = [], insertedRow = nu
     '../utils/dm.utils': dmUtils,
     '../utils/posts.utils': postsUtils,
   });
-  return { service, operations, dmUtils };
+  return { service, operations, dmUtils, rpcCalls };
 }
 
 const me = (id) => ({ id, userId: 'u', role: 'PARTICIPANT', committeeId: null, accountStatus: 'ACTIVE' });
@@ -164,6 +171,55 @@ test('la conversación incluye unreadCount (0 por defecto)', async () => {
 
   assert.equal(dmUtils.mapDmConversation(conversation, 'ana').unreadCount, 0);
   assert.equal(dmUtils.mapDmConversation(conversation, 'ana', undefined, 4).unreadCount, 4);
+});
+
+test('bandeja: la RPC devuelve el preview más reciente y el conteo sin leer por conversación', async () => {
+  const { service, rpcCalls } = setup({
+    summaries: [{
+      conversation_id: 'conv-1', unread_count: 2, last_message_id: 'm3',
+      last_message_author_membership_id: 'ana', last_message_content: 'Mi mensaje más reciente',
+      last_message_at: '2026-11-25T10:03:00Z',
+    }],
+  });
+
+  const result = await service.listDmConversations({ eventId: EVENT, membership: me('ana') });
+
+  assert.equal(rpcCalls.length, 1);
+  assert.equal(rpcCalls[0].name, 'get_dm_conversation_summaries');
+  assert.equal(rpcCalls[0].args.p_event_id, EVENT);
+  assert.equal(rpcCalls[0].args.p_membership_id, 'ana');
+  assert.deepEqual(Array.from(rpcCalls[0].args.p_conversation_ids), ['conv-1']);
+  assert.equal(result.body.conversations[0].lastMessage, 'Mi mensaje más reciente');
+  assert.equal(result.body.conversations[0].lastMessageAt, '2026-11-25T10:03:00Z');
+  assert.equal(result.body.conversations[0].lastMessageAuthorId, 'ana');
+  assert.equal(result.body.conversations[0].unreadCount, 2);
+});
+
+test('bandeja: solo si falta la RPC conserva el cálculo anterior de preview y no leídos', async () => {
+  const { service, rpcCalls } = setup({
+    rpcError: { code: 'PGRST202', message: 'Function missing' },
+    messages: [
+      { id: 'm3', conversation_id: 'conv-1', author_membership_id: 'ana', content: 'Preview propio', created_at: '2026-11-25T10:03:00Z', status: 'VISIBLE', read_at: '2026-11-25T10:03:01Z', deleted_at: null },
+      { id: 'm2', conversation_id: 'conv-1', author_membership_id: 'beto', content: 'Pendiente', created_at: '2026-11-25T10:02:00Z', status: 'VISIBLE', read_at: null, deleted_at: null },
+    ],
+  });
+
+  const result = await service.listDmConversations({ eventId: EVENT, membership: me('ana') });
+
+  assert.equal(rpcCalls.length, 1);
+  assert.equal(result.body.conversations[0].lastMessage, 'Preview propio');
+  assert.equal(result.body.conversations[0].lastMessageAt, '2026-11-25T10:03:00Z');
+  assert.equal(result.body.conversations[0].unreadCount, 1);
+});
+
+test('bandeja: errores distintos a RPC ausente se propagan sin degradar a descargas masivas', async () => {
+  const { service, operations } = setup({ rpcError: { code: '42501', message: 'permission denied' } });
+
+  await assert.rejects(
+    service.listDmConversations({ eventId: EVENT, membership: me('ana') }),
+    /permission denied/
+  );
+  assert.equal(operations.length, 0);
 });
 
 // ---- Edición de mensajes ----

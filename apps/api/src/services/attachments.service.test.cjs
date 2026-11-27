@@ -404,6 +404,57 @@ test('descarga: fallo del almacenamiento es 502', async () => {
   assert.equal((await h.service.getAttachmentDownload({ postId: POST, eventId: EVENT, membership })).status, 502);
 });
 
+test('descarga por lote firma solo pares visibles y devuelve un fallo genérico por elemento inválido', async () => {
+  const post = postRow();
+  const seen = [];
+  const h = setup({ db: (call) => {
+    seen.push(call);
+    if (call.table === 'posts') return { data: [post], error: null };
+    if (call.table === 'attachments') return { data: [{ id: ATTACHMENT, post_id: POST, storage_path: FINAL_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf' }], error: null };
+    return undefined;
+  } });
+
+  const result = await h.service.getAttachmentDownloads({
+    eventId: EVENT,
+    membership,
+    items: [
+      { post_id: POST, attachment_id: ATTACHMENT },
+      { post_id: POST, attachment_id: ATTACHMENT },
+      { post_id: POST, attachment_id: UPLOAD },
+    ],
+  });
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(body(result).items, [
+    { index: 0, url: 'https://r2.test/get', expiresAt: '2026-11-20T10:01:00.000Z' },
+    { index: 1, url: 'https://r2.test/get', expiresAt: '2026-11-20T10:01:00.000Z' },
+    { index: 2, error: 'No se pudo cargar el adjunto.' },
+  ]);
+  assert.equal(h.storage.calls.filter(([name]) => name === 'presignDownload').length, 1);
+  assert.ok(seen.every((call) => hasStep(call.steps, 'eq', 'event_id', EVENT)));
+});
+
+test('descarga por lote no firma posts sin acceso al muro', async () => {
+  const h = setup({
+    db: (call) => call.table === 'posts' ? { data: [postRow()], error: null } :
+      call.table === 'attachments' ? { data: [{ id: ATTACHMENT, post_id: POST, storage_path: FINAL_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf' }], error: null } : undefined,
+    wallView: { canAccess: false, canPublish: false },
+  });
+  const result = await h.service.getAttachmentDownloads({ eventId: EVENT, membership, items: [{ post_id: POST, attachment_id: ATTACHMENT }] });
+  assert.deepEqual(body(result).items, [{ index: 0, error: 'No se pudo cargar el adjunto.' }]);
+  assert.equal(h.storage.calls.length, 0);
+});
+
+test('descarga por lote devuelve fallo parcial si R2 no puede firmar un adjunto', async () => {
+  const h = setup({
+    db: (call) => call.table === 'posts' ? { data: [postRow()], error: null } :
+      call.table === 'attachments' ? { data: [{ id: ATTACHMENT, post_id: POST, storage_path: FINAL_KEY, file_name: 'acta.pdf', mime_type: 'application/pdf' }], error: null } : undefined,
+    storage: fakeStorage({ presignDownload: async () => { throw storageError('UNAVAILABLE'); } }),
+  });
+  const result = await h.service.getAttachmentDownloads({ eventId: EVENT, membership, items: [{ post_id: POST, attachment_id: ATTACHMENT }] });
+  assert.deepEqual(body(result).items, [{ index: 0, error: 'No se pudo cargar el adjunto.' }]);
+});
+
 // ---------------------------------------------------------------------------
 // Retiro
 

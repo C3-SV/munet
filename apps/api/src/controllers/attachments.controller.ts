@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   getAttachmentDownload,
+  getAttachmentDownloads,
   initAttachmentUpload,
   removeAttachment,
 } from '../services/attachments.service';
@@ -76,6 +77,35 @@ export const downloadAttachment = async (req: Request, res: Response) => {
       attachmentId: req.params.attachmentId ? String(req.params.attachmentId) : null,
     });
 
+    noStore(res);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+};
+
+// POST /posts/attachments/downloads -> firma hasta 40 previews; los errores de cada archivo son parciales.
+export const downloadAttachments = async (req: Request, res: Response) => {
+  try {
+    const eventId = readEventId(req);
+
+    if (!eventId) {
+      return res.status(400).json({ error: 'x-event-id es requerido' });
+    }
+
+    const membership = resolveMembership(req, eventId);
+
+    if (!membership) {
+      return res.status(403).json({ error: 'No perteneces a este evento' });
+    }
+
+    const items = (req.body as { items?: unknown } | undefined)?.items;
+    if (!Array.isArray(items) || items.length < 1 || items.length > 40) {
+      return res.status(400).json({ error: 'items debe incluir entre 1 y 40 adjuntos' });
+    }
+
+    const result = await getAttachmentDownloads({ eventId, membership, items });
     noStore(res);
     return res.status(result.status).json(result.body);
   } catch (error) {

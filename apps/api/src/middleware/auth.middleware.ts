@@ -1,9 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
-import {
-  getMembershipsByUserId,
-  getUserBySupabaseAuthId,
-} from '../services/auth-context.service';
+import { getAuthContextBySupabaseAuthId } from '../services/auth-context.service';
 import { logAudit } from '../utils/audit.logger';
 import { canModerateRole, isAdminRole, isSuperAdminRole } from '../utils/rbac.utils';
 import type { AuthMembership } from '../types/auth-context';
@@ -47,13 +44,13 @@ export const requireAuth = async (
       return res.status(401).json({ error: 'Sesion invalida o expirada' });
     }
 
-    const systemUser = await getUserBySupabaseAuthId(authData.user.id);
+    const authContext = await getAuthContextBySupabaseAuthId(authData.user.id);
 
-    if (!systemUser) {
+    if (!authContext) {
       return res.status(401).json({ error: 'Usuario no registrado en MUNET' });
     }
 
-    const memberships = await getMembershipsByUserId(systemUser.id);
+    const { user: systemUser, memberships } = authContext;
 
     // Sin membresia activa (suspendida o retirada) la sesion deja de servir: el 401
     // hace que la web cierre la sesion en vez de dejarla abierta sin permisos.

@@ -30,15 +30,16 @@ Base local predeterminada `http://localhost:3002`. Todas las rutas requieren `Au
 | `POST /posts/:postId/comments` | `content`, `parent_comment_id?` | Se puede responder a un comentario o a otra respuesta del mismo post (`parent_comment_id`). En anuncios solo comentan administradores y moderadores. |
 | `DELETE /posts/:postId/comments/:commentId` | — | Autor o administración. |
 
-### Adjuntos (planificado, no implementado)
+### Adjuntos
 
-Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md) y [plan-adjuntos-r2.md](../04-desarrollo/plan-adjuntos-r2.md). No existe en el código.
+Implementados según [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-firmada.md) y [plan-adjuntos-r2.md](../04-desarrollo/plan-adjuntos-r2.md). Las firmas de descarga no se guardan en cachés HTTP.
 
 | Método y ruta | Entrada | Regla principal |
 |---|---|---|
 | `POST /posts/attachments/init` | `muro`, `file_name`, `mime_type`, `size` | Una llamada por archivo. Exige membresía y permiso de publicar en el muro. JPG/PNG ≤ 15 MB o PDF ≤ 30 MB. Devuelve `upload_id` y una URL firmada de `PUT` de 5 minutos. 429 con 14 intentos sin consumir o más de 60 por hora; 30 por minuto por persona. 507 si el almacenamiento llegó al 95 % de la cuota (`STORAGE_QUOTA_BYTES`); al 90 % solo queda una alerta en los registros. |
 | `POST /posts` con `upload_ids` | Los campos actuales más `upload_ids` (hasta 12; también se acepta `upload_id` con uno) | Reclama y verifica cada objeto, lo copia a su ruta final y crea el post con sus adjuntos en el orden dado. Hasta 10 imágenes y 2 PDF; 400 si se excede, con tamaño total o ids repetidos. Si algo falla se compensan todos los archivos y no se crea el post. Un reintento devuelve el mismo post. Requiere la migración 007. |
 | `GET /posts/:postId/attachments/:attachmentId/download` | — | Comprueba membresía, acceso al muro y post no eliminado. Devuelve `{ url, expiresAt }` con URL firmada de 60 segundos. La ruta anterior `/attachment/download` (sin id) entrega el primer adjunto. |
+| `POST /posts/attachments/downloads` | `items` (1–40 pares `post_id`, `attachment_id`) | Firma previews en lote, validando cada post, adjunto, evento y acceso al muro. Devuelve `items` con `{ index, url, expiresAt }` por éxito o `{ index, error }` genérico por elemento inaccesible/fallido; errores de entrada del lote responden 400. `Cache-Control: no-store`. |
 | `DELETE /posts/:postId/attachments/:attachmentId` | — | El autor retira un adjunto. La ruta anterior `DELETE /posts/:postId/attachment` solo sirve si hay uno; con varios responde 400. |
 | `POST /admin/moderation/posts/:postId/attachment/delete` | `reason` (3–500), `attachment_id` (obligatorio si hay varios) | Administrador o `MODERATOR` del evento. Retira el adjunto sin borrar el post y audita el motivo. |
 
@@ -68,7 +69,7 @@ Contrato propuesto en [ADR-006](../06-decisiones/ADR-006-adjuntos-en-r2-con-url-
 | `GET /dm/conversations` (campo `unreadCount`) | — | Cada conversación incluye `unreadCount`: mensajes de la otra persona sin leer. Requiere la migración 004. |
 | `PATCH /dm/conversations/:conversationId/messages/:messageId` | `content` | Edita un mensaje propio, visible y no eliminado. 400 si el texto está vacío; 403 si es de otra persona o la conversación es ajena; 404 si no existe. Conserva `created_at` (misma posición) y fija `edited_at`; el mensaje incluye `editedAt`. Si el texto no cambia no se marca como editado. Se rechaza en evento cerrado, con límite de frecuencia y auditoría `EDIT_DM_MESSAGE`. Solo mensajes directos: publicaciones y comentarios no se editan. Requiere la migración 009. |
 | `DELETE /dm/conversations/:conversationId/messages/:messageId` | — | Solo autor. Borrado lógico. |
-| `GET /notifications/summary` | — (`x-event-id`) | Pendientes de lectura: `{ unread: { total, dms, announcements }, announcements, dms, conversationIds }`. `announcements` trae el muro de avisos, `lastReadAt`, `unreadCount` y los últimos 5 avisos nuevos (de otras personas, visibles, posteriores a la última lectura); `dms`, las conversaciones con mensajes sin leer. Requiere las migraciones 004 y 005. |
+| `GET /notifications/summary` | — (`x-event-id`) | Pendientes de lectura: `{ unread: { total: number, dms: number, announcements: number }, announcements, dms, conversationIds }`. `announcements` trae el muro de avisos, `lastReadAt`, `unreadCount` y los últimos 5 avisos nuevos (de otras personas, visibles, posteriores a la última lectura); `dms`, las conversaciones con mensajes sin leer. El resumen conserva el último mensaje visible como preview aunque sea propio y cuenta por separado los mensajes recibidos sin leer. El conteo requiere 004 y 005; 011 agrega la RPC del resumen DM y la API usa temporalmente las consultas anteriores si PostgREST devuelve `PGRST202` durante el rollout. |
 | `POST /notifications/announcements/read` | — (`x-event-id`) | Marca el muro de avisos como leído hasta ahora (`{ readAt }`). 404 si el evento no tiene muro de avisos. Se rechaza en evento cerrado. |
 
 ## Administración

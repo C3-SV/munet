@@ -1,4 +1,5 @@
 import { requestApi } from "./client";
+import { invalidateEventCatalogs } from "./events";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -117,12 +118,15 @@ export const updateEvent = async (
 export const createCommittee = async (
     token: string,
     body: CreateCommitteeBody,
-): Promise<{ message: string; committee: AdminCommittee }> =>
-    requestApi("/admin/committees", {
+): Promise<{ message: string; committee: AdminCommittee }> => {
+    const result = await requestApi<{ message: string; committee: AdminCommittee }>("/admin/committees", {
         method: "POST",
         token,
         body,
     });
+    invalidateEventCatalogs(token, result.committee.event_id);
+    return result;
+};
 
 // Lista los comités de un evento desde la vista administrativa.
 export const listCommittees = async (
@@ -155,19 +159,26 @@ export const updateCommittee = async (
     token: string,
     committeeId: string,
     body: UpdateCommitteeBody,
-): Promise<{ message: string; committee: AdminCommittee }> =>
-    requestApi(`/admin/committees/${committeeId}`, {
+): Promise<{ message: string; committee: AdminCommittee }> => {
+    const result = await requestApi<{ message: string; committee: AdminCommittee }>(`/admin/committees/${committeeId}`, {
         method: "PATCH",
         token,
         body,
     });
+    invalidateEventCatalogs(token, result.committee.event_id);
+    return result;
+}
 
 // Borrado lógico del comité y de su muro. Los participantes quedan sin comité.
 export const deleteCommittee = async (
     token: string,
     committeeId: string,
-): Promise<{ message: string }> =>
-    requestApi(`/admin/committees/${committeeId}`, {
+    eventId: string,
+): Promise<{ message: string }> => {
+    const result = await requestApi<{ message: string }>(`/admin/committees/${committeeId}`, {
         method: "DELETE",
         token,
     });
+    invalidateEventCatalogs(token, eventId);
+    return result;
+}

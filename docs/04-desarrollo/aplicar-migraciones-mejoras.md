@@ -1,4 +1,4 @@
-# Aplicar las migraciones de «Mejoras y correcciones» (004 a 009)
+# Aplicar las migraciones de «Mejoras y correcciones» (004 a 012)
 
 Las mejoras 2 a 10 del documento «MUNET — Mejoras y correcciones» (24 de noviembre de 2026) necesitan cambios en la base de datos. Las migraciones están escritas como borrador en `supabase/migrations/` y **no están aplicadas**. Se ejecutan en el SQL Editor de Supabase, una por una y en este orden, **antes** de desplegar o probar el código de cada mejora.
 
@@ -15,6 +15,7 @@ El código nuevo lee las columnas y tablas nuevas. Sin la migración correspondi
 | 006 | Las reacciones no funcionan; el feed sigue (los contadores quedan en cero). |
 | 007 | El feed falla (lee `attachments.position`) y no se pueden subir varios archivos. |
 | 009 | La sala de mensajes directos no carga (lee `edited_at`). |
+| 011 | La bandeja mantiene el cálculo anterior por consultas de mensajes mientras PostgREST no encuentre la RPC (`PGRST202`); aplícala antes de actualizar la API para evitar ese camino más costoso. |
 
 Por eso el orden es: aplicar la migración → desplegar el código.
 
@@ -27,6 +28,11 @@ Por eso el orden es: aplicar la migración → desplegar el código.
 | 006 | `006_reacciones_publicaciones.sql` | 4 | Tabla `post_reactions` (una reacción por persona y publicación) |
 | 007 | `007_adjuntos_multiples.sql` | 10 | Quita el índice de un adjunto por post, agrega `attachments.position`, sube el tope de subida a 30 MB |
 | 009 | `009_edicion_mensajes_directos.sql` | 9 | `dm_messages.edited_at` |
+| 010 | `010_reacciones_realtime.sql` | Rendimiento 1 | Invalidación Broadcast privada para cambios de reacciones; desplegar antes la migración y luego la web que escucha el canal |
+| 011 | `011_resumen_mensajes_directos.sql` | Rendimiento 2 | RPC acotada de preview y conteo por conversación; depende de 004 y debe aplicarse antes de la API actualizada |
+| 012 | `012_contexto_auth.sql` | Rendimiento 3 | RPC service_role-only que combina usuario y membresías para `requireAuth`; aplicar después de la 011 y antes de desplegar la API actualizada |
+
+Sin la 012, la API conserva autenticación y autorización con el fallback ante `PGRST202`, aunque cada `requireAuth` agrega una consulta fallida a la base antes de las dos lecturas legacy.
 
 No existe la 008: el número quedó libre. Las migraciones 001 a 003 ya están aplicadas.
 
@@ -48,6 +54,11 @@ select column_name from information_schema.columns
 -- 004: justo tras aplicarla no queda ningún mensaje sin leer del historial
 select count(*) from public.dm_messages where read_at is null;
 
+-- 011: función ejecutable por service_role, no por anon ni authenticated
+select has_function_privilege('service_role', 'public.get_dm_conversation_summaries(uuid,uuid,uuid[])', 'EXECUTE'),
+       has_function_privilege('anon', 'public.get_dm_conversation_summaries(uuid,uuid,uuid[])', 'EXECUTE'),
+       has_function_privilege('authenticated', 'public.get_dm_conversation_summaries(uuid,uuid,uuid[])', 'EXECUTE');
+
 -- 005 y 006: tablas nuevas con seguridad de filas activa
 select c.relname, c.relrowsecurity
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -68,3 +79,7 @@ Cada archivo trae al final sus líneas de reversión comentadas. La 004 y la 009
 ## Comprobación hecha
 
 Las cinco migraciones se ejecutaron dos veces seguidas en un Postgres de prueba (esquema mínimo más las migraciones 001 y 003): sin errores, sin efectos al repetirlas y con el comportamiento esperado (tres adjuntos en un post, tope de 30 MB, una reacción por persona y publicación, rechazo de reacciones desconocidas). No se ejecutaron contra la base real.
+
+### Validación local de la 011 (26 de noviembre de 2026)
+
+La migración se ejecutó en un clúster PostgreSQL 18 descartable creado bajo TEMP y ligado a loopback; se eliminó al terminar. En un esquema mínimo se verificaron 1.001 mensajes recibidos sin leer aun cuando el último mensaje visible era propio, exclusión de borrados y mensajes ocultos, conversación vacía, aislamiento por evento y participante, conversación archivada y permisos de ejecución. No se usó el servicio PostgreSQL existente ni la base real.

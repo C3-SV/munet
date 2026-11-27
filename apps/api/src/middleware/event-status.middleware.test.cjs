@@ -119,16 +119,25 @@ function writeRoutes(file) {
     method: match[1].toUpperCase(),
     path: match[2],
     guarded: match[3].includes('requireEventOpenForWrites'),
+    authenticated: match[3].includes('requireAuth'),
   }));
   assert.equal(routes.length, declared.length, `${file}: no se leyeron todas las escrituras`);
   return routes;
 }
 
-test('posts y mensajes directos: toda escritura lleva la guarda', () => {
-  for (const file of ['posts.routes.ts', 'dm.routes.ts']) {
-    const routes = writeRoutes(file);
+test('posts y mensajes directos: toda escritura lleva la guarda; las firmas batch son read-only', () => {
+  const posts = writeRoutes('posts.routes.ts');
+  const downloads = posts.filter((route) => route.method === 'POST' && route.path === '/attachments/downloads');
+  assert.equal(downloads.length, 1);
+  assert.equal(downloads[0].authenticated, true, 'la ruta batch requiere requireAuth');
+  assert.equal(downloads[0].guarded, false, 'firmar una URL de descarga es lectura y no se bloquea por evento cerrado');
+
+  for (const [file, routes] of [['posts.routes.ts', posts], ['dm.routes.ts', writeRoutes('dm.routes.ts')]]) {
     assert.ok(routes.length > 0, file);
-    for (const route of routes) assert.ok(route.guarded, `${file} ${route.method} ${route.path}`);
+    for (const route of routes) {
+      if (file === 'posts.routes.ts' && route.method === 'POST' && route.path === '/attachments/downloads') continue;
+      assert.ok(route.guarded, `${file} ${route.method} ${route.path}`);
+    }
   }
 });
 

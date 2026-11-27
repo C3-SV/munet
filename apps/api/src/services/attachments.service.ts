@@ -572,7 +572,7 @@ const loadPost = async (postId: string, eventId: string): Promise<PostAccess | n
   return { id: row.id, wallId: row.wall_id, status: row.status, authorMembershipId: row.author_membership_id };
 };
 
-type StoredAttachment = { id: string; storage_path: string; file_name: string; mime_type: string };
+type StoredAttachment = { id: string; post_id?: string; storage_path: string; file_name: string; mime_type: string };
 
 const loadAttachmentsByPost = async (postId: string, eventId: string): Promise<StoredAttachment[]> => {
   const { data, error } = await supabaseAdmin
@@ -675,6 +675,97 @@ export const getAttachmentDownload = async (params: {
 
     throw error;
   }
+};
+
+const unavailableAttachment = { error: 'No se pudo cargar el adjunto.' };
+
+// Firma previews en lote, pero mantiene la autorización por cada par post/adjunto.
+export const getAttachmentDownloads = async (params: {
+  eventId: string;
+  membership: AuthMembership;
+  items: unknown[];
+}): Promise<ServiceResult> => {
+  const requests = params.items.map((item, index) => {
+    const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+    const postId = row.post_id;
+    const attachmentId = row.attachment_id;
+    return {
+      index,
+      postId: isUuid(postId) ? postId : null,
+      attachmentId: isUuid(attachmentId) ? attachmentId : null,
+    };
+  });
+  const uniquePairs = [...new Map(
+    requests
+      .filter((item): item is typeof item & { postId: string; attachmentId: string } => Boolean(item.postId && item.attachmentId))
+      .map((item) => [`${item.postId}:${item.attachmentId}`, item]),
+  ).values()];
+  const postIds = [...new Set(uniquePairs.map((item) => item.postId))];
+  let authorizedPosts = new Map<string, string>();
+  let attachmentRows: StoredAttachment[] = [];
+
+  if (postIds.length) {
+    const { data: posts, error: postsError } = await supabaseAdmin
+      .from('posts')
+      .select('id, event_id, wall_id, status')
+      .eq('event_id', params.eventId)
+      .is('deleted_at', null)
+      .in('id', postIds);
+
+    if (postsError) throw new Error(postsError.message);
+
+    const visible = ((posts ?? []) as { id: string; wall_id: string; status: string }[])
+      .filter((post) => post.status === 'VISIBLE');
+
+    if (visible.length) {
+      const walls = await loadWallsByEvent(params.eventId);
+      authorizedPosts = new Map(visible.flatMap((post) => {
+        const wall = walls.find((candidate) => candidate.id === post.wall_id);
+        return wall && mapWallForMembership(wall, params.membership).canAccess ? [[post.id, wall.id]] : [];
+      }));
+    }
+
+    if (authorizedPosts.size) {
+      const attachmentIds = [...new Set(uniquePairs.map((item) => item.attachmentId))];
+      const { data, error } = await supabaseAdmin
+        .from('attachments')
+        .select('id, post_id, storage_path, file_name, mime_type, position, created_at')
+        .eq('event_id', params.eventId)
+        .in('post_id', [...authorizedPosts.keys()])
+        .in('id', attachmentIds);
+
+      if (error) throw new Error(error.message);
+      attachmentRows = (data ?? []) as StoredAttachment[];
+    }
+  }
+
+  const rowsByPair = new Map(attachmentRows.map((attachment) => [`${attachment.post_id}:${attachment.id}`, attachment]));
+  const signed = new Map<string, Promise<{ url: string; expiresAt: string } | null>>();
+
+  for (const pair of uniquePairs) {
+    const key = `${pair.postId}:${pair.attachmentId}`;
+    const attachment = authorizedPosts.has(pair.postId) ? rowsByPair.get(key) : null;
+    if (!attachment || signed.has(key)) continue;
+
+    signed.set(key, getFileStorage().presignDownload({
+      key: attachment.storage_path,
+      fileName: attachment.file_name,
+      contentType: attachment.mime_type,
+      expiresInSeconds: DOWNLOAD_URL_SECONDS,
+    }).then((download) => ({ url: download.url, expiresAt: download.expiresAt.toISOString() }))
+      .catch((error) => {
+        storageFailure(error);
+        return null;
+      }));
+  }
+
+  const results = await Promise.all(requests.map(async (request) => {
+    const pairKey = request.postId && request.attachmentId ? `${request.postId}:${request.attachmentId}` : null;
+    const signature = pairKey ? await signed.get(pairKey) : null;
+    return signature ? { index: request.index, ...signature } : { index: request.index, ...unavailableAttachment };
+  }));
+
+  return { status: 200, body: { items: results } };
 };
 
 // ---------------------------------------------------------------------------
