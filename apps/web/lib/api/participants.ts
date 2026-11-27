@@ -1,4 +1,5 @@
 import { requestApi } from "./client";
+import { invalidateEventCatalogs } from "./events";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -328,12 +329,15 @@ export const confirmParticipantImport = async (
     token: string,
     eventId: string,
     rows: ParticipantImportRow[],
-): Promise<ParticipantImportConfirmResponse> =>
-    requestApi("/admin/participants/import/confirm", {
+): Promise<ParticipantImportConfirmResponse> => {
+    const result = await requestApi<ParticipantImportConfirmResponse>("/admin/participants/import/confirm", {
         method: "POST",
         token,
         body: { event_id: eventId, rows },
     });
+    invalidateEventCatalogs(token, eventId);
+    return result;
+};
 
 // ─── Alta de cuentas ──────────────────────────────────────────────────────────
 
