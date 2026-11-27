@@ -77,7 +77,6 @@ as $$
       left join public.committees c on c.id = w.committee_id and c.event_id = w.event_id
      where u.supabase_auth_user_id = (select auth.uid())
        and u.system_status = 'ACTIVE'
-       and u.deleted_at is null
        and m.account_status = 'ACTIVE'
        and m.deleted_at is null
        and e.deleted_at is null
